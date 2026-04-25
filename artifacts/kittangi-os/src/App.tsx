@@ -4,17 +4,18 @@ import {
   Route,
   Routes,
 } from "react-router-dom";
+import { Toaster } from "sonner";
 import {
   Car,
   LayoutDashboard,
   Landmark,
   ReceiptText,
-  Users,
   Vault,
   Wrench,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import PlaceholderPage from "@/pages/PlaceholderPage";
+import Customers from "@/components/modules/Customers";
 
 function App() {
   return (
@@ -34,16 +35,7 @@ function App() {
               />
             }
           />
-          <Route
-            path="/customers"
-            element={
-              <PlaceholderPage
-                title="Global Customers"
-                description="Unified customer registry across Pawn and Vehicle."
-                icon={Users}
-              />
-            }
-          />
+          <Route path="/customers" element={<Customers />} />
           <Route
             path="/receipts-ledger"
             element={
@@ -111,6 +103,16 @@ function App() {
           />
         </Route>
       </Routes>
+      <Toaster
+        position="top-right"
+        richColors
+        toastOptions={{
+          style: {
+            border: "1px solid rgba(74,111,165,0.18)",
+            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+          },
+        }}
+      />
     </BrowserRouter>
   );
 }
