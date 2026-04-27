@@ -23,6 +23,7 @@ import Daybook from "@/components/modules/Daybook";
 import PledgedItems from "@/components/modules/PledgedItems";
 import Settings from "@/components/modules/Settings";
 import Reports from "@/components/modules/Reports";
+import VehicleOrigination from "@/components/modules/VehicleOrigination";
 
 function App() {
   return (
@@ -53,6 +54,7 @@ function App() {
           <Route path="/reports" element={<Reports />} />
 
           {/* Vehicle vertical */}
+          <Route path="/vehicle-origination" element={<VehicleOrigination />} />
           <Route
             path="/auto-loans"
             element={

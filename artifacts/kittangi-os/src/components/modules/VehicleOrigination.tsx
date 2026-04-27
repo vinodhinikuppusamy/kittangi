@@ -1,0 +1,783 @@
+import { useMemo, useState } from "react";
+import { useForm, useWatch, type Control } from "react-hook-form";
+import { toast } from "sonner";
+import {
+  Bike,
+  Calculator,
+  Car,
+  CheckCircle2,
+  FileSignature,
+  Gauge,
+  IndianRupee,
+  ShieldCheck,
+  Truck,
+  UserRoundCheck,
+  Wallet,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type VehicleType = "TWO_WHEELER" | "FOUR_WHEELER" | "COMMERCIAL";
+
+type VehicleForm = {
+  customerId: string;
+  vehicleType: VehicleType | "";
+  makeModel: string;
+  year: string;
+  rcNumber: string;
+  engineNumber: string;
+  chassisNumber: string;
+  marketValue: string;
+  loanAmount: string;
+  rtoFee: string;
+  docCharges: string;
+  hypothecation: boolean;
+};
+
+const VERIFIED_CUSTOMERS = [
+  { id: "KTG-10042", name: "Aanya Sharma", phone: "+91 98212 44510" },
+  { id: "KTG-10044", name: "Meera Iyer", phone: "+91 99450 11236" },
+  { id: "KTG-10047", name: "Kunal Mehta", phone: "+91 98990 23311" },
+  { id: "KTG-10051", name: "Rohan Verma", phone: "+91 98456 77810" },
+  { id: "KTG-10059", name: "Priya Menon", phone: "+91 99878 21006" },
+];
+
+const VEHICLE_TYPES: { value: VehicleType; label: string; icon: typeof Car; sub: string }[] = [
+  { value: "TWO_WHEELER", label: "2-Wheeler", icon: Bike, sub: "Bike, scooter, moped" },
+  { value: "FOUR_WHEELER", label: "4-Wheeler", icon: Car, sub: "Car, SUV, sedan" },
+  { value: "COMMERCIAL", label: "Commercial", icon: Truck, sub: "Truck, tempo, bus" },
+];
+
+const inr = (n: number) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Number.isFinite(n) ? n : 0);
+
+const toNum = (v: string | undefined) => {
+  const n = Number((v ?? "").toString().replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+};
+
+const inputBaseStyle: React.CSSProperties = {
+  borderColor: "rgba(74,111,165,0.20)",
+  "--tw-ring-color": "var(--brand-light)",
+} as React.CSSProperties;
+
+export default function VehicleOrigination() {
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    control,
+    reset,
+    formState: { errors },
+  } = useForm<VehicleForm>({
+    defaultValues: {
+      customerId: "",
+      vehicleType: "",
+      makeModel: "",
+      year: "",
+      rcNumber: "",
+      engineNumber: "",
+      chassisNumber: "",
+      marketValue: "",
+      loanAmount: "",
+      rtoFee: "",
+      docCharges: "",
+      hypothecation: false,
+    },
+  });
+
+  const values = useWatch({ control });
+  const selectedCustomer = useMemo(
+    () => VERIFIED_CUSTOMERS.find((c) => c.id === values.customerId),
+    [values.customerId],
+  );
+
+  const marketValue = toNum(values.marketValue);
+  const loanAmount = toNum(values.loanAmount);
+  const rtoFee = toNum(values.rtoFee);
+  const docCharges = toNum(values.docCharges);
+
+  const ltv = marketValue > 0 ? (loanAmount / marketValue) * 100 : 0;
+  const netDisbursement = Math.max(loanAmount - rtoFee - docCharges, 0);
+
+  const ltvBand =
+    ltv === 0
+      ? { label: "Awaiting Inputs", bg: "rgba(100,116,139,0.10)", fg: "#475569", border: "rgba(100,116,139,0.30)" }
+      : ltv <= 70
+        ? { label: "Healthy LTV", bg: "rgba(16,185,129,0.12)", fg: "#047857", border: "rgba(16,185,129,0.35)" }
+        : ltv <= 85
+          ? { label: "Moderate LTV", bg: "rgba(234,179,8,0.16)", fg: "#a16207", border: "rgba(234,179,8,0.40)" }
+          : { label: "High LTV — Review", bg: "rgba(244,63,94,0.12)", fg: "#be123c", border: "rgba(244,63,94,0.35)" };
+
+  const onSubmit = (data: VehicleForm) => {
+    if (!data.customerId) {
+      toast.error("Please select a KYC-verified customer.");
+      return;
+    }
+    if (!data.vehicleType) {
+      toast.error("Please choose a vehicle type.");
+      return;
+    }
+    if (!data.rcNumber || !data.chassisNumber) {
+      toast.error("RC number and chassis number are required.");
+      return;
+    }
+    if (marketValue <= 0 || loanAmount <= 0) {
+      toast.error("Market value and requested loan amount must be greater than zero.");
+      return;
+    }
+    if (ltv > 100) {
+      toast.error("Loan amount cannot exceed market value (LTV > 100%).");
+      return;
+    }
+    if (rtoFee < 0 || docCharges < 0) {
+      toast.error("RTO fee and documentation charges cannot be negative.");
+      return;
+    }
+    if (loanAmount - rtoFee - docCharges <= 0) {
+      toast.error("Fees and charges cannot meet or exceed the loan amount — net disbursement must be positive.");
+      return;
+    }
+    if (!data.hypothecation) {
+      toast.error("RTO Hypothecation endorsement is mandatory before generating the agreement.");
+      return;
+    }
+
+    toast.success("Vehicle loan agreement generated", {
+      icon: <CheckCircle2 className="h-4 w-4" />,
+      description: `${selectedCustomer?.name} · ${data.makeModel || "vehicle"} · Net Disbursement ${inr(netDisbursement)}`,
+    });
+    reset();
+  };
+
+  return (
+    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+      {/* Page header */}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div
+            className="flex h-12 w-12 items-center justify-center rounded-xl"
+            style={{ background: "var(--brand-light)" }}
+          >
+            <Car className="h-6 w-6" style={{ color: "var(--brand-primary)" }} />
+          </div>
+          <div>
+            <h1
+              className="text-2xl font-bold tracking-tight"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              Vehicle Loan Origination
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Capture KYC, asset details, valuation, and hypothecation in a single workflow.
+            </p>
+          </div>
+        </div>
+
+        <div
+          className="flex items-center gap-3 rounded-xl border bg-white px-4 py-2.5 text-sm"
+          style={{ borderColor: "rgba(74,111,165,0.18)" }}
+        >
+          <Gauge className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
+          <span className="text-slate-500">Live LTV</span>
+          <span
+            className="font-bold"
+            style={{ color: "var(--brand-primary)" }}
+          >
+            {ltv.toFixed(1)}%
+          </span>
+          <span className="h-5 w-px bg-slate-200" />
+          <span className="text-slate-500">Net Disbursement</span>
+          <span
+            className="font-semibold"
+            style={{ color: "var(--brand-primary)" }}
+          >
+            {inr(netDisbursement)}
+          </span>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* ----- LEFT COLUMN ----- */}
+          <div className="space-y-6">
+            {/* Customer & KYC */}
+            <Card className="border bg-white" style={{ borderColor: "rgba(74,111,165,0.12)" }}>
+              <CardHeader>
+                <div className="flex items-start gap-3">
+                  <div
+                    className="flex h-9 w-9 items-center justify-center rounded-lg"
+                    style={{ background: "var(--brand-light)" }}
+                  >
+                    <UserRoundCheck className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-semibold text-slate-900">
+                      Customer &amp; KYC
+                    </CardTitle>
+                    <CardDescription className="text-sm text-slate-500">
+                      Borrower identification verified through Global Customers.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Customer Search
+                  </Label>
+                  <Select
+                    value={values.customerId || ""}
+                    onValueChange={(v) => setValue("customerId", v, { shouldDirty: true })}
+                  >
+                    <SelectTrigger
+                      className="h-11 w-full bg-white"
+                      style={inputBaseStyle}
+                      aria-label="Customer Search"
+                    >
+                      <SelectValue placeholder="Select KYC-verified customer..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VERIFIED_CUSTOMERS.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{c.name}</span>
+                            <span className="text-xs text-slate-500">
+                              {c.id} • {c.phone}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {selectedCustomer && (
+                    <div
+                      className="mt-2 flex items-center justify-between rounded-lg border px-3 py-2"
+                      style={{
+                        borderColor: "rgba(74,111,165,0.15)",
+                        backgroundColor: "var(--bg-main)",
+                      }}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white"
+                          style={{ backgroundColor: "var(--brand-primary)" }}
+                        >
+                          {selectedCustomer.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .slice(0, 2)
+                            .join("")}
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-slate-800">
+                            {selectedCustomer.name}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {selectedCustomer.id} • {selectedCustomer.phone}
+                          </div>
+                        </div>
+                      </div>
+                      <span
+                        className="rounded-full px-2.5 py-0.5 text-[11px] font-medium"
+                        style={{
+                          backgroundColor: "rgba(34,197,94,0.12)",
+                          color: "rgb(21,128,61)",
+                        }}
+                      >
+                        KYC Verified
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Vehicle Asset Details */}
+            <Card className="border bg-white" style={{ borderColor: "rgba(74,111,165,0.12)" }}>
+              <CardHeader>
+                <div className="flex items-start gap-3">
+                  <div
+                    className="flex h-9 w-9 items-center justify-center rounded-lg"
+                    style={{ background: "var(--brand-light)" }}
+                  >
+                    <Car className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-semibold text-slate-900">
+                      Vehicle Asset Details
+                    </CardTitle>
+                    <CardDescription className="text-sm text-slate-500">
+                      Identification stamped on the RC, engine, and chassis.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {/* Vehicle Type */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Vehicle Type
+                  </Label>
+                  <Select
+                    value={values.vehicleType || ""}
+                    onValueChange={(v) => setValue("vehicleType", v as VehicleType, { shouldDirty: true })}
+                  >
+                    <SelectTrigger
+                      className="h-11 w-full bg-white"
+                      style={inputBaseStyle}
+                      aria-label="Vehicle Type"
+                    >
+                      <SelectValue placeholder="Choose vehicle category..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VEHICLE_TYPES.map((vt) => {
+                        const Icon = vt.icon;
+                        return (
+                          <SelectItem key={vt.value} value={vt.value}>
+                            <div className="flex items-center gap-2.5">
+                              <Icon className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">{vt.label}</span>
+                                <span className="text-xs text-slate-500">{vt.sub}</span>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Field label="Make &amp; Model" htmlFor="makeModel" error={errors.makeModel?.message}>
+                    <Input
+                      id="makeModel"
+                      placeholder="e.g., Hyundai Creta SX"
+                      style={inputBaseStyle}
+                      className="h-11"
+                      {...register("makeModel", { required: "Make & model is required" })}
+                    />
+                  </Field>
+
+                  <Field label="Year of Manufacture" htmlFor="year" error={errors.year?.message}>
+                    <Input
+                      id="year"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="e.g., 2023"
+                      style={inputBaseStyle}
+                      className="h-11"
+                      {...register("year", {
+                        required: "Year is required",
+                        pattern: { value: /^(19|20)\d{2}$/, message: "Enter a valid 4-digit year" },
+                      })}
+                    />
+                  </Field>
+
+                  <Field label="Registration Number (RC)" htmlFor="rcNumber" error={errors.rcNumber?.message}>
+                    <Input
+                      id="rcNumber"
+                      placeholder="KA01AB1234"
+                      style={inputBaseStyle}
+                      className="h-11 font-mono uppercase tracking-wide"
+                      {...register("rcNumber", { required: "RC number is required" })}
+                    />
+                  </Field>
+
+                  <Field label="Engine Number" htmlFor="engineNumber" error={errors.engineNumber?.message}>
+                    <Input
+                      id="engineNumber"
+                      placeholder="ENG number stamped on block"
+                      style={inputBaseStyle}
+                      className="h-11 font-mono uppercase tracking-wide"
+                      {...register("engineNumber")}
+                    />
+                  </Field>
+
+                  <div className="md:col-span-2">
+                    <Field
+                      label="Chassis Number"
+                      htmlFor="chassisNumber"
+                      error={errors.chassisNumber?.message}
+                    >
+                      <Input
+                        id="chassisNumber"
+                        placeholder="VIN / Chassis identifier"
+                        style={inputBaseStyle}
+                        className="h-11 font-mono uppercase tracking-wide"
+                        {...register("chassisNumber", { required: "Chassis number is required" })}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ----- RIGHT COLUMN ----- */}
+          <div className="space-y-6">
+            <Card className="border bg-white" style={{ borderColor: "rgba(74,111,165,0.12)" }}>
+              <CardHeader>
+                <div className="flex items-start gap-3">
+                  <div
+                    className="flex h-9 w-9 items-center justify-center rounded-lg"
+                    style={{ background: "var(--brand-light)" }}
+                  >
+                    <Calculator className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-semibold text-slate-900">
+                      Valuation &amp; Disbursement
+                    </CardTitle>
+                    <CardDescription className="text-sm text-slate-500">
+                      Live LTV and net payout recompute as you type.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Field
+                    label="Estimated Market Value (₹)"
+                    htmlFor="marketValue"
+                    error={errors.marketValue?.message}
+                  >
+                    <RupeeInput
+                      id="marketValue"
+                      placeholder="e.g., 8,50,000"
+                      {...register("marketValue", {
+                        required: "Market value is required",
+                        validate: (v) =>
+                          toNum(v) > 0 || "Market value must be greater than zero",
+                      })}
+                    />
+                  </Field>
+
+                  <Field
+                    label="Requested Loan Amount (₹)"
+                    htmlFor="loanAmount"
+                    error={errors.loanAmount?.message}
+                  >
+                    <RupeeInput
+                      id="loanAmount"
+                      placeholder="e.g., 6,00,000"
+                      {...register("loanAmount", {
+                        required: "Loan amount is required",
+                        validate: (v) =>
+                          toNum(v) > 0 || "Loan amount must be greater than zero",
+                      })}
+                    />
+                  </Field>
+                </div>
+
+                {/* Auto-calc: LTV */}
+                <div
+                  className="rounded-xl border p-4"
+                  style={{
+                    borderColor: "rgba(74,111,165,0.15)",
+                    background: "rgba(191,221,245,0.18)",
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        LTV (Loan-to-Value) Ratio
+                      </p>
+                      <p
+                        className="mt-1 text-2xl font-bold leading-tight"
+                        style={{ color: "var(--brand-primary)" }}
+                      >
+                        {ltv.toFixed(1)}
+                        <span className="ml-1 text-base font-semibold text-slate-500">%</span>
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        (Requested Loan ÷ Market Value) × 100
+                      </p>
+                    </div>
+                    <span
+                      className="rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide"
+                      style={{
+                        background: ltvBand.bg,
+                        color: ltvBand.fg,
+                        borderColor: ltvBand.border,
+                      }}
+                    >
+                      {ltvBand.label}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Field
+                    label="RTO / Processing Fee (₹)"
+                    htmlFor="rtoFee"
+                    error={errors.rtoFee?.message}
+                  >
+                    <RupeeInput
+                      id="rtoFee"
+                      placeholder="e.g., 7,500"
+                      {...register("rtoFee")}
+                    />
+                  </Field>
+
+                  <Field
+                    label="Documentation Charges (₹)"
+                    htmlFor="docCharges"
+                    error={errors.docCharges?.message}
+                  >
+                    <RupeeInput
+                      id="docCharges"
+                      placeholder="e.g., 2,500"
+                      {...register("docCharges")}
+                    />
+                  </Field>
+                </div>
+
+                {/* Auto-calc: Net Disbursement (prominent) */}
+                <div
+                  className="rounded-xl border p-5 shadow-sm"
+                  style={{
+                    borderColor: "rgba(74,111,165,0.30)",
+                    background:
+                      "linear-gradient(135deg, rgba(191,221,245,0.45) 0%, rgba(137,207,240,0.25) 100%)",
+                  }}
+                >
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Wallet className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-600">
+                          Net Disbursement Amount
+                        </p>
+                      </div>
+                      <p
+                        className="mt-1 text-3xl font-extrabold leading-tight tracking-tight"
+                        style={{ color: "var(--brand-primary)" }}
+                      >
+                        {inr(netDisbursement)}
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        Loan Amount − RTO Fee − Documentation Charges
+                      </p>
+                    </div>
+
+                    <BreakdownPill
+                      loanAmount={loanAmount}
+                      rtoFee={rtoFee}
+                      docCharges={docCharges}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* ----- HYPOTHECATION + ACTION ----- */}
+        <Card className="border bg-white" style={{ borderColor: "rgba(74,111,165,0.12)" }}>
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-lg"
+                style={{ background: "var(--brand-light)" }}
+              >
+                <ShieldCheck className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+              </div>
+              <div>
+                <CardTitle className="text-base font-semibold text-slate-900">
+                  Hypothecation Status
+                </CardTitle>
+                <CardDescription className="text-sm text-slate-500">
+                  RTO endorsement is mandatory before disbursing any vehicle loan.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <HypothecationToggle control={control} setValue={setValue} />
+
+            <div className="flex flex-col items-stretch gap-3 border-t pt-5 md:flex-row md:items-center md:justify-between"
+              style={{ borderColor: "rgba(74,111,165,0.10)" }}
+            >
+              <div className="text-xs text-slate-500">
+                Submitting will lock the LTV, generate the agreement, and queue the disbursement.
+              </div>
+              <Button
+                type="submit"
+                size="lg"
+                className="h-12 w-full gap-2 px-8 text-base font-semibold text-white shadow-md md:w-auto"
+                style={{ background: "var(--brand-primary)" }}
+              >
+                <FileSignature className="h-5 w-5" />
+                Generate Vehicle Loan Agreement
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </form>
+    </div>
+  );
+}
+
+/* -------------------- helpers -------------------- */
+
+function Field({
+  label,
+  htmlFor,
+  error,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={htmlFor} className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </Label>
+      {children}
+      {error && <p className="text-xs font-medium text-rose-600">{error}</p>}
+    </div>
+  );
+}
+
+const RupeeInput = ({
+  id,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { id?: string }) => (
+  <div
+    className="flex h-11 items-center overflow-hidden rounded-md border bg-white focus-within:ring-4"
+    style={inputBaseStyle}
+  >
+    <span
+      className="flex h-full items-center justify-center px-3"
+      style={{
+        background: "rgba(191,221,245,0.35)",
+        color: "var(--brand-primary)",
+        borderRight: "1px solid rgba(74,111,165,0.18)",
+      }}
+    >
+      <IndianRupee className="h-4 w-4" />
+    </span>
+    <input
+      id={id}
+      inputMode="decimal"
+      className="flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-slate-400"
+      {...props}
+    />
+  </div>
+);
+
+function BreakdownPill({
+  loanAmount,
+  rtoFee,
+  docCharges,
+}: {
+  loanAmount: number;
+  rtoFee: number;
+  docCharges: number;
+}) {
+  if (loanAmount <= 0) return null;
+  return (
+    <div
+      className="rounded-lg border bg-white/70 px-3 py-2 text-[11px]"
+      style={{ borderColor: "rgba(74,111,165,0.18)" }}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-slate-500">Loan</span>
+        <span className="font-semibold text-slate-700">{inr(loanAmount)}</span>
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-slate-500">− RTO Fee</span>
+        <span className="font-semibold text-slate-700">{inr(rtoFee)}</span>
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-slate-500">− Doc Charges</span>
+        <span className="font-semibold text-slate-700">{inr(docCharges)}</span>
+      </div>
+    </div>
+  );
+}
+
+function HypothecationToggle({
+  control,
+  setValue,
+}: {
+  control: Control<VehicleForm>;
+  setValue: (name: "hypothecation", value: boolean) => void;
+}) {
+  const checked = !!useWatch({ control, name: "hypothecation" });
+
+  return (
+    <div
+      className="flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4"
+      style={{
+        borderColor: checked ? "rgba(16,185,129,0.40)" : "rgba(74,111,165,0.20)",
+        background: checked ? "rgba(16,185,129,0.06)" : "var(--bg-main)",
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-lg"
+          style={{
+            background: checked ? "rgba(16,185,129,0.15)" : "rgba(74,111,165,0.10)",
+          }}
+        >
+          <ShieldCheck
+            className="h-5 w-5"
+            style={{ color: checked ? "#047857" : "var(--brand-primary)" }}
+          />
+        </div>
+        <div>
+          <Label htmlFor="hypothecation" className="text-sm font-semibold text-slate-900">
+            RTO Hypothecation Endorsed
+          </Label>
+          <p className="text-xs text-slate-500">
+            Confirms the lender's lien is recorded against the RC at the regional transport office.
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <span
+          className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+          style={{
+            background: checked ? "rgba(16,185,129,0.12)" : "rgba(100,116,139,0.12)",
+            color: checked ? "#047857" : "#475569",
+          }}
+        >
+          {checked ? "Endorsed" : "Pending"}
+        </span>
+        <Switch
+          id="hypothecation"
+          checked={checked}
+          onCheckedChange={(v) => setValue("hypothecation", v)}
+        />
+      </div>
+    </div>
+  );
+}

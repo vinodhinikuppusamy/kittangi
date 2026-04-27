@@ -35,7 +35,7 @@ export const PAWN_NAV: NavItem[] = [
 export const VEHICLE_NAV: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/customers", label: "Global Customers", icon: Users },
-  { to: "/auto-loans", label: "Auto Loans", icon: Car },
+  { to: "/vehicle-origination", label: "Vehicle Origination", icon: Car },
   { to: "/repossession-yard", label: "Repossession Yard", icon: Wrench },
   { to: "/receipts-ledger", label: "Receipts & Ledger", icon: ReceiptText },
   { to: "/daybook", label: "Daybook (Chitta)", icon: BookOpen },
