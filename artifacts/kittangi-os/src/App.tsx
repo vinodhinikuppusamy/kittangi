@@ -19,6 +19,7 @@ import RepossessionYard from "@/components/modules/RepossessionYard";
 import Dashboard from "@/components/modules/Dashboard";
 import ReceiptsLedgerRouter from "@/components/modules/ReceiptsLedgerRouter";
 import ReportsRouter from "@/components/modules/ReportsRouter";
+import Deposits from "@/components/modules/Deposits";
 
 function App() {
   return (
@@ -52,6 +53,9 @@ function App() {
             }
           />
           <Route path="/repossession-yard" element={<RepossessionYard />} />
+
+          {/* Capital */}
+          <Route path="/deposits" element={<Deposits />} />
 
           {/* Administration */}
           <Route path="/settings" element={<Settings />} />

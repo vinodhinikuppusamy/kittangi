@@ -51,6 +51,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import PhotoCapture from "@/components/shared/PhotoCapture";
+import CustomerLedgerSheet from "@/components/modules/CustomerLedgerSheet";
 import {
   addCustomer,
   deleteCustomer,
@@ -710,6 +711,7 @@ export default function Customers() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Customer | null>(null);
+  const [viewing, setViewing] = useState<Customer | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<KycFilter>("ALL");
 
@@ -904,12 +906,15 @@ export default function Customers() {
                   <TableCell className="py-3">
                     <div className="flex items-center gap-3">
                       <CustomerAvatar customer={c} />
-                      <span
-                        className="text-sm font-semibold"
-                        style={{ color: "var(--text-main)" }}
+                      <button
+                        type="button"
+                        onClick={() => setViewing(c)}
+                        className="rounded text-left text-sm font-semibold transition-colors hover:underline"
+                        style={{ color: "var(--brand-primary)" }}
+                        aria-label={`Open Customer 360 for ${c.fullName}`}
                       >
                         {c.fullName}
-                      </span>
+                      </button>
                     </div>
                   </TableCell>
                   <TableCell
@@ -996,6 +1001,14 @@ export default function Customers() {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         editing={editing}
+      />
+
+      <CustomerLedgerSheet
+        customer={viewing}
+        open={!!viewing}
+        onOpenChange={(o) => {
+          if (!o) setViewing(null);
+        }}
       />
 
       <AlertDialog

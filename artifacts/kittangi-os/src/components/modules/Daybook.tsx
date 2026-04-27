@@ -28,151 +28,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  useDaybook,
+  type DaybookAccount,
+  type DaybookEntry,
+} from "@/lib/stores/daybookStore";
 
-type Account = "CASH" | "HDFC" | "SBI";
+const OPENING_BALANCE = 218430;
 
-type LedgerLine = {
-  id: string;
-  time: string;
-  particulars: string;
-  refId?: string;
-  account: Account;
-  amount: number;
-};
-
-const ACCOUNT_SHORT: Record<Account, string> = {
+const ACCOUNT_SHORT: Record<DaybookAccount, string> = {
   CASH: "Cash",
   HDFC: "HDFC",
   SBI: "SBI",
 };
-
-const INFLOWS: LedgerLine[] = [
-  {
-    id: "in-1",
-    time: "09:42 AM",
-    particulars: "Ravi Krishnan — Interest Paid",
-    refId: "RCP-88421 • PWN-204402",
-    account: "CASH",
-    amount: 2640,
-  },
-  {
-    id: "in-2",
-    time: "10:15 AM",
-    particulars: "Meera Iyer — Partial Principal",
-    refId: "RCP-88422 • PWN-204415",
-    account: "HDFC",
-    amount: 15000,
-  },
-  {
-    id: "in-3",
-    time: "10:42 AM",
-    particulars: "Bank Withdrawal (Counter Float Top-up)",
-    refId: "TXN-CASH-IN-1102",
-    account: "CASH",
-    amount: 50000,
-  },
-  {
-    id: "in-4",
-    time: "11:08 AM",
-    particulars: "Suresh Patel — Full Settlement",
-    refId: "RCP-88423 • PWN-204555",
-    account: "SBI",
-    amount: 86420,
-  },
-  {
-    id: "in-5",
-    time: "11:51 AM",
-    particulars: "Aanya Sharma — Interest Paid",
-    refId: "RCP-88424 • PWN-204512",
-    account: "CASH",
-    amount: 1408,
-  },
-  {
-    id: "in-6",
-    time: "12:33 PM",
-    particulars: "Divya Nair — Partial Principal",
-    refId: "RCP-88425 • PWN-204561",
-    account: "HDFC",
-    amount: 8000,
-  },
-  {
-    id: "in-7",
-    time: "01:20 PM",
-    particulars: "Rohan Verma — EMI Received",
-    refId: "RCP-88426 • VEH-30021",
-    account: "SBI",
-    amount: 12150,
-  },
-  {
-    id: "in-8",
-    time: "03:15 PM",
-    particulars: "Kunal Mehta — Interest Paid",
-    refId: "RCP-88427 • PWN-204527",
-    account: "CASH",
-    amount: 715,
-  },
-];
-
-const OUTFLOWS: LedgerLine[] = [
-  {
-    id: "out-1",
-    time: "10:02 AM",
-    particulars: "Aanya Sharma — Pawn Loan Disbursed",
-    refId: "PWN-204512",
-    account: "CASH",
-    amount: 38500,
-  },
-  {
-    id: "out-2",
-    time: "11:25 AM",
-    particulars: "Meera Iyer — Pawn Loan Disbursed",
-    refId: "PWN-204519",
-    account: "HDFC",
-    amount: 197600,
-  },
-  {
-    id: "out-3",
-    time: "12:10 PM",
-    particulars: "Branch Rent — April 2026",
-    refId: "EXP-RENT-04",
-    account: "HDFC",
-    amount: 45000,
-  },
-  {
-    id: "out-4",
-    time: "12:45 PM",
-    particulars: "Kunal Mehta — Pawn Loan Disbursed",
-    refId: "PWN-204527",
-    account: "CASH",
-    amount: 30950,
-  },
-  {
-    id: "out-5",
-    time: "02:08 PM",
-    particulars: "Electricity Bill (BESCOM)",
-    refId: "EXP-UTIL-04-12",
-    account: "SBI",
-    amount: 6840,
-  },
-  {
-    id: "out-6",
-    time: "02:55 PM",
-    particulars: "Staff Salary Advance — A. Patel",
-    refId: "EXP-PAY-AP-04",
-    account: "CASH",
-    amount: 8000,
-  },
-  {
-    id: "out-7",
-    time: "03:40 PM",
-    particulars: "Priya Menon — Pawn Loan Disbursed",
-    refId: "PWN-204540",
-    account: "HDFC",
-    amount: 47750,
-  },
-];
-
-const OPENING_BALANCE = 218430;
 
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -201,7 +69,7 @@ function prettyDate(iso: string) {
   });
 }
 
-function accountChip(account: Account) {
+function accountChip(account: DaybookAccount) {
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-md border bg-white px-2 py-0.5 text-[11px] font-medium"
@@ -277,15 +145,40 @@ function SummaryCard({
 }
 
 export default function Daybook() {
-  const [date, setDate] = useState<string>(todayIso());
+  const allEntries = useDaybook();
+
+  // Default to the most recent date that actually has entries so the page
+  // never opens to an empty Chitta even after several demo days have passed.
+  const latestDate = useMemo(() => {
+    if (allEntries.length === 0) return todayIso();
+    return allEntries.reduce(
+      (max, e) => (e.dateIso > max ? e.dateIso : max),
+      allEntries[0].dateIso,
+    );
+  }, [allEntries]);
+
+  const [date, setDate] = useState<string>(() => latestDate);
+
+  const dayEntries = useMemo<DaybookEntry[]>(
+    () => allEntries.filter((e) => e.dateIso === date),
+    [allEntries, date],
+  );
+  const inflows = useMemo(
+    () => dayEntries.filter((e) => e.side === "CREDIT"),
+    [dayEntries],
+  );
+  const outflows = useMemo(
+    () => dayEntries.filter((e) => e.side === "DEBIT"),
+    [dayEntries],
+  );
 
   const totalInflows = useMemo(
-    () => INFLOWS.reduce((s, x) => s + x.amount, 0),
-    [],
+    () => inflows.reduce((s, x) => s + x.amount, 0),
+    [inflows],
   );
   const totalOutflows = useMemo(
-    () => OUTFLOWS.reduce((s, x) => s + x.amount, 0),
-    [],
+    () => outflows.reduce((s, x) => s + x.amount, 0),
+    [outflows],
   );
   const closing = OPENING_BALANCE + totalInflows - totalOutflows;
   const isBalanced = totalInflows + OPENING_BALANCE >= totalOutflows;
@@ -361,7 +254,7 @@ export default function Daybook() {
         />
         <SummaryCard
           label="Total Inflows (Credit)"
-          hint={`${INFLOWS.length} receipt entries`}
+          hint={`${inflows.length} receipt entries`}
           value={inr(totalInflows)}
           icon={TrendingUp}
           iconBg="rgba(34,197,94,0.12)"
@@ -369,7 +262,7 @@ export default function Daybook() {
         />
         <SummaryCard
           label="Total Outflows (Debit)"
-          hint={`${OUTFLOWS.length} payment entries`}
+          hint={`${outflows.length} payment entries`}
           value={inr(totalOutflows)}
           icon={TrendingDown}
           iconBg="rgba(220,38,38,0.10)"
@@ -498,27 +391,38 @@ export default function Daybook() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {INFLOWS.map((row) => (
-                    <TableRow key={row.id} className="hover:bg-emerald-50/40">
-                      <TableCell className="text-xs text-slate-600">
-                        {row.time}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm font-medium text-slate-800">
-                          {row.particulars}
-                        </div>
-                        {row.refId && (
-                          <div className="text-[11px] text-slate-500">
-                            {row.refId}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>{accountChip(row.account)}</TableCell>
-                      <TableCell className="text-right text-sm font-semibold text-emerald-700">
-                        + {inr(row.amount)}
+                  {inflows.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="py-8 text-center text-xs text-slate-500"
+                      >
+                        No credits recorded for this date.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    inflows.map((row) => (
+                      <TableRow key={row.id} className="hover:bg-emerald-50/40">
+                        <TableCell className="text-xs text-slate-600">
+                          {row.time}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm font-medium text-slate-800">
+                            {row.particulars}
+                          </div>
+                          {row.refId && (
+                            <div className="text-[11px] text-slate-500">
+                              {row.refId}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>{accountChip(row.account)}</TableCell>
+                        <TableCell className="text-right text-sm font-semibold text-emerald-700">
+                          + {inr(row.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                   <TableRow
                     style={{
                       backgroundColor: "rgba(34,197,94,0.06)",
@@ -603,27 +507,38 @@ export default function Daybook() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {OUTFLOWS.map((row) => (
-                    <TableRow key={row.id} className="hover:bg-red-50/40">
-                      <TableCell className="text-xs text-slate-600">
-                        {row.time}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm font-medium text-slate-800">
-                          {row.particulars}
-                        </div>
-                        {row.refId && (
-                          <div className="text-[11px] text-slate-500">
-                            {row.refId}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>{accountChip(row.account)}</TableCell>
-                      <TableCell className="text-right text-sm font-semibold text-red-700">
-                        − {inr(row.amount)}
+                  {outflows.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="py-8 text-center text-xs text-slate-500"
+                      >
+                        No debits recorded for this date.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    outflows.map((row) => (
+                      <TableRow key={row.id} className="hover:bg-red-50/40">
+                        <TableCell className="text-xs text-slate-600">
+                          {row.time}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm font-medium text-slate-800">
+                            {row.particulars}
+                          </div>
+                          {row.refId && (
+                            <div className="text-[11px] text-slate-500">
+                              {row.refId}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>{accountChip(row.account)}</TableCell>
+                        <TableCell className="text-right text-sm font-semibold text-red-700">
+                          − {inr(row.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                   <TableRow
                     style={{
                       backgroundColor: "rgba(220,38,38,0.05)",
@@ -645,8 +560,8 @@ export default function Daybook() {
       </div>
 
       <p className="mt-4 text-center text-[11px] text-slate-500">
-        Sample Chitta · live wiring against Receipts &amp; Origination in next
-        step
+        Live Chitta · powered by the shared Daybook ledger (Receipts, Loan
+        Disbursements, Investor Payouts and more).
       </p>
     </div>
   );

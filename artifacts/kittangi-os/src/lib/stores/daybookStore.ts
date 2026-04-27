@@ -1,0 +1,433 @@
+import {
+  createPersistentStore,
+  usePersistentStore,
+} from "@/lib/stores/persistentStore";
+
+export type DaybookSide = "CREDIT" | "DEBIT";
+export type DaybookAccount = "CASH" | "HDFC" | "SBI";
+
+/**
+ * Canonical set of accounting categories shown across the Daybook and the
+ * Customer 360 transaction history. New categories are added to this union as
+ * features are introduced (e.g. "Interest Expense" was added with the Investor
+ * Deposits module so investor payouts land in the same ledger).
+ */
+export type DaybookCategory =
+  | "Interest Income"
+  | "Principal Recovery"
+  | "Full Settlement"
+  | "EMI Received"
+  | "Loan Disbursement"
+  | "Cash Movement"
+  | "Branch Expense"
+  | "Salary"
+  | "Utilities"
+  | "Interest Expense"
+  | "Other Income"
+  | "Other Expense";
+
+export type DaybookEntry = {
+  id: string;
+  /** ISO date (YYYY-MM-DD) the transaction belongs to. */
+  dateIso: string;
+  /** Display time, e.g. "09:42 AM". */
+  time: string;
+  side: DaybookSide;
+  category: DaybookCategory;
+  particulars: string;
+  refId?: string;
+  account: DaybookAccount;
+  amount: number;
+  /**
+   * If the entry is associated with a customer, this carries their display
+   * name so the Customer 360 view can chronologically reconstruct passbook
+   * history without an explicit join.
+   */
+  customerName?: string;
+  customerId?: string;
+};
+
+const STORAGE_KEY = "kittangi:daybook:v1";
+
+function todayIso(): string {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function isoOffset(daysAgo: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+const TODAY = todayIso();
+
+// ---------------------------------------------------------------------------
+// Seed data
+// ---------------------------------------------------------------------------
+
+/**
+ * "Today" set — preserves the original hard-coded Daybook page contents so
+ * the existing visual remains unchanged after the refactor to a store.
+ */
+const SEED_TODAY: DaybookEntry[] = [
+  // ===== INFLOWS / CREDIT =====
+  {
+    id: "DBK-T-1",
+    dateIso: TODAY,
+    time: "09:42 AM",
+    side: "CREDIT",
+    category: "Interest Income",
+    particulars: "Ravi Krishnan — Interest Paid",
+    refId: "RCP-88421 • PWN-204402",
+    account: "CASH",
+    amount: 2640,
+    customerName: "Ravi Krishnan",
+  },
+  {
+    id: "DBK-T-2",
+    dateIso: TODAY,
+    time: "10:15 AM",
+    side: "CREDIT",
+    category: "Principal Recovery",
+    particulars: "Meera Iyer — Partial Principal",
+    refId: "RCP-88422 • PWN-204415",
+    account: "HDFC",
+    amount: 15000,
+    customerName: "Meera Iyer",
+  },
+  {
+    id: "DBK-T-3",
+    dateIso: TODAY,
+    time: "10:42 AM",
+    side: "CREDIT",
+    category: "Cash Movement",
+    particulars: "Bank Withdrawal (Counter Float Top-up)",
+    refId: "TXN-CASH-IN-1102",
+    account: "CASH",
+    amount: 50000,
+  },
+  {
+    id: "DBK-T-4",
+    dateIso: TODAY,
+    time: "11:08 AM",
+    side: "CREDIT",
+    category: "Full Settlement",
+    particulars: "Suresh Patel — Full Settlement",
+    refId: "RCP-88423 • PWN-204555",
+    account: "SBI",
+    amount: 86420,
+    customerName: "Suresh Patel",
+  },
+  {
+    id: "DBK-T-5",
+    dateIso: TODAY,
+    time: "11:51 AM",
+    side: "CREDIT",
+    category: "Interest Income",
+    particulars: "Aanya Sharma — Interest Paid",
+    refId: "RCP-88424 • PWN-204512",
+    account: "CASH",
+    amount: 1408,
+    customerName: "Aanya Sharma",
+  },
+  {
+    id: "DBK-T-6",
+    dateIso: TODAY,
+    time: "12:33 PM",
+    side: "CREDIT",
+    category: "Principal Recovery",
+    particulars: "Divya Nair — Partial Principal",
+    refId: "RCP-88425 • PWN-204561",
+    account: "HDFC",
+    amount: 8000,
+    customerName: "Divya Nair",
+  },
+  {
+    id: "DBK-T-7",
+    dateIso: TODAY,
+    time: "01:20 PM",
+    side: "CREDIT",
+    category: "EMI Received",
+    particulars: "Rohan Verma — EMI Received",
+    refId: "RCP-88426 • VEH-30021",
+    account: "SBI",
+    amount: 12150,
+    customerName: "Rohan Verma",
+  },
+  {
+    id: "DBK-T-8",
+    dateIso: TODAY,
+    time: "03:15 PM",
+    side: "CREDIT",
+    category: "Interest Income",
+    particulars: "Kunal Mehta — Interest Paid",
+    refId: "RCP-88427 • PWN-204527",
+    account: "CASH",
+    amount: 715,
+    customerName: "Kunal Mehta",
+  },
+
+  // ===== OUTFLOWS / DEBIT =====
+  {
+    id: "DBK-T-9",
+    dateIso: TODAY,
+    time: "10:02 AM",
+    side: "DEBIT",
+    category: "Loan Disbursement",
+    particulars: "Aanya Sharma — Pawn Loan Disbursed",
+    refId: "PWN-204512",
+    account: "CASH",
+    amount: 38500,
+    customerName: "Aanya Sharma",
+  },
+  {
+    id: "DBK-T-10",
+    dateIso: TODAY,
+    time: "11:25 AM",
+    side: "DEBIT",
+    category: "Loan Disbursement",
+    particulars: "Meera Iyer — Pawn Loan Disbursed",
+    refId: "PWN-204519",
+    account: "HDFC",
+    amount: 197600,
+    customerName: "Meera Iyer",
+  },
+  {
+    id: "DBK-T-11",
+    dateIso: TODAY,
+    time: "12:10 PM",
+    side: "DEBIT",
+    category: "Branch Expense",
+    particulars: "Branch Rent — April 2026",
+    refId: "EXP-RENT-04",
+    account: "HDFC",
+    amount: 45000,
+  },
+  {
+    id: "DBK-T-12",
+    dateIso: TODAY,
+    time: "12:45 PM",
+    side: "DEBIT",
+    category: "Loan Disbursement",
+    particulars: "Kunal Mehta — Pawn Loan Disbursed",
+    refId: "PWN-204527",
+    account: "CASH",
+    amount: 30950,
+    customerName: "Kunal Mehta",
+  },
+  {
+    id: "DBK-T-13",
+    dateIso: TODAY,
+    time: "02:08 PM",
+    side: "DEBIT",
+    category: "Utilities",
+    particulars: "Electricity Bill (BESCOM)",
+    refId: "EXP-UTIL-04-12",
+    account: "SBI",
+    amount: 6840,
+  },
+  {
+    id: "DBK-T-14",
+    dateIso: TODAY,
+    time: "02:55 PM",
+    side: "DEBIT",
+    category: "Salary",
+    particulars: "Staff Salary Advance — A. Patel",
+    refId: "EXP-PAY-AP-04",
+    account: "CASH",
+    amount: 8000,
+  },
+  {
+    id: "DBK-T-15",
+    dateIso: TODAY,
+    time: "03:40 PM",
+    side: "DEBIT",
+    category: "Loan Disbursement",
+    particulars: "Priya Menon — Pawn Loan Disbursed",
+    refId: "PWN-204540",
+    account: "HDFC",
+    amount: 47750,
+    customerName: "Priya Menon",
+  },
+];
+
+/**
+ * Historical entries — synthesise a couple of months of passbook history for
+ * the top seed customers so the Customer 360 view has chronological data on
+ * day 1 of the demo.
+ */
+const SEED_HISTORY: DaybookEntry[] = [
+  // ---- Aanya Sharma — long-running pledge with interest payments ----
+  {
+    id: "DBK-H-AS-1",
+    dateIso: isoOffset(95),
+    time: "11:00 AM",
+    side: "DEBIT",
+    category: "Loan Disbursement",
+    particulars: "Aanya Sharma — Pawn Loan Disbursed",
+    refId: "PWN-204402",
+    account: "CASH",
+    amount: 250000,
+    customerName: "Aanya Sharma",
+  },
+  {
+    id: "DBK-H-AS-2",
+    dateIso: isoOffset(65),
+    time: "10:32 AM",
+    side: "CREDIT",
+    category: "Interest Income",
+    particulars: "Aanya Sharma — Interest Paid (Mo. 1)",
+    refId: "RCP-88102 • PWN-204402",
+    account: "CASH",
+    amount: 5000,
+    customerName: "Aanya Sharma",
+  },
+  {
+    id: "DBK-H-AS-3",
+    dateIso: isoOffset(34),
+    time: "09:48 AM",
+    side: "CREDIT",
+    category: "Interest Income",
+    particulars: "Aanya Sharma — Interest Paid (Mo. 2)",
+    refId: "RCP-88298 • PWN-204402",
+    account: "CASH",
+    amount: 5000,
+    customerName: "Aanya Sharma",
+  },
+  {
+    id: "DBK-H-AS-4",
+    dateIso: isoOffset(22),
+    time: "02:14 PM",
+    side: "DEBIT",
+    category: "Loan Disbursement",
+    particulars: "Aanya Sharma — Pawn Loan Disbursed",
+    refId: "PWN-204512",
+    account: "CASH",
+    amount: 38500,
+    customerName: "Aanya Sharma",
+  },
+
+  // ---- Ravi Krishnan ----
+  {
+    id: "DBK-H-RK-1",
+    dateIso: isoOffset(70),
+    time: "11:20 AM",
+    side: "DEBIT",
+    category: "Loan Disbursement",
+    particulars: "Ravi Krishnan — Pawn Loan Disbursed",
+    refId: "PWN-204402",
+    account: "HDFC",
+    amount: 88000,
+    customerName: "Ravi Krishnan",
+  },
+  {
+    id: "DBK-H-RK-2",
+    dateIso: isoOffset(40),
+    time: "12:05 PM",
+    side: "CREDIT",
+    category: "Interest Income",
+    particulars: "Ravi Krishnan — Interest Paid",
+    refId: "RCP-88204 • PWN-204402",
+    account: "CASH",
+    amount: 2640,
+    customerName: "Ravi Krishnan",
+  },
+  {
+    id: "DBK-H-RK-3",
+    dateIso: isoOffset(10),
+    time: "10:48 AM",
+    side: "CREDIT",
+    category: "Interest Income",
+    particulars: "Ravi Krishnan — Interest Paid",
+    refId: "RCP-88389 • PWN-204402",
+    account: "CASH",
+    amount: 2640,
+    customerName: "Ravi Krishnan",
+  },
+
+  // ---- Meera Iyer ----
+  {
+    id: "DBK-H-MI-1",
+    dateIso: isoOffset(55),
+    time: "10:11 AM",
+    side: "DEBIT",
+    category: "Loan Disbursement",
+    particulars: "Meera Iyer — Pawn Loan Disbursed",
+    refId: "PWN-204519",
+    account: "HDFC",
+    amount: 197600,
+    customerName: "Meera Iyer",
+  },
+  {
+    id: "DBK-H-MI-2",
+    dateIso: isoOffset(25),
+    time: "03:30 PM",
+    side: "CREDIT",
+    category: "Interest Income",
+    particulars: "Meera Iyer — Interest Paid",
+    refId: "RCP-88312 • PWN-204519",
+    account: "HDFC",
+    amount: 4940,
+    customerName: "Meera Iyer",
+  },
+];
+
+const SEED: DaybookEntry[] = [...SEED_TODAY, ...SEED_HISTORY];
+
+const daybookStore = createPersistentStore<DaybookEntry[]>(STORAGE_KEY, SEED);
+
+let nextSeq = 1000;
+function nextEntryId(existing: DaybookEntry[]): string {
+  // Compute the highest auto-generated DBK-A-#### so manually-seeded ids do
+  // not collide with new entries.
+  const max = existing.reduce((m, e) => {
+    const match = /DBK-A-(\d+)/.exec(e.id);
+    if (!match) return m;
+    const n = Number(match[1]);
+    return Number.isFinite(n) && n > m ? n : m;
+  }, 999);
+  if (nextSeq <= max) nextSeq = max + 1;
+  else nextSeq += 1;
+  return `DBK-A-${nextSeq}`;
+}
+
+export function useDaybook(): DaybookEntry[] {
+  return usePersistentStore(daybookStore);
+}
+
+export function addDaybookEntry(
+  draft: Omit<DaybookEntry, "id"> & { id?: string },
+): DaybookEntry {
+  const created: DaybookEntry = {
+    ...draft,
+    id: draft.id ?? nextEntryId(daybookStore.get()),
+  };
+  // Newest-first so the Daybook table naturally bubbles fresh activity.
+  daybookStore.set((prev) => [created, ...prev]);
+  return created;
+}
+
+export function resetDaybook(): void {
+  daybookStore.set(SEED);
+}
+
+/** Format an ISO date (YYYY-MM-DD) for display in passbook tables. */
+export function formatLedgerDate(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}

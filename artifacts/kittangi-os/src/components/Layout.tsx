@@ -1,7 +1,13 @@
 import { useState, type ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { Bell, ChevronDown, Search, UserCircle } from "lucide-react";
-import { ADMIN_NAV, getNavForVertical, type NavItem, type Vertical } from "@/lib/navigation";
+import {
+  ADMIN_NAV,
+  CAPITAL_NAV,
+  getNavForVertical,
+  type NavItem,
+  type Vertical,
+} from "@/lib/navigation";
 
 function AppSwitcher({
   value,
@@ -140,6 +146,19 @@ function Sidebar({
 
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
         <SidebarLinkList items={items} />
+
+        {/* Capital section — vertical-agnostic */}
+        <div className="mt-6 px-3">
+          <p
+            className="text-[10px] font-semibold uppercase tracking-wider"
+            style={{ color: "var(--text-muted)" }}
+          >
+            Capital
+          </p>
+        </div>
+        <div className="mt-2">
+          <SidebarLinkList items={CAPITAL_NAV} />
+        </div>
 
         {/* Administration section — vertical-agnostic, pinned below */}
         <div className="mt-6 px-3">

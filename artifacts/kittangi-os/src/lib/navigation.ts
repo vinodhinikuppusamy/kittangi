@@ -8,6 +8,7 @@ import {
   Car,
   Wrench,
   Gem,
+  HandCoins,
   PieChart,
   Settings as SettingsIcon,
   type LucideIcon,
@@ -40,6 +41,10 @@ export const VEHICLE_NAV: NavItem[] = [
   { to: "/receipts-ledger", label: "Receipts & Ledger", icon: ReceiptText },
   { to: "/daybook", label: "Daybook (Chitta)", icon: BookOpen },
   { to: "/reports", label: "Reports", icon: PieChart },
+];
+
+export const CAPITAL_NAV: NavItem[] = [
+  { to: "/deposits", label: "Deposits & Investors", icon: HandCoins },
 ];
 
 export const ADMIN_NAV: NavItem[] = [
