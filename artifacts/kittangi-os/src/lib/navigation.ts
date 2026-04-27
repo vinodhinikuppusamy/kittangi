@@ -39,6 +39,7 @@ export const VEHICLE_NAV: NavItem[] = [
   { to: "/repossession-yard", label: "Repossession Yard", icon: Wrench },
   { to: "/receipts-ledger", label: "Receipts & Ledger", icon: ReceiptText },
   { to: "/daybook", label: "Daybook (Chitta)", icon: BookOpen },
+  { to: "/reports", label: "Reports", icon: PieChart },
 ];
 
 export const ADMIN_NAV: NavItem[] = [

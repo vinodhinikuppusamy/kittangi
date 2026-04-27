@@ -5,25 +5,20 @@ import {
   Routes,
 } from "react-router-dom";
 import { Toaster } from "sonner";
-import {
-  Car,
-  LayoutDashboard,
-  Landmark,
-  ReceiptText,
-  Vault,
-} from "lucide-react";
+import { Car, LayoutDashboard } from "lucide-react";
 import Layout from "@/components/Layout";
 import PlaceholderPage from "@/pages/PlaceholderPage";
 import Customers from "@/components/modules/Customers";
 import PawnOrigination from "@/components/modules/PawnOrigination";
 import VaultManagement from "@/components/modules/VaultManagement";
-import ReceiptsLedger from "@/components/modules/ReceiptsLedger";
 import Daybook from "@/components/modules/Daybook";
 import PledgedItems from "@/components/modules/PledgedItems";
 import Settings from "@/components/modules/Settings";
-import Reports from "@/components/modules/Reports";
 import VehicleOrigination from "@/components/modules/VehicleOrigination";
 import RepossessionYard from "@/components/modules/RepossessionYard";
+import Dashboard from "@/components/modules/Dashboard";
+import ReceiptsLedgerRouter from "@/components/modules/ReceiptsLedgerRouter";
+import ReportsRouter from "@/components/modules/ReportsRouter";
 
 function App() {
   return (
@@ -33,25 +28,16 @@ function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
 
           {/* Shared */}
-          <Route
-            path="/dashboard"
-            element={
-              <PlaceholderPage
-                title="Dashboard"
-                description="Operational overview across both verticals."
-                icon={LayoutDashboard}
-              />
-            }
-          />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/customers" element={<Customers />} />
-          <Route path="/receipts-ledger" element={<ReceiptsLedger />} />
+          <Route path="/receipts-ledger" element={<ReceiptsLedgerRouter />} />
           <Route path="/daybook" element={<Daybook />} />
+          <Route path="/reports" element={<ReportsRouter />} />
 
           {/* Pawn vertical */}
           <Route path="/pawn-origination" element={<PawnOrigination />} />
           <Route path="/pledged-items" element={<PledgedItems />} />
           <Route path="/vault-management" element={<VaultManagement />} />
-          <Route path="/reports" element={<Reports />} />
 
           {/* Vehicle vertical */}
           <Route path="/vehicle-origination" element={<VehicleOrigination />} />
