@@ -16,6 +16,7 @@ import {
 import Layout from "@/components/Layout";
 import PlaceholderPage from "@/pages/PlaceholderPage";
 import Customers from "@/components/modules/Customers";
+import PawnOrigination from "@/components/modules/PawnOrigination";
 
 function App() {
   return (
@@ -48,16 +49,7 @@ function App() {
           />
 
           {/* Pawn vertical */}
-          <Route
-            path="/pawn-origination"
-            element={
-              <PlaceholderPage
-                title="Pawn Origination"
-                description="Originate new pawn loans, valuations, and contracts."
-                icon={Landmark}
-              />
-            }
-          />
+          <Route path="/pawn-origination" element={<PawnOrigination />} />
           <Route
             path="/vault-management"
             element={
