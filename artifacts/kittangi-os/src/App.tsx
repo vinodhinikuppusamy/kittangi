@@ -11,7 +11,6 @@ import {
   Landmark,
   ReceiptText,
   Vault,
-  Wrench,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import PlaceholderPage from "@/pages/PlaceholderPage";
@@ -24,6 +23,7 @@ import PledgedItems from "@/components/modules/PledgedItems";
 import Settings from "@/components/modules/Settings";
 import Reports from "@/components/modules/Reports";
 import VehicleOrigination from "@/components/modules/VehicleOrigination";
+import RepossessionYard from "@/components/modules/RepossessionYard";
 
 function App() {
   return (
@@ -65,16 +65,7 @@ function App() {
               />
             }
           />
-          <Route
-            path="/repossession-yard"
-            element={
-              <PlaceholderPage
-                title="Repossession Yard"
-                description="Repossessed vehicle inventory and disposition workflow."
-                icon={Wrench}
-              />
-            }
-          />
+          <Route path="/repossession-yard" element={<RepossessionYard />} />
 
           {/* Administration */}
           <Route path="/settings" element={<Settings />} />
