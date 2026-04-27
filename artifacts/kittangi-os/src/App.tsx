@@ -18,6 +18,7 @@ import PlaceholderPage from "@/pages/PlaceholderPage";
 import Customers from "@/components/modules/Customers";
 import PawnOrigination from "@/components/modules/PawnOrigination";
 import VaultManagement from "@/components/modules/VaultManagement";
+import ReceiptsLedger from "@/components/modules/ReceiptsLedger";
 
 function App() {
   return (
@@ -38,16 +39,7 @@ function App() {
             }
           />
           <Route path="/customers" element={<Customers />} />
-          <Route
-            path="/receipts-ledger"
-            element={
-              <PlaceholderPage
-                title="Receipts & Ledger"
-                description="Payments, receipts, and financial ledger entries."
-                icon={ReceiptText}
-              />
-            }
-          />
+          <Route path="/receipts-ledger" element={<ReceiptsLedger />} />
 
           {/* Pawn vertical */}
           <Route path="/pawn-origination" element={<PawnOrigination />} />
