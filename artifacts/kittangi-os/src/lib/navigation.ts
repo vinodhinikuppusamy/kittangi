@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   LayoutDashboard,
   Users,
   Landmark,
@@ -23,6 +24,7 @@ export const PAWN_NAV: NavItem[] = [
   { to: "/pawn-origination", label: "Pawn Origination", icon: Landmark },
   { to: "/vault-management", label: "Vault Management", icon: Vault },
   { to: "/receipts-ledger", label: "Receipts & Ledger", icon: ReceiptText },
+  { to: "/daybook", label: "Daybook (Chitta)", icon: BookOpen },
 ];
 
 export const VEHICLE_NAV: NavItem[] = [
@@ -31,6 +33,7 @@ export const VEHICLE_NAV: NavItem[] = [
   { to: "/auto-loans", label: "Auto Loans", icon: Car },
   { to: "/repossession-yard", label: "Repossession Yard", icon: Wrench },
   { to: "/receipts-ledger", label: "Receipts & Ledger", icon: ReceiptText },
+  { to: "/daybook", label: "Daybook (Chitta)", icon: BookOpen },
 ];
 
 export function getNavForVertical(vertical: Vertical): NavItem[] {

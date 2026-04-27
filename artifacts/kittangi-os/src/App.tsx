@@ -19,6 +19,7 @@ import Customers from "@/components/modules/Customers";
 import PawnOrigination from "@/components/modules/PawnOrigination";
 import VaultManagement from "@/components/modules/VaultManagement";
 import ReceiptsLedger from "@/components/modules/ReceiptsLedger";
+import Daybook from "@/components/modules/Daybook";
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
           />
           <Route path="/customers" element={<Customers />} />
           <Route path="/receipts-ledger" element={<ReceiptsLedger />} />
+          <Route path="/daybook" element={<Daybook />} />
 
           {/* Pawn vertical */}
           <Route path="/pawn-origination" element={<PawnOrigination />} />
