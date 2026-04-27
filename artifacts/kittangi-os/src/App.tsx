@@ -20,6 +20,7 @@ import PawnOrigination from "@/components/modules/PawnOrigination";
 import VaultManagement from "@/components/modules/VaultManagement";
 import ReceiptsLedger from "@/components/modules/ReceiptsLedger";
 import Daybook from "@/components/modules/Daybook";
+import PledgedItems from "@/components/modules/PledgedItems";
 
 function App() {
   return (
@@ -45,6 +46,7 @@ function App() {
 
           {/* Pawn vertical */}
           <Route path="/pawn-origination" element={<PawnOrigination />} />
+          <Route path="/pledged-items" element={<PledgedItems />} />
           <Route path="/vault-management" element={<VaultManagement />} />
 
           {/* Vehicle vertical */}

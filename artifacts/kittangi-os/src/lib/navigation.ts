@@ -7,6 +7,7 @@ import {
   ReceiptText,
   Car,
   Wrench,
+  Gem,
   type LucideIcon,
 } from "lucide-react";
 
@@ -22,6 +23,7 @@ export const PAWN_NAV: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/customers", label: "Global Customers", icon: Users },
   { to: "/pawn-origination", label: "Pawn Origination", icon: Landmark },
+  { to: "/pledged-items", label: "Pledged Items", icon: Gem },
   { to: "/vault-management", label: "Vault Management", icon: Vault },
   { to: "/receipts-ledger", label: "Receipts & Ledger", icon: ReceiptText },
   { to: "/daybook", label: "Daybook (Chitta)", icon: BookOpen },
