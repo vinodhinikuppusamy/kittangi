@@ -17,6 +17,7 @@ import Layout from "@/components/Layout";
 import PlaceholderPage from "@/pages/PlaceholderPage";
 import Customers from "@/components/modules/Customers";
 import PawnOrigination from "@/components/modules/PawnOrigination";
+import VaultManagement from "@/components/modules/VaultManagement";
 
 function App() {
   return (
@@ -50,16 +51,7 @@ function App() {
 
           {/* Pawn vertical */}
           <Route path="/pawn-origination" element={<PawnOrigination />} />
-          <Route
-            path="/vault-management"
-            element={
-              <PlaceholderPage
-                title="Vault Management"
-                description="Track pledged items in the vault, locations, and movements."
-                icon={Vault}
-              />
-            }
-          />
+          <Route path="/vault-management" element={<VaultManagement />} />
 
           {/* Vehicle vertical */}
           <Route
