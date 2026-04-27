@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { Bell, ChevronDown, Search, UserCircle } from "lucide-react";
-import { getNavForVertical, type Vertical } from "@/lib/navigation";
+import { ADMIN_NAV, getNavForVertical, type NavItem, type Vertical } from "@/lib/navigation";
 
 function AppSwitcher({
   value,
@@ -43,6 +43,51 @@ function AppSwitcher({
         />
       </div>
     </div>
+  );
+}
+
+function SidebarLinkList({ items }: { items: NavItem[] }) {
+  return (
+    <ul className="space-y-1">
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <li key={item.to}>
+            <NavLink
+              to={item.to}
+              className={({ isActive }) =>
+                [
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  isActive ? "is-active" : "hover-link",
+                ].join(" ")
+              }
+              style={({ isActive }) =>
+                isActive
+                  ? {
+                      backgroundColor: "var(--brand-light)",
+                      color: "var(--brand-primary)",
+                    }
+                  : { color: "var(--text-main)" }
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon
+                    size={18}
+                    style={{
+                      color: isActive
+                        ? "var(--brand-primary)"
+                        : "var(--text-muted)",
+                    }}
+                  />
+                  <span>{item.label}</span>
+                </>
+              )}
+            </NavLink>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -94,46 +139,20 @@ function Sidebar({
       <AppSwitcher value={vertical} onChange={onChangeVertical} />
 
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
-        <ul className="space-y-1">
-          {items.map((item) => {
-            const Icon = item.icon;
-            return (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) =>
-                    [
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                      isActive ? "is-active" : "hover-link",
-                    ].join(" ")
-                  }
-                  style={({ isActive }) =>
-                    isActive
-                      ? {
-                          backgroundColor: "var(--brand-light)",
-                          color: "var(--brand-primary)",
-                        }
-                      : { color: "var(--text-main)" }
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Icon
-                        size={18}
-                        style={{
-                          color: isActive
-                            ? "var(--brand-primary)"
-                            : "var(--text-muted)",
-                        }}
-                      />
-                      <span>{item.label}</span>
-                    </>
-                  )}
-                </NavLink>
-              </li>
-            );
-          })}
-        </ul>
+        <SidebarLinkList items={items} />
+
+        {/* Administration section — vertical-agnostic, pinned below */}
+        <div className="mt-6 px-3">
+          <p
+            className="text-[10px] font-semibold uppercase tracking-wider"
+            style={{ color: "var(--text-muted)" }}
+          >
+            Administration
+          </p>
+        </div>
+        <div className="mt-2">
+          <SidebarLinkList items={ADMIN_NAV} />
+        </div>
       </nav>
 
       <div

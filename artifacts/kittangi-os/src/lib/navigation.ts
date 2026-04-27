@@ -8,6 +8,7 @@ import {
   Car,
   Wrench,
   Gem,
+  Settings as SettingsIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,6 +37,10 @@ export const VEHICLE_NAV: NavItem[] = [
   { to: "/repossession-yard", label: "Repossession Yard", icon: Wrench },
   { to: "/receipts-ledger", label: "Receipts & Ledger", icon: ReceiptText },
   { to: "/daybook", label: "Daybook (Chitta)", icon: BookOpen },
+];
+
+export const ADMIN_NAV: NavItem[] = [
+  { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
 export function getNavForVertical(vertical: Vertical): NavItem[] {

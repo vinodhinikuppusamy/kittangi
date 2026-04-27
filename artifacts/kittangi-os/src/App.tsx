@@ -21,6 +21,7 @@ import VaultManagement from "@/components/modules/VaultManagement";
 import ReceiptsLedger from "@/components/modules/ReceiptsLedger";
 import Daybook from "@/components/modules/Daybook";
 import PledgedItems from "@/components/modules/PledgedItems";
+import Settings from "@/components/modules/Settings";
 
 function App() {
   return (
@@ -70,6 +71,9 @@ function App() {
               />
             }
           />
+
+          {/* Administration */}
+          <Route path="/settings" element={<Settings />} />
 
           <Route
             path="*"
