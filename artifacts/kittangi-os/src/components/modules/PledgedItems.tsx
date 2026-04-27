@@ -1,15 +1,22 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
-  Camera,
+  ChevronLeft,
+  ChevronRight,
   Diamond,
   Filter,
   Gem,
+  ImageOff,
   PackageSearch,
+  Pencil,
   Search,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -23,174 +30,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  updatePledgedItem,
+  usePledgedItems,
+  type PledgedCategory,
+  type PledgedItem,
+  type PledgedStatus,
+} from "@/lib/stores/pledgedItemsStore";
 
-type Category = "GOLD" | "SILVER" | "DIAMOND";
-type Status = "VAULTED" | "RELEASED" | "AUCTION";
-
-type PledgedItem = {
-  id: string;
-  title: string;
-  category: Category;
-  grossWeightG: number;
-  netWeightG: number;
-  pledgedValue: number;
-  loanId: string;
-  customer: string;
-  status: Status;
-  vaultLoc?: string;
-};
-
-const ITEMS: PledgedItem[] = [
-  {
-    id: "PKG-45",
-    title: "22K Gold Chain",
-    category: "GOLD",
-    grossWeightG: 45,
-    netWeightG: 42,
-    pledgedValue: 210000,
-    loanId: "PWN-204512",
-    customer: "Anand",
-    status: "VAULTED",
-    vaultLoc: "Safe-A · L-101",
-  },
-  {
-    id: "PKG-46",
-    title: "Gold Bangles (Set of 4)",
-    category: "GOLD",
-    grossWeightG: 88,
-    netWeightG: 85,
-    pledgedValue: 425000,
-    loanId: "PWN-204519",
-    customer: "Meera Iyer",
-    status: "VAULTED",
-    vaultLoc: "Safe-A · L-104",
-  },
-  {
-    id: "PKG-47",
-    title: "Diamond Solitaire Ring",
-    category: "DIAMOND",
-    grossWeightG: 6,
-    netWeightG: 5,
-    pledgedValue: 185000,
-    loanId: "PWN-204527",
-    customer: "Kunal Mehta",
-    status: "VAULTED",
-    vaultLoc: "Safe-B · L-203",
-  },
-  {
-    id: "PKG-48",
-    title: "Silver Pooja Set",
-    category: "SILVER",
-    grossWeightG: 720,
-    netWeightG: 710,
-    pledgedValue: 62000,
-    loanId: "PWN-204533",
-    customer: "Suresh Patel",
-    status: "VAULTED",
-    vaultLoc: "Safe-B · L-208",
-  },
-  {
-    id: "PKG-49",
-    title: "22K Gold Earrings (Pair)",
-    category: "GOLD",
-    grossWeightG: 14,
-    netWeightG: 13,
-    pledgedValue: 64000,
-    loanId: "PWN-204540",
-    customer: "Priya Menon",
-    status: "VAULTED",
-    vaultLoc: "Safe-A · L-112",
-  },
-  {
-    id: "PKG-50",
-    title: "Gold Mangalsutra",
-    category: "GOLD",
-    grossWeightG: 22,
-    netWeightG: 20,
-    pledgedValue: 98000,
-    loanId: "PWN-204555",
-    customer: "Ravi Krishnan",
-    status: "RELEASED",
-  },
-  {
-    id: "PKG-51",
-    title: "18K Diamond Pendant",
-    category: "DIAMOND",
-    grossWeightG: 8,
-    netWeightG: 7,
-    pledgedValue: 142000,
-    loanId: "PWN-204561",
-    customer: "Divya Nair",
-    status: "VAULTED",
-    vaultLoc: "Safe-B · L-211",
-  },
-  {
-    id: "PKG-52",
-    title: "Gold Coin (50g · 24K)",
-    category: "GOLD",
-    grossWeightG: 50,
-    netWeightG: 50,
-    pledgedValue: 305000,
-    loanId: "PWN-204402",
-    customer: "Aanya Sharma",
-    status: "AUCTION",
-  },
-  {
-    id: "PKG-53",
-    title: "Silver Anklets (Pair)",
-    category: "SILVER",
-    grossWeightG: 280,
-    netWeightG: 275,
-    pledgedValue: 24500,
-    loanId: "PWN-204415",
-    customer: "Rohan Verma",
-    status: "RELEASED",
-  },
-  {
-    id: "PKG-54",
-    title: "22K Gold Ring (Mens)",
-    category: "GOLD",
-    grossWeightG: 11,
-    netWeightG: 10,
-    pledgedValue: 51000,
-    loanId: "PWN-204421",
-    customer: "Karthik R",
-    status: "VAULTED",
-    vaultLoc: "Safe-A · L-118",
-  },
-  {
-    id: "PKG-55",
-    title: "Diamond Stud Earrings",
-    category: "DIAMOND",
-    grossWeightG: 4,
-    netWeightG: 3,
-    pledgedValue: 96000,
-    loanId: "PWN-204428",
-    customer: "Sneha B",
-    status: "AUCTION",
-  },
-  {
-    id: "PKG-56",
-    title: "Gold Necklace (Antique)",
-    category: "GOLD",
-    grossWeightG: 62,
-    netWeightG: 58,
-    pledgedValue: 295000,
-    loanId: "PWN-204430",
-    customer: "Lakshmi V",
-    status: "VAULTED",
-    vaultLoc: "Safe-A · L-121",
-  },
-];
-
-const CATEGORY_LABEL: Record<Category, string> = {
+const CATEGORY_LABEL: Record<PledgedCategory, string> = {
   GOLD: "Gold",
   SILVER: "Silver",
   DIAMOND: "Diamond",
 };
 
 const STATUS_META: Record<
-  Status,
+  PledgedStatus,
   { label: string; bg: string; fg: string; border: string }
 > = {
   VAULTED: {
@@ -226,13 +89,15 @@ const inputBaseStyle: React.CSSProperties = {
 } as React.CSSProperties;
 
 export default function PledgedItems() {
+  const items = usePledgedItems();
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<Category | "ALL">("ALL");
-  const [status, setStatus] = useState<Status | "ALL">("ALL");
+  const [category, setCategory] = useState<PledgedCategory | "ALL">("ALL");
+  const [status, setStatus] = useState<PledgedStatus | "ALL">("ALL");
+  const [managingId, setManagingId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return ITEMS.filter((it) => {
+    return items.filter((it) => {
       if (category !== "ALL" && it.category !== category) return false;
       if (status !== "ALL" && it.status !== status) return false;
       if (!q) return true;
@@ -243,13 +108,18 @@ export default function PledgedItems() {
         it.id.toLowerCase().includes(q)
       );
     });
-  }, [query, category, status]);
+  }, [query, category, status, items]);
 
   const totals = useMemo(() => {
     const vaulted = filtered.filter((i) => i.status === "VAULTED");
     const value = vaulted.reduce((s, i) => s + i.pledgedValue, 0);
     return { count: filtered.length, vaultedCount: vaulted.length, value };
   }, [filtered]);
+
+  const managingItem = useMemo(
+    () => items.find((i) => i.id === managingId) ?? null,
+    [items, managingId],
+  );
 
   return (
     <div className="mx-auto max-w-7xl p-6 lg:p-8">
@@ -271,6 +141,7 @@ export default function PledgedItems() {
             </h1>
             <p className="mt-1 text-sm text-slate-600">
               Visual catalogue of every physical asset held by this branch.
+              Click a card to manage its status, weight, or photos.
             </p>
           </div>
         </div>
@@ -322,7 +193,9 @@ export default function PledgedItems() {
             <div className="md:col-span-3">
               <Select
                 value={category}
-                onValueChange={(v) => setCategory(v as Category | "ALL")}
+                onValueChange={(v) =>
+                  setCategory(v as PledgedCategory | "ALL")
+                }
               >
                 <SelectTrigger
                   className="h-11 w-full"
@@ -346,7 +219,7 @@ export default function PledgedItems() {
             <div className="md:col-span-3">
               <Select
                 value={status}
-                onValueChange={(v) => setStatus(v as Status | "ALL")}
+                onValueChange={(v) => setStatus(v as PledgedStatus | "ALL")}
               >
                 <SelectTrigger
                   className="h-11 w-full"
@@ -389,30 +262,76 @@ export default function PledgedItems() {
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:grid-cols-4">
           {filtered.map((item) => (
-            <ItemCard key={item.id} item={item} />
+            <ItemCard
+              key={item.id}
+              item={item}
+              onClick={() => setManagingId(item.id)}
+            />
           ))}
         </div>
       )}
+
+      <ManageItemDialog
+        item={managingItem}
+        open={!!managingItem}
+        onClose={() => setManagingId(null)}
+      />
     </div>
   );
 }
 
-function ItemCard({ item }: { item: PledgedItem }) {
+function ItemCard({
+  item,
+  onClick,
+}: {
+  item: PledgedItem;
+  onClick: () => void;
+}) {
   const statusMeta = STATUS_META[item.status];
-  const Icon = item.category === "DIAMOND" ? Diamond : Camera;
+  const Icon = item.category === "DIAMOND" ? Diamond : Gem;
+  const cover = item.photos?.[0];
 
   return (
     <Card
-      className="overflow-hidden border bg-white py-0 transition-shadow hover:shadow-md"
-      style={{ borderColor: "rgba(74,111,165,0.12)" }}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      aria-label={`Manage ${item.title} (${item.id})`}
+      className="group cursor-pointer overflow-hidden border bg-white py-0 transition-shadow hover:shadow-md focus:outline-none focus:ring-2"
+      style={{
+        borderColor: "rgba(74,111,165,0.12)",
+        // @ts-expect-error CSS var
+        "--tw-ring-color": "var(--brand-light)",
+      }}
     >
-      {/* Top half — photo placeholder */}
-      <div className="relative h-48 w-full bg-gradient-to-br from-slate-100 to-slate-200">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/70 ring-1 ring-slate-300/60">
-            <Icon className="h-7 w-7 text-slate-400" />
+      {/* Top half — photo or placeholder */}
+      <div className="relative h-48 w-full overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200">
+        {cover ? (
+          <img
+            src={cover}
+            alt={item.title}
+            className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/70 ring-1 ring-slate-300/60">
+              <Icon className="h-7 w-7 text-slate-400" />
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Photo count chip */}
+        {item.photos && item.photos.length > 1 ? (
+          <div className="absolute left-3 top-3 rounded-md bg-black/55 px-2 py-0.5 text-[10px] font-semibold text-white">
+            +{item.photos.length - 1} more
+          </div>
+        ) : null}
 
         {/* Status badge — top right */}
         <Badge
@@ -427,9 +346,7 @@ function ItemCard({ item }: { item: PledgedItem }) {
         </Badge>
 
         {/* Category chip — bottom left */}
-        <div
-          className="absolute bottom-3 left-3 rounded-md bg-white/85 px-2 py-1 text-[11px] font-medium tracking-wide text-slate-700 ring-1 ring-slate-300/60"
-        >
+        <div className="absolute bottom-3 left-3 rounded-md bg-white/85 px-2 py-1 text-[11px] font-medium tracking-wide text-slate-700 ring-1 ring-slate-300/60">
           {CATEGORY_LABEL[item.category]} · {item.id}
         </div>
       </div>
@@ -480,7 +397,319 @@ function ItemCard({ item }: { item: PledgedItem }) {
             </div>
           )}
         </div>
+
+        <div className="flex items-center justify-between text-[11px] text-slate-500">
+          <span className="inline-flex items-center gap-1">
+            <Pencil size={11} />
+            Click to manage
+          </span>
+        </div>
       </CardContent>
     </Card>
+  );
+}
+
+function ManageItemDialog({
+  item,
+  open,
+  onClose,
+}: {
+  item: PledgedItem | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [status, setStatus] = useState<PledgedStatus>("VAULTED");
+  const [grossWeight, setGrossWeight] = useState("");
+  const [netWeight, setNetWeight] = useState("");
+  const [activePhoto, setActivePhoto] = useState(0);
+
+  // Re-hydrate the local edit state every time a different item is selected.
+  useEffect(() => {
+    if (!item) return;
+    setStatus(item.status);
+    setGrossWeight(String(item.grossWeightG));
+    setNetWeight(String(item.netWeightG));
+    setActivePhoto(0);
+  }, [item?.id, item]);
+
+  if (!item) return null;
+
+  const photos = item.photos ?? [];
+  const hasPhotos = photos.length > 0;
+
+  const onSave = () => {
+    const gross = Number(grossWeight);
+    const net = Number(netWeight);
+    if (!Number.isFinite(gross) || gross <= 0) {
+      toast.error("Gross weight must be a positive number.");
+      return;
+    }
+    if (!Number.isFinite(net) || net <= 0) {
+      toast.error("Net weight must be a positive number.");
+      return;
+    }
+    if (net > gross) {
+      toast.error("Net weight cannot exceed gross weight.");
+      return;
+    }
+    updatePledgedItem(item.id, {
+      status,
+      grossWeightG: gross,
+      netWeightG: net,
+    });
+    toast.success("Item updated", {
+      description: `${item.id} · ${STATUS_META[status].label}`,
+    });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent
+        className="max-h-[92vh] overflow-y-auto p-0 sm:max-w-3xl"
+        style={{ backgroundColor: "#fff" }}
+      >
+        <DialogHeader
+          className="border-b px-6 py-4"
+          style={{ borderColor: "rgba(74,111,165,0.10)" }}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-lg"
+              style={{ backgroundColor: "var(--brand-light)" }}
+            >
+              <ShieldCheck size={18} style={{ color: "var(--brand-primary)" }} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle
+                className="text-lg font-bold"
+                style={{ color: "var(--brand-primary)" }}
+              >
+                Manage Item · {item.id}
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                {item.title} · Loan {item.loanId} · Customer {item.customer}
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2">
+          {/* Photo viewer */}
+          <div className="space-y-3">
+            <div
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              Origination Photographs
+            </div>
+
+            <div
+              className="relative aspect-square w-full overflow-hidden rounded-xl border bg-slate-100"
+              style={{ borderColor: "rgba(74,111,165,0.18)" }}
+            >
+              {hasPhotos ? (
+                <>
+                  <img
+                    src={photos[activePhoto]}
+                    alt={`${item.title} — photo ${activePhoto + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                  {photos.length > 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActivePhoto(
+                            (i) => (i - 1 + photos.length) % photos.length,
+                          )
+                        }
+                        aria-label="Previous photo"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/85 p-1.5 shadow-sm hover:bg-white"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActivePhoto((i) => (i + 1) % photos.length)
+                        }
+                        aria-label="Next photo"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/85 p-1.5 shadow-sm hover:bg-white"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white">
+                        {activePhoto + 1} / {photos.length}
+                      </div>
+                    </>
+                  ) : null}
+                </>
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400">
+                  <ImageOff size={32} />
+                  <p className="text-xs">No photos captured at origination.</p>
+                </div>
+              )}
+            </div>
+
+            {photos.length > 1 ? (
+              <div className="flex flex-wrap gap-2">
+                {photos.map((src, i) => (
+                  <button
+                    type="button"
+                    key={`${i}-${src.slice(-12)}`}
+                    onClick={() => setActivePhoto(i)}
+                    className="overflow-hidden rounded-md border ring-offset-2"
+                    style={{
+                      borderColor:
+                        i === activePhoto
+                          ? "var(--brand-primary)"
+                          : "rgba(74,111,165,0.18)",
+                      borderWidth: i === activePhoto ? 2 : 1,
+                    }}
+                    aria-label={`Show photo ${i + 1}`}
+                    aria-current={i === activePhoto}
+                  >
+                    <img
+                      src={src}
+                      alt=""
+                      className="h-12 w-12 object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          {/* Editable fields */}
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="manage-status"
+                className="text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "var(--brand-primary)" }}
+              >
+                Status
+              </Label>
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v as PledgedStatus)}
+              >
+                <SelectTrigger
+                  id="manage-status"
+                  className="h-10 w-full bg-white"
+                  style={inputBaseStyle}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="VAULTED">Vaulted</SelectItem>
+                  <SelectItem value="AUCTION">Under Auction</SelectItem>
+                  <SelectItem value="RELEASED">Released</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                Changing status here updates the gallery in real time.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="manage-gross"
+                  className="text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: "var(--brand-primary)" }}
+                >
+                  Gross Weight (g)
+                </Label>
+                <Input
+                  id="manage-gross"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={grossWeight}
+                  onChange={(e) => setGrossWeight(e.target.value)}
+                  className="h-10 bg-white"
+                  style={inputBaseStyle}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="manage-net"
+                  className="text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: "var(--brand-primary)" }}
+                >
+                  Net Weight (g)
+                </Label>
+                <Input
+                  id="manage-net"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={netWeight}
+                  onChange={(e) => setNetWeight(e.target.value)}
+                  className="h-10 bg-white"
+                  style={inputBaseStyle}
+                />
+              </div>
+            </div>
+
+            <div
+              className="rounded-lg border px-3 py-2.5 text-xs"
+              style={{
+                borderColor: "rgba(74,111,165,0.15)",
+                backgroundColor: "rgba(191,221,245,0.18)",
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Pledged value</span>
+                <span
+                  className="font-semibold"
+                  style={{ color: "var(--brand-primary)" }}
+                >
+                  {inr(item.pledgedValue)}
+                </span>
+              </div>
+              {item.vaultLoc ? (
+                <div className="mt-1 flex items-center justify-between">
+                  <span className="text-slate-500">Vault location</span>
+                  <span className="font-medium text-slate-800">
+                    {item.vaultLoc}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter
+          className="border-t bg-white px-6 py-4"
+          style={{ borderColor: "rgba(74,111,165,0.10)" }}
+        >
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="h-9 px-4"
+            style={{
+              borderColor: "rgba(74,111,165,0.25)",
+              color: "var(--text-main)",
+              backgroundColor: "#fff",
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={onSave}
+            className="h-9 px-4 text-white"
+            style={{ backgroundColor: "var(--brand-primary)" }}
+          >
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

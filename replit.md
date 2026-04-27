@@ -55,6 +55,15 @@ Routing:
 - All routes wrapped in `Layout` and render a `PlaceholderPage` for now.
 - `/` redirects to `/dashboard`.
 
+Local persistence + capture (added in the Capture & Management upgrade):
+
+- `src/lib/stores/persistentStore.ts` — generic `createPersistentStore<T>(key, initial)` returning `{ get, set, subscribe }` and a `usePersistentStore` hook backed by `useSyncExternalStore`. JSON-serialized to `localStorage`, so any base64 image dataURL is preserved across full page reloads.
+- `src/lib/stores/customersStore.ts` — `Customer` type with `photoDataUrl`, `dob`, `aadhar`, `pan`, address fields, KYC status, etc. Exposes `addCustomer / updateCustomer / deleteCustomer / useCustomers`. Auto-incrementing `KTG-` IDs (max existing + module counter, so refresh + re-add never collides). Storage key `kittangi:customers:v1`.
+- `src/lib/stores/pledgedItemsStore.ts` — `PledgedItem` type with `photos: string[]`, status (`VAULTED | RELEASED | AUCTION`), gross/net weight, vault location, `originatedAt`. Exposes `addPledgedItem / updatePledgedItem / usePledgedItems`. Storage key `kittangi:pledged-items:v1`.
+- `src/components/shared/PhotoCapture.tsx` — single-photo capture: file upload + `getUserMedia` (front camera) → JPEG dataURL via canvas. Stops media tracks on unmount/cancel.
+- `src/components/shared/ItemImageUploader.tsx` — multi-photo dropzone + camera (rear camera by default), max 6 photos / 5 MB each, with thumb tray and per-photo delete.
+- Wiring: `Customers.tsx` adds avatar + Edit/Delete columns and a mode-aware drawer (Add/Edit) with `PhotoCapture`. `PawnOrigination.tsx` has an "Item Photographs" card and on submit calls `addPledgedItem({..., photos})` so the new pledge appears immediately in `PledgedItems.tsx`, whose `ManageItemDialog` exposes status/weight editing and a photo carousel + thumbnails.
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages

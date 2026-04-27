@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
   FileText,
   Filter,
+  Pencil,
   Plus,
   Search,
+  Trash2,
   Upload,
   UserPlus,
   Users,
@@ -38,76 +40,35 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-type KycStatus = "Verified" | "Pending" | "Rejected";
-
-type Customer = {
-  id: string;
-  fullName: string;
-  phone: string;
-  email: string;
-  kycStatus: KycStatus;
-  activeLoans: number;
-};
-
-const SAMPLE_CUSTOMERS: Customer[] = [
-  {
-    id: "KTG-10042",
-    fullName: "Aanya Sharma",
-    phone: "+91 98212 44510",
-    email: "aanya.sharma@gmail.com",
-    kycStatus: "Verified",
-    activeLoans: 2,
-  },
-  {
-    id: "KTG-10043",
-    fullName: "Ravi Krishnan",
-    phone: "+91 90031 78902",
-    email: "ravi.k@outlook.com",
-    kycStatus: "Pending",
-    activeLoans: 1,
-  },
-  {
-    id: "KTG-10044",
-    fullName: "Meera Iyer",
-    phone: "+91 99450 11236",
-    email: "meera.iyer@yahoo.com",
-    kycStatus: "Verified",
-    activeLoans: 3,
-  },
-  {
-    id: "KTG-10045",
-    fullName: "Suresh Patel",
-    phone: "+91 98455 90218",
-    email: "suresh.patel@kittangi.in",
-    kycStatus: "Rejected",
-    activeLoans: 0,
-  },
-  {
-    id: "KTG-10046",
-    fullName: "Divya Nair",
-    phone: "+91 99002 18443",
-    email: "divya.nair@gmail.com",
-    kycStatus: "Pending",
-    activeLoans: 0,
-  },
-  {
-    id: "KTG-10047",
-    fullName: "Kunal Mehta",
-    phone: "+91 98990 23311",
-    email: "kunal.mehta@gmail.com",
-    kycStatus: "Verified",
-    activeLoans: 1,
-  },
-];
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import PhotoCapture from "@/components/shared/PhotoCapture";
+import {
+  addCustomer,
+  deleteCustomer,
+  updateCustomer,
+  useCustomers,
+  type Customer,
+  type KycStatus,
+} from "@/lib/stores/customersStore";
 
 type KycFilter = "ALL" | KycStatus;
 
-type AddCustomerForm = {
+type CustomerForm = {
   firstName: string;
   lastName: string;
   dob: string;
   phone: string;
+  email: string;
+  kycStatus: KycStatus;
   aadhar: string;
   pan: string;
   street: string;
@@ -302,24 +263,38 @@ function FileDropzone({
   );
 }
 
-function AddCustomerDrawer({
+const inputClass =
+  "h-9 rounded-md border bg-white text-sm outline-none transition-colors focus:ring-2";
+const inputStyle = {
+  borderColor: "rgba(74,111,165,0.20)",
+  "--tw-ring-color": "var(--brand-light)",
+} as React.CSSProperties;
+
+function CustomerDrawer({
   open,
   onOpenChange,
+  editing,
 }: {
   open: boolean;
   onOpenChange: (next: boolean) => void;
+  editing: Customer | null;
 }) {
+  const isEdit = !!editing;
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
-  } = useForm<AddCustomerForm>({
+  } = useForm<CustomerForm>({
     defaultValues: {
       firstName: "",
       lastName: "",
       dob: "",
       phone: "",
+      email: "",
+      kycStatus: "Pending",
       aadhar: "",
       pan: "",
       street: "",
@@ -331,36 +306,99 @@ function AddCustomerDrawer({
 
   const [aadharFile, setAadharFile] = useState<string | null>(null);
   const [panFile, setPanFile] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
 
-  const onSubmit = (data: AddCustomerForm) => {
-    const payload = {
-      ...data,
-      documents: { aadharFile, panFile },
+  // When the drawer opens, hydrate the form. Splits the stored fullName so the
+  // user still sees a familiar first / last name pair while editing.
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      const parts = editing.fullName.trim().split(/\s+/);
+      const first = parts.shift() ?? "";
+      const last = parts.join(" ");
+      reset({
+        firstName: first,
+        lastName: last,
+        dob: editing.dob ?? "",
+        phone: editing.phone,
+        email: editing.email,
+        kycStatus: editing.kycStatus,
+        aadhar: editing.aadhar ?? "",
+        pan: editing.pan ?? "",
+        street: editing.address?.street ?? "",
+        city: editing.address?.city ?? "",
+        state: editing.address?.state ?? "",
+        pincode: editing.address?.pincode ?? "",
+      });
+      setPhoto(editing.photoDataUrl ?? null);
+      setAadharFile(null);
+      setPanFile(null);
+    } else {
+      reset({
+        firstName: "",
+        lastName: "",
+        dob: "",
+        phone: "",
+        email: "",
+        kycStatus: "Pending",
+        aadhar: "",
+        pan: "",
+        street: "",
+        city: "",
+        state: "",
+        pincode: "",
+      });
+      setPhoto(null);
+      setAadharFile(null);
+      setPanFile(null);
+    }
+  }, [open, editing, reset]);
+
+  const kycStatus = watch("kycStatus");
+
+  const onSubmit = (data: CustomerForm) => {
+    const fullName = `${data.firstName} ${data.lastName}`.trim();
+    const address = {
+      street: data.street,
+      city: data.city,
+      state: data.state,
+      pincode: data.pincode,
     };
-    // eslint-disable-next-line no-console
-    console.log("[Kittangi OS] New customer submitted:", payload);
-    toast.success("Customer saved", {
-      description: `${data.firstName} ${data.lastName} has been added to the registry.`,
-    });
-    reset();
-    setAadharFile(null);
-    setPanFile(null);
+    if (isEdit && editing) {
+      updateCustomer(editing.id, {
+        fullName,
+        phone: data.phone,
+        email: data.email,
+        kycStatus: data.kycStatus,
+        photoDataUrl: photo ?? undefined,
+        dob: data.dob,
+        aadhar: data.aadhar,
+        pan: data.pan,
+        address,
+      });
+      toast.success("Customer updated", {
+        description: `${fullName} saved to the registry.`,
+      });
+    } else {
+      const created = addCustomer({
+        fullName,
+        phone: data.phone,
+        email: data.email,
+        kycStatus: data.kycStatus,
+        photoDataUrl: photo ?? undefined,
+        dob: data.dob,
+        aadhar: data.aadhar,
+        pan: data.pan,
+        address,
+      });
+      toast.success("Customer saved", {
+        description: `${created.fullName} added · ID ${created.id}`,
+      });
+    }
     onOpenChange(false);
   };
 
-  const close = () => {
-    reset();
-    setAadharFile(null);
-    setPanFile(null);
-    onOpenChange(false);
-  };
-
-  const inputClass =
-    "h-9 rounded-md border bg-white text-sm outline-none transition-colors focus:ring-2";
-  const inputStyle = {
-    borderColor: "rgba(74,111,165,0.20)",
-    "--tw-ring-color": "var(--brand-light)",
-  } as React.CSSProperties;
+  const close = () => onOpenChange(false);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -378,20 +416,26 @@ function AddCustomerDrawer({
               className="flex h-10 w-10 items-center justify-center rounded-lg"
               style={{ backgroundColor: "var(--brand-light)" }}
             >
-              <UserPlus size={18} style={{ color: "var(--brand-primary)" }} />
+              {isEdit ? (
+                <Pencil size={18} style={{ color: "var(--brand-primary)" }} />
+              ) : (
+                <UserPlus size={18} style={{ color: "var(--brand-primary)" }} />
+              )}
             </div>
             <div>
               <SheetTitle
                 className="text-lg font-bold"
                 style={{ color: "var(--brand-primary)" }}
               >
-                Add New Customer
+                {isEdit ? "Edit Customer" : "Add New Customer"}
               </SheetTitle>
               <SheetDescription
                 className="text-xs"
                 style={{ color: "var(--text-muted)" }}
               >
-                Capture KYC details to onboard a customer to the global registry.
+                {isEdit
+                  ? `Update KYC details for ${editing?.fullName}.`
+                  : "Capture KYC details to onboard a customer to the global registry."}
               </SheetDescription>
             </div>
           </div>
@@ -402,8 +446,23 @@ function AddCustomerDrawer({
           className="flex min-h-0 flex-1 flex-col"
         >
           <div className="flex-1 space-y-8 overflow-y-auto px-6 py-6">
+            {/* Step 1 — Profile photo */}
             <FormSection
               step={1}
+              title="Profile Photo"
+              description="Capture a clear face photo or upload one from disk."
+            >
+              <div className="col-span-2">
+                <PhotoCapture
+                  value={photo}
+                  onChange={setPhoto}
+                  label="Customer Photo"
+                />
+              </div>
+            </FormSection>
+
+            <FormSection
+              step={2}
               title="Personal Details"
               description="Basic identifying information."
             >
@@ -454,10 +513,44 @@ function AddCustomerDrawer({
                   {...register("phone", { required: true })}
                 />
               </FieldGroup>
+              <FieldGroup id="email" label="Email" required full>
+                <Input
+                  id="email"
+                  type="email"
+                  className={inputClass}
+                  style={inputStyle}
+                  placeholder="customer@gmail.com"
+                  {...register("email", { required: true })}
+                />
+                {errors.email ? (
+                  <p className="text-[11px]" style={{ color: "#B91C1C" }}>
+                    Email is required.
+                  </p>
+                ) : null}
+              </FieldGroup>
+              <FieldGroup id="kycStatus" label="KYC Status" required full>
+                <Select
+                  value={kycStatus}
+                  onValueChange={(v) => setValue("kycStatus", v as KycStatus)}
+                >
+                  <SelectTrigger
+                    id="kycStatus"
+                    className="h-9 w-full bg-white text-sm"
+                    style={inputStyle}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Verified">Verified</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FieldGroup>
             </FormSection>
 
             <FormSection
-              step={2}
+              step={3}
               title="KYC Documents"
               description="Government-issued identity proofs."
             >
@@ -494,7 +587,7 @@ function AddCustomerDrawer({
             </FormSection>
 
             <FormSection
-              step={3}
+              step={4}
               title="Address Details"
               description="Current residential address."
             >
@@ -562,8 +655,17 @@ function AddCustomerDrawer({
                 backgroundColor: "var(--brand-primary)",
               }}
             >
-              <UserPlus size={16} className="mr-1.5" />
-              Save Customer
+              {isEdit ? (
+                <>
+                  <Pencil size={16} className="mr-1.5" />
+                  Save Changes
+                </>
+              ) : (
+                <>
+                  <UserPlus size={16} className="mr-1.5" />
+                  Save Customer
+                </>
+              )}
             </Button>
           </div>
         </form>
@@ -572,14 +674,48 @@ function AddCustomerDrawer({
   );
 }
 
+function CustomerAvatar({ customer }: { customer: Customer }) {
+  if (customer.photoDataUrl) {
+    return (
+      <img
+        src={customer.photoDataUrl}
+        alt={customer.fullName}
+        className="h-9 w-9 rounded-full object-cover ring-2"
+        style={{
+          // @ts-expect-error CSS var
+          "--tw-ring-color": "var(--brand-light)",
+        }}
+      />
+    );
+  }
+  const initials = customer.fullName
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("");
+  return (
+    <div
+      className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold text-white"
+      style={{ backgroundColor: "var(--brand-primary)" }}
+      aria-hidden
+    >
+      {initials || "?"}
+    </div>
+  );
+}
+
 export default function Customers() {
-  const [open, setOpen] = useState(false);
+  const customers = useCustomers();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editing, setEditing] = useState<Customer | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Customer | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<KycFilter>("ALL");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return SAMPLE_CUSTOMERS.filter((c) => {
+    return customers.filter((c) => {
       const matchesSearch =
         !q ||
         c.fullName.toLowerCase().includes(q) ||
@@ -588,7 +724,24 @@ export default function Customers() {
         statusFilter === "ALL" || c.kycStatus === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [search, statusFilter]);
+  }, [search, statusFilter, customers]);
+
+  const openAdd = () => {
+    setEditing(null);
+    setDrawerOpen(true);
+  };
+  const openEdit = (c: Customer) => {
+    setEditing(c);
+    setDrawerOpen(true);
+  };
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    deleteCustomer(pendingDelete.id);
+    toast.success("Customer deleted", {
+      description: `${pendingDelete.fullName} removed from the registry.`,
+    });
+    setPendingDelete(null);
+  };
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -615,7 +768,7 @@ export default function Customers() {
         </div>
 
         <Button
-          onClick={() => setOpen(true)}
+          onClick={openAdd}
           className="h-10 px-4 text-sm font-semibold text-white shadow-sm"
           style={{ backgroundColor: "var(--brand-primary)" }}
         >
@@ -689,13 +842,13 @@ export default function Customers() {
                 className="text-[11px] font-semibold uppercase tracking-wider"
                 style={{ color: "var(--text-muted)" }}
               >
-                Customer ID
+                Customer
               </TableHead>
               <TableHead
                 className="text-[11px] font-semibold uppercase tracking-wider"
                 style={{ color: "var(--text-muted)" }}
               >
-                Full Name
+                Customer ID
               </TableHead>
               <TableHead
                 className="text-[11px] font-semibold uppercase tracking-wider"
@@ -715,12 +868,18 @@ export default function Customers() {
               >
                 Active Loans
               </TableHead>
+              <TableHead
+                className="text-right text-[11px] font-semibold uppercase tracking-wider"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-12 text-center">
+                <TableCell colSpan={6} className="py-12 text-center">
                   <div className="flex flex-col items-center gap-1">
                     <FileText size={20} style={{ color: "var(--text-muted)" }} />
                     <p
@@ -742,17 +901,22 @@ export default function Customers() {
                   className="transition-colors"
                   style={{ borderColor: "rgba(74,111,165,0.08)" }}
                 >
+                  <TableCell className="py-3">
+                    <div className="flex items-center gap-3">
+                      <CustomerAvatar customer={c} />
+                      <span
+                        className="text-sm font-semibold"
+                        style={{ color: "var(--text-main)" }}
+                      >
+                        {c.fullName}
+                      </span>
+                    </div>
+                  </TableCell>
                   <TableCell
                     className="font-mono text-xs"
                     style={{ color: "var(--brand-primary)" }}
                   >
                     {c.id}
-                  </TableCell>
-                  <TableCell
-                    className="text-sm font-semibold"
-                    style={{ color: "var(--text-main)" }}
-                  >
-                    {c.fullName}
                   </TableCell>
                   <TableCell className="text-xs">
                     <div style={{ color: "var(--text-main)" }}>{c.phone}</div>
@@ -781,6 +945,32 @@ export default function Customers() {
                       </span>
                     )}
                   </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEdit(c)}
+                        className="h-8 w-8 p-0"
+                        style={{ color: "var(--brand-primary)" }}
+                        aria-label={`Edit ${c.fullName}`}
+                      >
+                        <Pencil size={14} />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPendingDelete(c)}
+                        className="h-8 w-8 p-0"
+                        style={{ color: "#B91C1C" }}
+                        aria-label={`Delete ${c.fullName}`}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -796,13 +986,44 @@ export default function Customers() {
         >
           <span>
             Showing <strong style={{ color: "var(--text-main)" }}>{filtered.length}</strong>{" "}
-            of {SAMPLE_CUSTOMERS.length} customers
+            of {customers.length} customers
           </span>
-          <span>Sample data · live wiring in next step</span>
+          <span>Saved locally · persists across page refreshes</span>
         </div>
       </div>
 
-      <AddCustomerDrawer open={open} onOpenChange={setOpen} />
+      <CustomerDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        editing={editing}
+      />
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(o) => {
+          if (!o) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this customer?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove{" "}
+              <strong>{pendingDelete?.fullName}</strong> ({pendingDelete?.id})
+              from the registry. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              style={{ backgroundColor: "#B91C1C", color: "#fff" }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

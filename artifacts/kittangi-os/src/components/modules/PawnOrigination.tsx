@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import {
   Banknote,
+  Camera,
   CheckCircle2,
   IndianRupee,
   Landmark,
@@ -30,6 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import ItemImageUploader from "@/components/shared/ItemImageUploader";
+import { addPledgedItem } from "@/lib/stores/pledgedItemsStore";
 
 type ItemType = "GOLD" | "SILVER";
 type SafeNumber = "SAFE_A" | "SAFE_B" | "SAFE_C";
@@ -114,6 +117,17 @@ export default function PawnOrigination() {
 
   const values = useWatch({ control });
 
+  /**
+   * Captured/uploaded photos of the gold or jewel item.
+   *
+   * IMPORTANT: When the pawn ticket is generated, these images are forwarded
+   * straight into the persistent Pledged Inventory store via
+   * `addPledgedItem({ ..., photos })`. The Pledged Inventory gallery (and its
+   * "Manage Item" modal) read from the same store, so any photo captured here
+   * is immediately visible there — there is no separate upload step.
+   */
+  const [itemPhotos, setItemPhotos] = useState<string[]>([]);
+
   const selectedCustomer = useMemo(
     () => VERIFIED_CUSTOMERS.find((c) => c.id === values.customerId),
     [values.customerId],
@@ -163,6 +177,30 @@ export default function PawnOrigination() {
     }
 
     const ticketNo = `PWN-${Math.floor(100000 + Math.random() * 899999)}`;
+
+    // Forward the newly originated pledge — including any captured photos —
+    // into the shared Pledged Inventory store. The PledgedItems gallery and
+    // "Manage Item" modal subscribe to the same store and pick this up
+    // immediately without a refresh.
+    const safe = SAFES.find((s) => s.value === data.safeNumber);
+    const itemTitle =
+      data.itemType === "GOLD"
+        ? `${parseFloat(data.netWeight).toFixed(2)}g Gold Item`
+        : `${parseFloat(data.netWeight).toFixed(2)}g Silver Item`;
+    addPledgedItem({
+      title: itemTitle,
+      category: data.itemType,
+      grossWeightG: parseFloat(data.grossWeight || data.netWeight) || 0,
+      netWeightG: netWeight,
+      pledgedValue: requested,
+      loanId: ticketNo,
+      customer: selectedCustomer?.name ?? data.customerId,
+      status: "VAULTED",
+      vaultLoc: safe ? `${safe.label} · ${data.lockerNumber}` : data.lockerNumber,
+      photos: itemPhotos.length > 0 ? itemPhotos : undefined,
+      originatedAt: new Date().toISOString(),
+    });
+
     toast.success("Pawn ticket generated", {
       description: `${ticketNo} • ${inr(netDisbursement)} disbursed via ${
         PAYMENT_SOURCES.find((p) => p.value === data.paymentSource)?.label
@@ -170,6 +208,7 @@ export default function PawnOrigination() {
       icon: <CheckCircle2 size={18} />,
     });
     reset();
+    setItemPhotos([]);
   };
 
   return (
@@ -692,6 +731,48 @@ export default function PawnOrigination() {
           </div>
         </div>
 
+        {/* Item Photographs — full width */}
+        {/*
+         * The images attached here are forwarded into the Pledged Inventory
+         * gallery on submit (see addPledgedItem call above) so staff can later
+         * view them in the high-resolution viewer of the "Manage Item" modal.
+         */}
+        <Card
+          className="border bg-white shadow-sm"
+          style={{ borderColor: "rgba(74,111,165,0.12)" }}
+        >
+          <CardHeader className="pb-3">
+            <div className="flex items-start gap-3">
+              <div
+                className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
+                style={{ backgroundColor: "var(--brand-light)" }}
+              >
+                <Camera size={16} style={{ color: "var(--brand-primary)" }} />
+              </div>
+              <div>
+                <CardTitle
+                  className="text-base font-semibold"
+                  style={{ color: "var(--brand-primary)" }}
+                >
+                  Item Photographs
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Capture clear, high-resolution photos of the gold or jewel
+                  item. These will be passed straight into the Pledged
+                  Inventory gallery.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ItemImageUploader
+              value={itemPhotos}
+              onChange={setItemPhotos}
+              max={6}
+            />
+          </CardContent>
+        </Card>
+
         {/* Payment Source — full width */}
         <Card
           className="border bg-white shadow-sm"
@@ -774,7 +855,10 @@ export default function PawnOrigination() {
             type="button"
             variant="outline"
             className="h-12 px-5"
-            onClick={() => reset()}
+            onClick={() => {
+              reset();
+              setItemPhotos([]);
+            }}
           >
             Reset Form
           </Button>
