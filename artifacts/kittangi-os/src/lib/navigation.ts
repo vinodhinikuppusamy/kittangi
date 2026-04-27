@@ -8,6 +8,7 @@ import {
   Car,
   Wrench,
   Gem,
+  PieChart,
   Settings as SettingsIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -28,6 +29,7 @@ export const PAWN_NAV: NavItem[] = [
   { to: "/vault-management", label: "Vault Management", icon: Vault },
   { to: "/receipts-ledger", label: "Receipts & Ledger", icon: ReceiptText },
   { to: "/daybook", label: "Daybook (Chitta)", icon: BookOpen },
+  { to: "/reports", label: "Reports", icon: PieChart },
 ];
 
 export const VEHICLE_NAV: NavItem[] = [

@@ -22,6 +22,7 @@ import ReceiptsLedger from "@/components/modules/ReceiptsLedger";
 import Daybook from "@/components/modules/Daybook";
 import PledgedItems from "@/components/modules/PledgedItems";
 import Settings from "@/components/modules/Settings";
+import Reports from "@/components/modules/Reports";
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
           <Route path="/pawn-origination" element={<PawnOrigination />} />
           <Route path="/pledged-items" element={<PledgedItems />} />
           <Route path="/vault-management" element={<VaultManagement />} />
+          <Route path="/reports" element={<Reports />} />
 
           {/* Vehicle vertical */}
           <Route
