@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
   Building2,
   CheckCircle2,
   IndianRupee,
+  Pencil,
   Percent,
   Plus,
   Settings as SettingsIcon,
   ShieldCheck,
+  Trash2,
   Users as UsersIcon,
+  Vault,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -38,19 +41,42 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  useBranchProfile,
+  updateBranchProfile,
+  type BranchProfile,
+} from "@/lib/stores/branchProfileStore";
+import {
+  addSafe,
+  deleteSafe,
+  lockerRangeLabel,
+  updateSafe,
+  useVaultConfig,
+  type SafeConfig,
+} from "@/lib/stores/vaultConfigStore";
 
 const inputBaseStyle: React.CSSProperties = {
   borderColor: "rgba(74,111,165,0.20)",
   "--tw-ring-color": "var(--brand-light)",
 } as React.CSSProperties;
-
-type BranchForm = {
-  branchName: string;
-  branchCode: string;
-  gstin: string;
-  address: string;
-  contact: string;
-};
 
 type RatesForm = {
   pawnRate: string;
@@ -173,7 +199,7 @@ export default function Settings() {
             System Settings
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Admin control center — branch profile, staff access, and global financial parameters.
+            Admin control center — branch profile, staff access, financial parameters, and vault layout.
           </p>
         </div>
       </div>
@@ -204,6 +230,13 @@ export default function Settings() {
             <Percent className="h-4 w-4" />
             Rates &amp; Fees
           </TabsTrigger>
+          <TabsTrigger
+            value="vault"
+            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            <Vault className="h-4 w-4" />
+            Vault Configuration
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="branch" className="m-0">
@@ -217,6 +250,10 @@ export default function Settings() {
         <TabsContent value="rates" className="m-0">
           <RatesAndFeesTab />
         </TabsContent>
+
+        <TabsContent value="vault" className="m-0">
+          <VaultConfigurationTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -225,21 +262,24 @@ export default function Settings() {
 /* -------------------- Tab 1: Branch Profile -------------------- */
 
 function BranchProfileTab() {
+  const branch = useBranchProfile();
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
-  } = useForm<BranchForm>({
-    defaultValues: {
-      branchName: "Kittangi Main",
-      branchCode: "KTG-001",
-      gstin: "29ABCDE1234F1Z5",
-      address: "No. 14, MG Road, Bengaluru, Karnataka — 560001",
-      contact: "+91 98450 12345",
-    },
+  } = useForm<BranchProfile>({
+    defaultValues: branch,
   });
 
-  const onSubmit = (data: BranchForm) => {
+  // Keep the form in sync if another surface (e.g. a future API import) writes
+  // to the branch store while this tab is mounted.
+  useEffect(() => {
+    reset(branch);
+  }, [branch, reset]);
+
+  const onSubmit = (data: BranchProfile) => {
+    updateBranchProfile(data);
     toast.success("Branch profile saved", {
       icon: <CheckCircle2 className="h-4 w-4" />,
       description: `${data.branchName} (${data.branchCode}) updated successfully.`,
@@ -264,7 +304,7 @@ function BranchProfileTab() {
               Branch Profile
             </CardTitle>
             <CardDescription className="text-sm text-slate-500">
-              Identification, address, and tax registration details for this branch.
+              Identification, address, and tax registration details for this branch. Used on every printed receipt and statement.
             </CardDescription>
           </div>
         </div>
@@ -620,6 +660,453 @@ function RatesAndFeesTab() {
   );
 }
 
+/* -------------------- Tab 4: Vault Configuration -------------------- */
+
+type SafeFormValues = {
+  name: string;
+  subtitle: string;
+  prefix: string;
+  startNumber: string;
+  lockerCount: string;
+};
+
+const EMPTY_SAFE_FORM: SafeFormValues = {
+  name: "",
+  subtitle: "",
+  prefix: "L-",
+  startNumber: "101",
+  lockerCount: "12",
+};
+
+function VaultConfigurationTab() {
+  const safes = useVaultConfig();
+  const [editing, setEditing] = useState<SafeConfig | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<SafeConfig | null>(null);
+
+  const totalLockers = safes.reduce((s, x) => s + x.lockerCount, 0);
+
+  const openAdd = () => {
+    setEditing(null);
+    setDrawerOpen(true);
+  };
+
+  const openEdit = (safe: SafeConfig) => {
+    setEditing(safe);
+    setDrawerOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    deleteSafe(pendingDelete.id);
+    toast.success("Safe removed", {
+      description: `${pendingDelete.name} and its ${pendingDelete.lockerCount} lockers were removed from the layout.`,
+    });
+    setPendingDelete(null);
+  };
+
+  return (
+    <Card
+      className="border bg-white"
+      style={{ borderColor: "rgba(74,111,165,0.12)" }}
+    >
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-lg"
+              style={{ background: "var(--brand-light)" }}
+            >
+              <Vault className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+            </div>
+            <div>
+              <CardTitle className="text-base font-semibold text-slate-900">
+                Vault Layout
+              </CardTitle>
+              <CardDescription className="text-sm text-slate-500">
+                Define the physical safes in this branch. Each safe generates its own ordered set of lockers from the prefix and start number.
+              </CardDescription>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            onClick={openAdd}
+            className="h-10 font-semibold text-white shadow-sm"
+            style={{ background: "var(--brand-primary)" }}
+          >
+            <Plus className="mr-1 h-4 w-4" />
+            Add Safe
+          </Button>
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        <div
+          className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4"
+        >
+          <SummaryTile label="Configured Safes" value={String(safes.length)} />
+          <SummaryTile label="Total Lockers" value={totalLockers.toLocaleString("en-IN")} />
+          <SummaryTile
+            label="Avg. Lockers / Safe"
+            value={
+              safes.length === 0
+                ? "—"
+                : Math.round(totalLockers / safes.length).toString()
+            }
+          />
+          <SummaryTile
+            label="Status"
+            value={safes.length === 0 ? "Empty" : "Live"}
+          />
+        </div>
+
+        <div
+          className="overflow-hidden rounded-lg border"
+          style={{ borderColor: "rgba(74,111,165,0.12)" }}
+        >
+          <Table>
+            <TableHeader>
+              <TableRow style={{ background: "rgba(191,221,245,0.25)" }}>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  Safe
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  Location
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  Locker Range
+                </TableHead>
+                <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  Lockers
+                </TableHead>
+                <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {safes.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <Vault className="h-6 w-6 text-slate-300" />
+                      <p className="text-sm font-medium text-slate-700">
+                        No safes configured yet
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Click <strong>Add Safe</strong> to define your first vault.
+                      </p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                safes.map((s) => (
+                  <TableRow key={s.id} className="hover:bg-slate-50/60">
+                    <TableCell className="py-3">
+                      <div className="font-semibold text-slate-900">{s.name}</div>
+                      <div className="font-mono text-[11px] text-slate-500">
+                        {s.id}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3 text-sm text-slate-600">
+                      {s.subtitle || "—"}
+                    </TableCell>
+                    <TableCell className="py-3 font-mono text-xs">
+                      <span
+                        className="rounded-md border bg-white px-2 py-1"
+                        style={{
+                          borderColor: "rgba(74,111,165,0.18)",
+                          color: "var(--brand-primary)",
+                        }}
+                      >
+                        {lockerRangeLabel(s)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3 text-right">
+                      <span
+                        className="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-semibold"
+                        style={{
+                          backgroundColor: "var(--brand-light)",
+                          color: "var(--brand-primary)",
+                        }}
+                      >
+                        {s.lockerCount}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEdit(s)}
+                          className="h-8 w-8 p-0"
+                          style={{ color: "var(--brand-primary)" }}
+                          aria-label={`Edit ${s.name}`}
+                        >
+                          <Pencil size={14} />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPendingDelete(s)}
+                          className="h-8 w-8 p-0"
+                          style={{ color: "#B91C1C" }}
+                          aria-label={`Delete ${s.name}`}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <p className="mt-3 text-[11px] text-slate-500">
+          Locker IDs are derived as <span className="font-mono">prefix + (start + index)</span>.
+          E.g. prefix <span className="font-mono">L-</span>, start <span className="font-mono">101</span>, count
+          <span className="font-mono"> 16</span> → <span className="font-mono">L-101 … L-116</span>.
+          Saved locally · persists across page refreshes.
+        </p>
+      </CardContent>
+
+      <SafeDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        editing={editing}
+      />
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(o) => {
+          if (!o) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this safe?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{pendingDelete?.name}</strong> ({pendingDelete?.lockerCount} lockers)
+              will no longer appear in the Vault Visualizer. Pledged items mapped to its
+              lockers will remain in the registry but will need to be re-assigned.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              style={{ backgroundColor: "#B91C1C", color: "#fff" }}
+            >
+              Remove Safe
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
+  );
+}
+
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      className="rounded-lg border bg-white px-3 py-2.5"
+      style={{ borderColor: "rgba(74,111,165,0.12)" }}
+    >
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        {label}
+      </div>
+      <div
+        className="mt-0.5 text-base font-bold"
+        style={{ color: "var(--brand-primary)" }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function SafeDrawer({
+  open,
+  onOpenChange,
+  editing,
+}: {
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  editing: SafeConfig | null;
+}) {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<SafeFormValues>({
+    defaultValues: EMPTY_SAFE_FORM,
+  });
+
+  // Hydrate the form whenever the drawer opens, either with the safe being
+  // edited or the empty defaults for a brand-new safe.
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      reset({
+        name: editing.name,
+        subtitle: editing.subtitle,
+        prefix: editing.prefix,
+        startNumber: String(editing.startNumber),
+        lockerCount: String(editing.lockerCount),
+      });
+    } else {
+      reset(EMPTY_SAFE_FORM);
+    }
+  }, [open, editing, reset]);
+
+  const onSubmit = (data: SafeFormValues) => {
+    const startNumber = parseInt(data.startNumber, 10);
+    const lockerCount = parseInt(data.lockerCount, 10);
+    const payload = {
+      name: data.name.trim(),
+      subtitle: data.subtitle.trim(),
+      prefix: data.prefix,
+      startNumber: Number.isFinite(startNumber) ? startNumber : 1,
+      lockerCount: Number.isFinite(lockerCount) ? Math.max(0, lockerCount) : 0,
+    };
+
+    if (editing) {
+      updateSafe(editing.id, payload);
+      toast.success("Safe updated", {
+        description: `${payload.name} now has ${payload.lockerCount} lockers (${payload.prefix}${payload.startNumber}…).`,
+      });
+    } else {
+      const created = addSafe(payload);
+      toast.success("Safe added", {
+        description: `${created.name} (${created.id}) created with ${created.lockerCount} lockers.`,
+      });
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle
+            className="text-base font-semibold"
+            style={{ color: "var(--brand-primary)" }}
+          >
+            {editing ? `Edit ${editing.name}` : "Add a new safe"}
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Lockers are auto-numbered from the prefix + start number for the
+            given count.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <FieldGroup label="Safe Name" htmlFor="safe-name" error={errors.name?.message}>
+            <Input
+              id="safe-name"
+              placeholder="e.g., Safe A"
+              className="h-10"
+              style={inputBaseStyle}
+              {...register("name", { required: "Safe name is required" })}
+            />
+          </FieldGroup>
+
+          <FieldGroup label="Location / Subtitle" htmlFor="safe-subtitle">
+            <Input
+              id="safe-subtitle"
+              placeholder="e.g., Main Vault • Ground Floor"
+              className="h-10"
+              style={inputBaseStyle}
+              {...register("subtitle")}
+            />
+          </FieldGroup>
+
+          <div className="grid grid-cols-3 gap-3">
+            <FieldGroup label="Locker Prefix" htmlFor="safe-prefix" error={errors.prefix?.message}>
+              <Input
+                id="safe-prefix"
+                placeholder="L-"
+                className="h-10 font-mono"
+                style={inputBaseStyle}
+                {...register("prefix", {
+                  required: "Required",
+                  maxLength: { value: 6, message: "Max 6 chars" },
+                })}
+              />
+            </FieldGroup>
+
+            <FieldGroup
+              label="Start Number"
+              htmlFor="safe-start"
+              error={errors.startNumber?.message}
+            >
+              <Input
+                id="safe-start"
+                type="number"
+                min={1}
+                placeholder="101"
+                className="h-10"
+                style={inputBaseStyle}
+                {...register("startNumber", {
+                  required: "Required",
+                  pattern: { value: /^\d+$/, message: "Whole number" },
+                })}
+              />
+            </FieldGroup>
+
+            <FieldGroup
+              label="Locker Count"
+              htmlFor="safe-count"
+              error={errors.lockerCount?.message}
+            >
+              <Input
+                id="safe-count"
+                type="number"
+                min={0}
+                max={500}
+                placeholder="12"
+                className="h-10"
+                style={inputBaseStyle}
+                {...register("lockerCount", {
+                  required: "Required",
+                  pattern: { value: /^\d+$/, message: "Whole number" },
+                  validate: (v) => {
+                    const n = parseInt(v, 10);
+                    if (!Number.isFinite(n) || n < 0) return "Must be ≥ 0";
+                    if (n > 500) return "Max 500 lockers";
+                    return true;
+                  },
+                })}
+              />
+            </FieldGroup>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="font-semibold text-white shadow-sm"
+              style={{ background: "var(--brand-primary)" }}
+            >
+              <CheckCircle2 className="mr-1 h-4 w-4" />
+              {editing ? "Save Changes" : "Add Safe"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* -------------------- Helpers -------------------- */
 
 function FieldGroup({
@@ -629,7 +1116,7 @@ function FieldGroup({
   children,
 }: {
   label: string;
-  htmlFor: string;
+  htmlFor?: string;
   error?: string;
   children: React.ReactNode;
 }) {

@@ -900,21 +900,28 @@ export default function Customers() {
               filtered.map((c) => (
                 <TableRow
                   key={c.id}
-                  className="transition-colors"
+                  onClick={() => setViewing(c)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setViewing(c);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Open Customer 360 for ${c.fullName}`}
+                  className="cursor-pointer transition-colors hover:bg-slate-50/70 focus:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-light)]"
                   style={{ borderColor: "rgba(74,111,165,0.08)" }}
                 >
                   <TableCell className="py-3">
                     <div className="flex items-center gap-3">
                       <CustomerAvatar customer={c} />
-                      <button
-                        type="button"
-                        onClick={() => setViewing(c)}
-                        className="rounded text-left text-sm font-semibold transition-colors hover:underline"
+                      <span
+                        className="text-left text-sm font-semibold"
                         style={{ color: "var(--brand-primary)" }}
-                        aria-label={`Open Customer 360 for ${c.fullName}`}
                       >
                         {c.fullName}
-                      </button>
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell
@@ -950,13 +957,19 @@ export default function Customers() {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell
+                    className="text-right"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <div className="flex items-center justify-end gap-1">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => openEdit(c)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit(c);
+                        }}
                         className="h-8 w-8 p-0"
                         style={{ color: "var(--brand-primary)" }}
                         aria-label={`Edit ${c.fullName}`}
@@ -967,7 +980,10 @@ export default function Customers() {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => setPendingDelete(c)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPendingDelete(c);
+                        }}
                         className="h-8 w-8 p-0"
                         style={{ color: "#B91C1C" }}
                         aria-label={`Delete ${c.fullName}`}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Box,
@@ -7,9 +7,11 @@ import {
   Lock,
   Package,
   Printer,
+  Settings as SettingsIcon,
   Shield,
   Vault,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,8 +30,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-type SafeId = "SAFE_A" | "SAFE_B";
+import {
+  generateLockerIds,
+  normalizeSafeKey,
+  parseVaultLoc,
+  useVaultConfig,
+  type SafeConfig,
+} from "@/lib/stores/vaultConfigStore";
+import { usePledgedItems } from "@/lib/stores/pledgedItemsStore";
 
 type LockerStatus = "OCCUPIED" | "AVAILABLE";
 
@@ -43,151 +51,21 @@ type Locker = {
   dateStored?: string;
 };
 
-const SAFES: {
-  id: SafeId;
-  name: string;
-  subtitle: string;
+type ResolvedSafe = {
+  config: SafeConfig;
   lockers: Locker[];
-}[] = [
-  {
-    id: "SAFE_A",
-    name: "Safe A",
-    subtitle: "Main Vault • Ground Floor",
-    lockers: [
-      {
-        id: "L-101",
-        status: "OCCUPIED",
-        packageId: "Pkg-45",
-        loanId: "PWN-204512",
-        customerName: "Aanya Sharma",
-        itemDescription: "22K Gold Necklace, 25g",
-        dateStored: "12 Apr 2026",
-      },
-      {
-        id: "L-102",
-        status: "OCCUPIED",
-        packageId: "Pkg-46",
-        loanId: "PWN-204519",
-        customerName: "Meera Iyer",
-        itemDescription: "22K Gold Bangles (pair), 38g",
-        dateStored: "14 Apr 2026",
-      },
-      { id: "L-103", status: "AVAILABLE" },
-      {
-        id: "L-104",
-        status: "OCCUPIED",
-        packageId: "Pkg-47",
-        loanId: "PWN-204527",
-        customerName: "Kunal Mehta",
-        itemDescription: "18K Gold Ring with Diamond, 6g",
-        dateStored: "16 Apr 2026",
-      },
-      { id: "L-105", status: "AVAILABLE" },
-      {
-        id: "L-106",
-        status: "OCCUPIED",
-        packageId: "Pkg-48",
-        loanId: "PWN-204533",
-        customerName: "Rohan Verma",
-        itemDescription: "22K Gold Chain, 18g",
-        dateStored: "17 Apr 2026",
-      },
-      { id: "L-107", status: "AVAILABLE" },
-      { id: "L-108", status: "AVAILABLE" },
-      {
-        id: "L-109",
-        status: "OCCUPIED",
-        packageId: "Pkg-49",
-        loanId: "PWN-204540",
-        customerName: "Priya Menon",
-        itemDescription: "Silver Anklets (pair), 110g",
-        dateStored: "18 Apr 2026",
-      },
-      {
-        id: "L-110",
-        status: "OCCUPIED",
-        packageId: "Pkg-50",
-        loanId: "PWN-204548",
-        customerName: "Aanya Sharma",
-        itemDescription: "22K Gold Earrings, 9g",
-        dateStored: "19 Apr 2026",
-      },
-      { id: "L-111", status: "AVAILABLE" },
-      {
-        id: "L-112",
-        status: "OCCUPIED",
-        packageId: "Pkg-51",
-        loanId: "PWN-204555",
-        customerName: "Suresh Patel",
-        itemDescription: "22K Gold Coin (10g) ×2",
-        dateStored: "20 Apr 2026",
-      },
-      { id: "L-113", status: "AVAILABLE" },
-      { id: "L-114", status: "AVAILABLE" },
-      {
-        id: "L-115",
-        status: "OCCUPIED",
-        packageId: "Pkg-52",
-        loanId: "PWN-204561",
-        customerName: "Divya Nair",
-        itemDescription: "22K Gold Mangalsutra, 14g",
-        dateStored: "21 Apr 2026",
-      },
-      { id: "L-116", status: "AVAILABLE" },
-    ],
-  },
-  {
-    id: "SAFE_B",
-    name: "Safe B",
-    subtitle: "Secondary Vault • First Floor",
-    lockers: [
-      {
-        id: "L-201",
-        status: "OCCUPIED",
-        packageId: "Pkg-71",
-        loanId: "PWN-204402",
-        customerName: "Ravi Krishnan",
-        itemDescription: "22K Gold Bracelet, 22g",
-        dateStored: "08 Apr 2026",
-      },
-      { id: "L-202", status: "AVAILABLE" },
-      {
-        id: "L-203",
-        status: "OCCUPIED",
-        packageId: "Pkg-72",
-        loanId: "PWN-204415",
-        customerName: "Meera Iyer",
-        itemDescription: "Silver Pooja Set, 320g",
-        dateStored: "09 Apr 2026",
-      },
-      { id: "L-204", status: "AVAILABLE" },
-      { id: "L-205", status: "AVAILABLE" },
-      {
-        id: "L-206",
-        status: "OCCUPIED",
-        packageId: "Pkg-73",
-        loanId: "PWN-204430",
-        customerName: "Kunal Mehta",
-        itemDescription: "22K Gold Pendant Set, 12g",
-        dateStored: "11 Apr 2026",
-      },
-      { id: "L-207", status: "AVAILABLE" },
-      { id: "L-208", status: "AVAILABLE" },
-      {
-        id: "L-209",
-        status: "OCCUPIED",
-        packageId: "Pkg-74",
-        loanId: "PWN-204441",
-        customerName: "Aanya Sharma",
-        itemDescription: "18K Gold Watch, 42g",
-        dateStored: "13 Apr 2026",
-      },
-      { id: "L-210", status: "AVAILABLE" },
-      { id: "L-211", status: "AVAILABLE" },
-      { id: "L-212", status: "AVAILABLE" },
-    ],
-  },
-];
+};
+
+const formatStoredDate = (iso?: string): string | undefined => {
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
 
 type StatCardProps = {
   label: string;
@@ -236,22 +114,70 @@ function StatCard({ label, value, hint, icon: Icon, accent = "primary" }: StatCa
 }
 
 export default function VaultManagement() {
-  const [activeSafe, setActiveSafe] = useState<SafeId>("SAFE_A");
+  const safesConfig = useVaultConfig();
+  const pledgedItems = usePledgedItems();
+
+  // Build an occupancy map keyed by `<normalizedSafeName>::<lockerId>` so we
+  // can join pledged items to their configured locker even if the admin has
+  // renamed a safe (whitespace, hyphenation, casing all normalised).
+  const resolvedSafes = useMemo<ResolvedSafe[]>(() => {
+    const occupancy = new Map<string, Locker>();
+    for (const item of pledgedItems) {
+      if (item.status !== "VAULTED") continue;
+      const parsed = parseVaultLoc(item.vaultLoc);
+      if (!parsed) continue;
+      occupancy.set(`${parsed.safeKey}::${parsed.lockerId}`, {
+        id: parsed.lockerId,
+        status: "OCCUPIED",
+        packageId: item.id,
+        loanId: item.loanId,
+        customerName: item.customer,
+        itemDescription: `${item.title} • ${item.netWeightG}g net`,
+        dateStored: formatStoredDate(item.originatedAt),
+      });
+    }
+
+    return safesConfig.map((cfg) => {
+      const safeKey = normalizeSafeKey(cfg.name);
+      const lockers: Locker[] = generateLockerIds(cfg).map((lockerId) => {
+        const occ = occupancy.get(`${safeKey}::${lockerId}`);
+        if (occ) return occ;
+        return { id: lockerId, status: "AVAILABLE" };
+      });
+      return { config: cfg, lockers };
+    });
+  }, [safesConfig, pledgedItems]);
+
+  const [activeSafeId, setActiveSafeId] = useState<string>("");
   const [selectedLocker, setSelectedLocker] = useState<Locker | null>(null);
-  const [activeSafeName, setActiveSafeName] = useState<string>("Safe A");
+  const [activeSafeName, setActiveSafeName] = useState<string>("");
+
+  // Keep the active tab in range as safes are added/removed in Settings.
+  useEffect(() => {
+    if (resolvedSafes.length === 0) {
+      if (activeSafeId !== "") setActiveSafeId("");
+      return;
+    }
+    if (!resolvedSafes.some((s) => s.config.id === activeSafeId)) {
+      setActiveSafeId(resolvedSafes[0].config.id);
+    }
+  }, [resolvedSafes, activeSafeId]);
 
   const stats = useMemo(() => {
-    const totalSafes = SAFES.length;
-    const totalLockers = SAFES.reduce((s, x) => s + x.lockers.length, 0);
-    const occupied = SAFES.reduce(
+    const totalSafes = resolvedSafes.length;
+    const totalLockers = resolvedSafes.reduce((s, x) => s + x.lockers.length, 0);
+    const occupied = resolvedSafes.reduce(
       (s, x) => s + x.lockers.filter((l) => l.status === "OCCUPIED").length,
       0,
     );
     const available = totalLockers - occupied;
     return { totalSafes, totalLockers, occupied, available };
-  }, []);
+  }, [resolvedSafes]);
 
-  const occupancyPct = Math.round((stats.occupied / stats.totalLockers) * 100);
+  const occupancyPct =
+    stats.totalLockers > 0
+      ? Math.round((stats.occupied / stats.totalLockers) * 100)
+      : 0;
 
   const handleLockerClick = (locker: Locker, safeName: string) => {
     if (locker.status !== "OCCUPIED") return;
@@ -352,159 +278,220 @@ export default function VaultManagement() {
         style={{ borderColor: "rgba(74,111,165,0.12)" }}
       >
         <CardHeader className="pb-3">
-          <div className="flex items-start gap-3">
-            <div
-              className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
-              style={{ backgroundColor: "var(--brand-light)" }}
-            >
-              <Vault size={16} style={{ color: "var(--brand-primary)" }} />
-            </div>
-            <div>
-              <CardTitle
-                className="text-base font-semibold"
-                style={{ color: "var(--brand-primary)" }}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div
+                className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
+                style={{ backgroundColor: "var(--brand-light)" }}
               >
-                Safe Visualizer
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Click an occupied locker to inspect its contents.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Tabs
-            value={activeSafe}
-            onValueChange={(v) => setActiveSafe(v as SafeId)}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <TabsList
-                className="bg-slate-100 p-1"
-                style={{ backgroundColor: "rgba(191,221,245,0.30)" }}
-              >
-                {SAFES.map((s) => (
-                  <TabsTrigger
-                    key={s.id}
-                    value={s.id}
-                    className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                  >
-                    <Vault size={14} className="mr-1.5" />
-                    {s.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
-              {/* Legend */}
-              <div className="flex items-center gap-4 text-xs text-slate-500">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="inline-block h-3 w-3 rounded border"
-                    style={{
-                      backgroundColor: "white",
-                      borderColor: "rgb(34,197,94)",
-                    }}
-                  />
-                  Available
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="inline-block h-3 w-3 rounded border"
-                    style={{
-                      backgroundColor: "var(--brand-light)",
-                      borderColor: "rgba(74,111,165,0.40)",
-                    }}
-                  />
-                  Occupied
-                </div>
+                <Vault size={16} style={{ color: "var(--brand-primary)" }} />
+              </div>
+              <div>
+                <CardTitle
+                  className="text-base font-semibold"
+                  style={{ color: "var(--brand-primary)" }}
+                >
+                  Safe Visualizer
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Click an occupied locker to inspect its contents.
+                </CardDescription>
               </div>
             </div>
 
-            {SAFES.map((safe) => (
-              <TabsContent key={safe.id} value={safe.id} className="mt-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-800">
-                      {safe.name}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {safe.subtitle} • {safe.lockers.length} lockers •{" "}
-                      {safe.lockers.filter((l) => l.status === "OCCUPIED").length}{" "}
-                      occupied
-                    </div>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-9"
+              style={{
+                borderColor: "rgba(74,111,165,0.30)",
+                color: "var(--brand-primary)",
+              }}
+            >
+              <Link to="/settings">
+                <SettingsIcon size={14} className="mr-1.5" />
+                Configure Safes
+              </Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {resolvedSafes.length === 0 ? (
+            <div
+              className="rounded-xl border bg-white py-12 text-center"
+              style={{ borderColor: "rgba(74,111,165,0.15)" }}
+            >
+              <Vault className="mx-auto mb-2 h-7 w-7 text-slate-300" />
+              <p className="text-sm font-medium text-slate-700">
+                No safes configured yet
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Add a safe in{" "}
+                <Link
+                  to="/settings"
+                  className="underline"
+                  style={{ color: "var(--brand-primary)" }}
+                >
+                  Settings → Vault Configuration
+                </Link>{" "}
+                to start placing pledged items.
+              </p>
+            </div>
+          ) : (
+            <Tabs
+              value={activeSafeId}
+              onValueChange={(v) => setActiveSafeId(v)}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <TabsList
+                  className="bg-slate-100 p-1"
+                  style={{ backgroundColor: "rgba(191,221,245,0.30)" }}
+                >
+                  {resolvedSafes.map((s) => (
+                    <TabsTrigger
+                      key={s.config.id}
+                      value={s.config.id}
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                    >
+                      <Vault size={14} className="mr-1.5" />
+                      {s.config.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+
+                {/* Legend */}
+                <div className="flex items-center gap-4 text-xs text-slate-500">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-3 w-3 rounded border"
+                      style={{
+                        backgroundColor: "white",
+                        borderColor: "rgb(34,197,94)",
+                      }}
+                    />
+                    Available
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-3 w-3 rounded border"
+                      style={{
+                        backgroundColor: "var(--brand-light)",
+                        borderColor: "rgba(74,111,165,0.40)",
+                      }}
+                    />
+                    Occupied
                   </div>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-                  {safe.lockers.map((locker) => {
-                    const isOccupied = locker.status === "OCCUPIED";
-                    return (
-                      <button
-                        key={locker.id}
-                        type="button"
-                        onClick={() => handleLockerClick(locker, safe.name)}
-                        disabled={!isOccupied}
-                        className={`group relative aspect-square rounded-lg border p-2 text-left transition-all ${
-                          isOccupied
-                            ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md"
-                            : "cursor-default"
-                        }`}
-                        style={
-                          isOccupied
-                            ? {
-                                backgroundColor: "var(--brand-light)",
-                                borderColor: "rgba(74,111,165,0.35)",
-                              }
-                            : {
-                                backgroundColor: "white",
-                                borderColor: "rgba(34,197,94,0.55)",
-                              }
-                        }
-                      >
-                        <div className="flex h-full flex-col justify-between">
-                          <div className="flex items-start justify-end">
-                            {isOccupied ? (
-                              <Lock
-                                size={12}
-                                style={{ color: "var(--brand-primary)" }}
-                              />
-                            ) : (
-                              <Key
-                                size={12}
-                                style={{ color: "rgb(21,128,61)" }}
-                              />
-                            )}
-                          </div>
+              {resolvedSafes.map((safe) => (
+                <TabsContent key={safe.config.id} value={safe.config.id} className="mt-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-800">
+                        {safe.config.name}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {safe.config.subtitle} • {safe.lockers.length} lockers •{" "}
+                        {safe.lockers.filter((l) => l.status === "OCCUPIED").length}{" "}
+                        occupied
+                      </div>
+                    </div>
+                    <div
+                      className="rounded-md border bg-white px-2 py-1 font-mono text-[11px]"
+                      style={{
+                        borderColor: "rgba(74,111,165,0.18)",
+                        color: "var(--brand-primary)",
+                      }}
+                    >
+                      Prefix: {safe.config.prefix}
+                      {safe.config.startNumber}…
+                    </div>
+                  </div>
 
-                          {isOccupied ? (
-                            <div className="space-y-0.5">
-                              <div className="truncate text-xs font-semibold text-slate-800">
-                                {locker.id}: {locker.packageId}
+                  {safe.lockers.length === 0 ? (
+                    <div
+                      className="rounded-lg border bg-white py-8 text-center text-xs text-slate-500"
+                      style={{ borderColor: "rgba(74,111,165,0.15)" }}
+                    >
+                      This safe has no lockers yet. Set the locker count in
+                      Settings to populate the grid.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+                      {safe.lockers.map((locker) => {
+                        const isOccupied = locker.status === "OCCUPIED";
+                        return (
+                          <button
+                            key={locker.id}
+                            type="button"
+                            onClick={() => handleLockerClick(locker, safe.config.name)}
+                            disabled={!isOccupied}
+                            className={`group relative aspect-square rounded-lg border p-2 text-left transition-all ${
+                              isOccupied
+                                ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md"
+                                : "cursor-default"
+                            }`}
+                            style={
+                              isOccupied
+                                ? {
+                                    backgroundColor: "var(--brand-light)",
+                                    borderColor: "rgba(74,111,165,0.35)",
+                                  }
+                                : {
+                                    backgroundColor: "white",
+                                    borderColor: "rgba(34,197,94,0.55)",
+                                  }
+                            }
+                          >
+                            <div className="flex h-full flex-col justify-between">
+                              <div className="flex items-start justify-end">
+                                {isOccupied ? (
+                                  <Lock
+                                    size={12}
+                                    style={{ color: "var(--brand-primary)" }}
+                                  />
+                                ) : (
+                                  <Key
+                                    size={12}
+                                    style={{ color: "rgb(21,128,61)" }}
+                                  />
+                                )}
                               </div>
-                              <div className="truncate text-[10px] text-slate-500">
-                                {locker.loanId}
-                              </div>
+
+                              {isOccupied ? (
+                                <div className="space-y-0.5">
+                                  <div className="truncate text-xs font-semibold text-slate-800">
+                                    {locker.id}: {locker.packageId}
+                                  </div>
+                                  <div className="truncate text-[10px] text-slate-500">
+                                    {locker.loanId}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-0.5">
+                                  <div className="truncate text-xs font-semibold text-slate-700">
+                                    {locker.id}
+                                  </div>
+                                  <div
+                                    className="text-[11px] font-medium"
+                                    style={{ color: "rgb(21,128,61)" }}
+                                  >
+                                    Empty
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          ) : (
-                            <div className="space-y-0.5">
-                              <div className="truncate text-xs font-semibold text-slate-700">
-                                {locker.id}
-                              </div>
-                              <div
-                                className="text-[11px] font-medium"
-                                style={{ color: "rgb(21,128,61)" }}
-                              >
-                                Empty
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </TabsContent>
-            ))}
-          </Tabs>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </TabsContent>
+              ))}
+            </Tabs>
+          )}
         </CardContent>
       </Card>
 

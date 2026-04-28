@@ -39,6 +39,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import ThermalReceiptDialog, {
+  type ThermalReceiptData,
+} from "@/components/modules/ThermalReceipt";
+import {
+  addDaybookEntry,
+  useDaybook,
+  type DaybookAccount,
+  type DaybookCategory,
+  type DaybookEntry,
+} from "@/lib/stores/daybookStore";
 
 type PaymentType = "INTEREST" | "PARTIAL" | "FULL";
 type PaymentMode = "CASH" | "UPI" | "BANK";
@@ -64,6 +74,60 @@ type LedgerEntry = {
   amount: number;
   account: CreditAccount;
 };
+
+/** Maps a CreditAccount picker value to the canonical Daybook account key. */
+const ACCOUNT_TO_DAYBOOK: Record<CreditAccount, DaybookAccount> = {
+  CASH_HAND: "CASH",
+  HDFC: "HDFC",
+  SBI: "SBI",
+};
+
+const DAYBOOK_TO_ACCOUNT: Record<DaybookAccount, CreditAccount> = {
+  CASH: "CASH_HAND",
+  HDFC: "HDFC",
+  SBI: "SBI",
+};
+
+/** Categories that count as a customer payment receipt for today's ledger. */
+const RECEIPT_CATEGORIES = new Set<DaybookCategory>([
+  "Interest Income",
+  "Principal Recovery",
+  "Full Settlement",
+  "EMI Received",
+]);
+
+function categoryToPaymentType(c: DaybookCategory): PaymentType {
+  if (c === "Interest Income" || c === "EMI Received") return "INTEREST";
+  if (c === "Full Settlement") return "FULL";
+  return "PARTIAL"; // Principal Recovery
+}
+
+function todayIsoString(): string {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function deriveReceiptId(refId: string | undefined, fallbackId: string): string {
+  // refId convention written by this module is "RCP-XXXXX • LOAN-ID". Older
+  // seed entries follow the same convention. Anything else falls back to the
+  // entry id so the table never shows blanks.
+  if (refId) {
+    const m = refId.match(/(RCP-[A-Z0-9-]+)/i);
+    if (m) return m[1];
+  }
+  return fallbackId;
+}
+
+function deriveLoanId(refId: string | undefined): string {
+  if (!refId) return "—";
+  const parts = refId.split("•").map((p) => p.trim());
+  if (parts.length >= 2) return parts[1];
+  return parts[0] ?? "—";
+}
 
 type FormValues = {
   loanId: string;
@@ -124,63 +188,6 @@ const ACTIVE_LOANS: ActiveLoan[] = [
     accruedInterest: 12150,
     rate: "11.25% p.a.",
     startedOn: "02 Mar 2026",
-  },
-];
-
-const TODAYS_LEDGER: LedgerEntry[] = [
-  {
-    receiptId: "RCP-88421",
-    time: "09:42 AM",
-    customer: "Ravi Krishnan",
-    loanId: "PWN-204402",
-    paymentType: "INTEREST",
-    amount: 2640,
-    account: "CASH_HAND",
-  },
-  {
-    receiptId: "RCP-88422",
-    time: "10:15 AM",
-    customer: "Meera Iyer",
-    loanId: "PWN-204415",
-    paymentType: "PARTIAL",
-    amount: 15000,
-    account: "HDFC",
-  },
-  {
-    receiptId: "RCP-88423",
-    time: "11:08 AM",
-    customer: "Suresh Patel",
-    loanId: "PWN-204555",
-    paymentType: "FULL",
-    amount: 86420,
-    account: "SBI",
-  },
-  {
-    receiptId: "RCP-88424",
-    time: "11:51 AM",
-    customer: "Aanya Sharma",
-    loanId: "PWN-204512",
-    paymentType: "INTEREST",
-    amount: 1408,
-    account: "CASH_HAND",
-  },
-  {
-    receiptId: "RCP-88425",
-    time: "12:33 PM",
-    customer: "Divya Nair",
-    loanId: "PWN-204561",
-    paymentType: "PARTIAL",
-    amount: 8000,
-    account: "HDFC",
-  },
-  {
-    receiptId: "RCP-88426",
-    time: "01:20 PM",
-    customer: "Rohan Verma",
-    loanId: "VEH-30021",
-    paymentType: "INTEREST",
-    amount: 12150,
-    account: "SBI",
   },
 ];
 
@@ -271,8 +278,10 @@ function accountBadge(account: CreditAccount) {
 }
 
 export default function ReceiptsLedger() {
-  const [ledger, setLedger] = useState<LedgerEntry[]>(TODAYS_LEDGER);
+  const allEntries = useDaybook();
   const [loanQuery, setLoanQuery] = useState("");
+  const [pendingReceipt, setPendingReceipt] =
+    useState<ThermalReceiptData | null>(null);
 
   const {
     register,
@@ -313,6 +322,28 @@ export default function ReceiptsLedger() {
   const interest = selectedLoan?.accruedInterest ?? 0;
   const totalDue = principal + interest;
 
+  // Today's Receipts Ledger is derived from the persisted daybook so it stays
+  // in sync with anything posted from this module (or seeded in the store).
+  const ledger = useMemo<LedgerEntry[]>(() => {
+    const today = todayIsoString();
+    return allEntries
+      .filter(
+        (e: DaybookEntry) =>
+          e.dateIso === today &&
+          e.side === "CREDIT" &&
+          RECEIPT_CATEGORIES.has(e.category),
+      )
+      .map((e) => ({
+        receiptId: deriveReceiptId(e.refId, e.id),
+        time: e.time,
+        customer: e.customerName ?? "—",
+        loanId: deriveLoanId(e.refId),
+        paymentType: categoryToPaymentType(e.category),
+        amount: e.amount,
+        account: DAYBOOK_TO_ACCOUNT[e.account],
+      }));
+  }, [allEntries]);
+
   const todayTotal = useMemo(
     () => ledger.reduce((s, e) => s + e.amount, 0),
     [ledger],
@@ -336,12 +367,38 @@ export default function ReceiptsLedger() {
       toast.error("Select an account to credit (for the daybook).");
       return;
     }
-    if (data.paymentType === "FULL" && amount < totalDue) {
+    if (data.paymentType === "INTEREST" && amount > interest + 0.5) {
       toast.error(
-        `Full settlement requires at least ${inr(totalDue)} (Principal + Interest).`,
+        `Interest-only payment cannot exceed accrued interest (${inr(
+          interest,
+        )}). Switch to "Partial Principal" to also reduce the principal.`,
       );
       return;
     }
+    if (data.paymentType === "FULL" && amount !== totalDue) {
+      toast.error(
+        `Full settlement must equal exactly ${inr(totalDue)} (Principal + Interest).`,
+      );
+      return;
+    }
+    if (data.paymentType === "PARTIAL" && amount > totalDue) {
+      toast.error(
+        `Partial payment cannot exceed total dues (${inr(
+          totalDue,
+        )}). Use "Full Settlement" to close the loan.`,
+      );
+      return;
+    }
+
+    // ------------------------------------------------------------
+    // Split the payment into interest + principal portions.
+    // Interest is always serviced first (industry-standard waterfall);
+    // anything left over reduces principal.
+    // ------------------------------------------------------------
+    const interestPortion = Math.min(amount, interest);
+    const principalPortion = amount - interestPortion;
+
+    const outstandingBalance = Math.max(0, totalDue - amount);
 
     const receiptId = `RCP-${Math.floor(80000 + Math.random() * 19999)}`;
     const now = new Date();
@@ -350,24 +407,99 @@ export default function ReceiptsLedger() {
       minute: "2-digit",
       hour12: true,
     });
+    const dateIso = todayIsoString();
+    const dateLabel = now.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
 
-    const entry: LedgerEntry = {
-      receiptId,
-      time,
-      customer: selectedLoan.customer,
-      loanId: selectedLoan.id,
-      paymentType: data.paymentType,
-      amount,
-      account: data.creditAccount as CreditAccount,
-    };
+    const account = data.creditAccount as CreditAccount;
+    const dbAccount = ACCOUNT_TO_DAYBOOK[account];
+    const refId = `${receiptId} • ${selectedLoan.id}`;
+    const interestCategory: DaybookCategory =
+      selectedLoan.product === "VEHICLE" ? "EMI Received" : "Interest Income";
 
-    setLedger((prev) => [entry, ...prev]);
+    // ------------------------------------------------------------
+    // Post to the persisted Daybook. We split mixed payments into two
+    // line items (interest + principal) so per-category reports and the
+    // Customer 360 lifetime totals stay accurate. Full Settlement is
+    // posted as a single line so the closure event is easy to surface
+    // in reports — its principal share equals `principalPortion`.
+    // ------------------------------------------------------------
+    if (data.paymentType === "FULL") {
+      addDaybookEntry({
+        dateIso,
+        time,
+        side: "CREDIT",
+        category: "Full Settlement",
+        particulars: `${selectedLoan.customer} — Full Settlement (Principal ${inr(
+          principalPortion,
+        )} + Interest ${inr(interestPortion)})`,
+        refId,
+        account: dbAccount,
+        amount,
+        customerName: selectedLoan.customer,
+      });
+    } else {
+      if (interestPortion > 0) {
+        addDaybookEntry({
+          dateIso,
+          time,
+          side: "CREDIT",
+          category: interestCategory,
+          particulars: `${selectedLoan.customer} — ${
+            selectedLoan.product === "VEHICLE" ? "EMI Received" : "Interest Paid"
+          }`,
+          refId,
+          account: dbAccount,
+          amount: interestPortion,
+          customerName: selectedLoan.customer,
+        });
+      }
+      if (principalPortion > 0) {
+        addDaybookEntry({
+          dateIso,
+          time,
+          side: "CREDIT",
+          category: "Principal Recovery",
+          particulars: `${selectedLoan.customer} — Partial Principal`,
+          refId,
+          account: dbAccount,
+          amount: principalPortion,
+          customerName: selectedLoan.customer,
+        });
+      }
+    }
+
     toast.success("Receipt generated", {
-      description: `${receiptId} • ${inr(amount)} credited to ${
-        ACCOUNT_LABEL[data.creditAccount as CreditAccount]
-      }`,
+      description: `${receiptId} • ${inr(amount)} credited to ${ACCOUNT_LABEL[account]}`,
       icon: <CheckCircle2 size={18} />,
     });
+
+    // Stage the printable receipt — opens the 80mm preview dialog.
+    setPendingReceipt({
+      receiptId,
+      dateLabel,
+      timeLabel: time,
+      customerName: selectedLoan.customer,
+      loanId: selectedLoan.id,
+      paymentTypeLabel: PAYMENT_TYPE_LABEL[data.paymentType],
+      paymentMode:
+        data.paymentMode === "CASH"
+          ? "Cash"
+          : data.paymentMode === "UPI"
+            ? "UPI"
+            : "Bank Transfer",
+      accountLabel: ACCOUNT_LABEL[account],
+      amountPaid: amount,
+      interestPortion,
+      principalPortion,
+      outstandingBalance,
+      cashier: "Cashier",
+      notes: data.notes?.trim() || undefined,
+    });
+
     reset();
   };
 
@@ -925,7 +1057,9 @@ export default function ReceiptsLedger() {
               </Table>
             </div>
             <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
-              <span>Sample data · live wiring in next step</span>
+              <span>
+                Live · sourced from the persisted Daybook (today only).
+              </span>
               <span>
                 Showing <strong>{ledger.length}</strong> of {ledger.length}{" "}
                 receipts
@@ -934,6 +1068,14 @@ export default function ReceiptsLedger() {
           </CardContent>
         </Card>
       </form>
+
+      <ThermalReceiptDialog
+        open={!!pendingReceipt}
+        onOpenChange={(o) => {
+          if (!o) setPendingReceipt(null);
+        }}
+        data={pendingReceipt}
+      />
     </div>
   );
 }
