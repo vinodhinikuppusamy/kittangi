@@ -1,0 +1,43 @@
+We need to perform a 'Logic & Financial Hardening' update. Please fix the following:
+
+Step 1: Strict Loan Closure & 'Document-Only' Loans
+
+Closure Logic: Disable the simple 'Close Loan' button. A loan can ONLY be closed via a 'Final Settlement' form where:
+
+The system calculates (Principal + Remaining Interest).
+
+The user must record a payment to an account (Cash/Bank).
+
+Only once the balance is ₹0 does the status flip to 'Closed' and the vault/locker release.
+
+New 'Document Loan' Feature: In the Loan Management header, add a 'New Unsecured/Doc Loan' button. This allows disbursal for cases where no physical item is pledged (only documents), with a fixed tenure and interest calculation.
+
+Step 2: Vault QR & Sync Hardening
+
+QR Generation: In the Pawn Origination success screen and the Pledged Item details, generate a QR Code containing the {Loan ID, Customer Name, and Locker Number}. This is for printing and tagging physical items.
+
+Sync Fix: Re-write the link between pledgedItems and vaultConfiguration. When an item is added, it must 'occupy' the locker ID. Ensure the 'Released' toggle in Pledged Items is locked and only moves to 'Released' automatically when the Loan status is 'Closed'.
+
+Step 3: Vehicle Legal Docs
+
+Update src/components/modules/VehicleOrigination.tsx to include a 'Legal Documents' upload section (RC, Insurance, Agreement, Permits).
+
+Ensure these files are viewable in the 'Repossession Yard' under the 'View Legal Docs' button.
+
+Step 4: The 'Proper' Balance Sheet & Trial Balance
+
+Update src/components/modules/Financials.tsx to generate a Trial Balance and a Yearly Balance Sheet.
+
+It must show:
+
+Assets: (Cash in Hand + Bank Balances + Outstanding Loan Principal).
+
+Liabilities: (Investor Deposits + Unpaid Interest Payouts).
+
+Equity: (Starting Capital + Retained Earnings/Profit).
+
+Ensure Assets = Liabilities + Equity.
+
+Step 5: Print Chitta Fix
+
+Fix the 'Print Chitta' button in the Daybook. Create a dedicated @media print CSS style that formats the Daybook as a clean, professional ledger sheet with the Opening/Closing balances at the top and a signature line for the Manager at the bottom.

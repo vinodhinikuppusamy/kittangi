@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   CircleAlert,
   FileSignature,
+  IndianRupee,
   Lock,
   Printer,
   ReceiptText,
@@ -44,18 +45,35 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  updateLoan,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  closeLoanWithSettlement,
+  markLoanForAuction,
   useLoans,
   type Loan,
 } from "@/lib/stores/loansStore";
 import {
+  addDaybookEntry,
+  DayLockedError,
   useDaybook,
   type DaybookEntry,
 } from "@/lib/stores/daybookStore";
-import {
-  usePledgedItems,
-  updatePledgedItem,
-} from "@/lib/stores/pledgedItemsStore";
+import { usePledgedItems } from "@/lib/stores/pledgedItemsStore";
 import { useAccounts } from "@/lib/stores/accountsStore";
 import { useCustomers } from "@/lib/stores/customersStore";
 import { isDateLocked } from "@/lib/stores/dayLocksStore";
@@ -103,6 +121,8 @@ export default function LoanLifecycle() {
 
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [auctionDialogOpen, setAuctionDialogOpen] = useState(false);
+  const [settlementAmountStr, setSettlementAmountStr] = useState("");
+  const [settlementAccountId, setSettlementAccountId] = useState("");
 
   const loan = useMemo<Loan | undefined>(
     () => loans.find((l) => l.id === id),
@@ -154,6 +174,36 @@ export default function LoanLifecycle() {
     [receipts],
   );
 
+  // Live outstanding balance for the loan: principal + accrued interest, less
+  // anything already collected against it (sum of CREDIT entries linked by
+  // refId). Drives the Final Settlement dialog's split + the gating that
+  // prevents flipping status unless the balance is exactly ₹0.
+  const grossDue = (loan?.principal ?? 0) + (loan?.accruedInterest ?? 0);
+  const outstandingBalance = Math.max(0, grossDue - totalCollected);
+
+  // When the dialog opens, prefill the amount with the full outstanding and
+  // pick a sensible cashier-side account (CASH is the typical default).
+  useEffect(() => {
+    if (!closeDialogOpen) return;
+    setSettlementAmountStr(String(outstandingBalance));
+    const fallback = accounts.find((a) => a.type === "CASH") ?? accounts[0];
+    if (fallback) setSettlementAccountId(fallback.id);
+  }, [closeDialogOpen, outstandingBalance, accounts]);
+
+  const settlementAmount = Math.max(
+    0,
+    Math.round(Number(settlementAmountStr) || 0),
+  );
+  // Strict closure invariant — overpayment is NOT allowed. The settlement
+  // must land on either a positive remaining balance (partial) or exactly
+  // ₹0 (full closure). `projectedBalance` is the unclamped delta so we can
+  // detect over-collection in the handler and reject it.
+  const projectedBalance = outstandingBalance - settlementAmount;
+  const isOverpaid = projectedBalance < 0;
+  const willFullyClose =
+    settlementAmount > 0 && projectedBalance === 0;
+  const settlementAccount = accounts.find((a) => a.id === settlementAccountId);
+
   const accountName = (accountId?: string) => {
     if (!accountId) return "—";
     return accounts.find((a) => a.id === accountId)?.name ?? accountId;
@@ -190,39 +240,95 @@ export default function LoanLifecycle() {
     );
   }
 
-  const handleCloseLoan = () => {
+  // -------------------------------------------------------------------------
+  // Final Settlement — strict closure logic.
+  //
+  // Posts a single CREDIT entry to the chosen account categorised as
+  // "Full Settlement" (or "Principal Recovery" if it's an interest-free
+  // partial). The loan status only flips to CLOSED — and the pledged item is
+  // only released — when the projected balance after this entry is exactly
+  // ₹0. Partial payments are recorded but the loan stays ACTIVE.
+  // -------------------------------------------------------------------------
+  const handleFinalSettlement = () => {
+    if (!loan) return;
     if (!isAdmin) {
-      toast.error("Admin access required to close a loan.");
-      setCloseDialogOpen(false);
+      toast.error("Admin access required to settle a loan.");
       return;
     }
-    if (isDateLocked(todayIso())) {
+    if (settlementAmount <= 0) {
+      toast.error("Enter a settlement amount greater than ₹0.");
+      return;
+    }
+    if (!settlementAccount) {
+      toast.error("Select an account to receive the settlement.");
+      return;
+    }
+    if (isOverpaid) {
       toast.error(
-        "Today's Daybook is locked — unlock it before closing the loan.",
+        `Overpayment blocked — the customer owes only ${inr(outstandingBalance)}. Reduce the settlement amount.`,
       );
       return;
     }
-    updateLoan(loan.id, { status: "CLOSED" });
-    if (pledgedItem) {
-      // Release the item AND clear its vault location so the locker
-      // shows AVAILABLE in the Vault Management view and the Pledged
-      // Items table no longer displays a stale "Safe-X · L-NNN" cell
-      // for an item that has physically left the safe.
-      updatePledgedItem(pledgedItem.id, {
-        status: "RELEASED",
-        vaultLoc: undefined,
+
+    const today = todayIso();
+    const time = new Date().toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const receiptId = `RCP-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    const refId = `${receiptId} • ${loan.id}`;
+
+    try {
+      addDaybookEntry({
+        dateIso: today,
+        time,
+        side: "CREDIT",
+        category: willFullyClose ? "Full Settlement" : "Principal Recovery",
+        particulars: willFullyClose
+          ? `Final settlement — ${loan.customer}`
+          : `Part settlement — ${loan.customer}`,
+        refId,
+        account: settlementAccount.id,
+        amount: settlementAmount,
+        customerName: loan.customer,
+        paymentMode: settlementAccount.type === "CASH" ? "CASH" : "BANK",
+        outstandingAfter: projectedBalance,
+      });
+    } catch (err) {
+      if (err instanceof DayLockedError) {
+        toast.error(
+          "Today's Daybook is locked — unlock it before posting the settlement.",
+        );
+        return;
+      }
+      throw err;
+    }
+
+    if (willFullyClose) {
+      // Atomic close + release: the helper flips loan.status AND clears the
+      // pledged item's vaultLoc/status in the same render cycle so the
+      // Vault Management view never observes a stale OCCUPIED locker for a
+      // closed loan.
+      closeLoanWithSettlement(loan.id);
+      toast.success("Loan fully settled", {
+        description: `${loan.id} closed${
+          pledgedItem ? " and pledged item released from the vault." : "."
+        }`,
+        icon: <CheckCircle2 size={16} />,
+      });
+    } else {
+      toast.success("Part payment recorded", {
+        description: `${inr(settlementAmount)} received. Balance ${inr(
+          projectedBalance,
+        )} still pending — loan remains Active.`,
       });
     }
-    toast.success("Loan closed", {
-      description: `${loan.id} marked as Closed${
-        pledgedItem ? " and pledged item released from the vault." : "."
-      }`,
-      icon: <CheckCircle2 size={16} />,
-    });
     setCloseDialogOpen(false);
   };
 
   const handleMarkForAuction = () => {
+    if (!loan) return;
     if (!isAdmin) {
       toast.error("Admin access required to mark a loan for auction.");
       setAuctionDialogOpen(false);
@@ -234,10 +340,7 @@ export default function LoanLifecycle() {
       );
       return;
     }
-    updateLoan(loan.id, { status: "AUCTION" });
-    if (pledgedItem) {
-      updatePledgedItem(pledgedItem.id, { status: "AUCTION" });
-    }
+    markLoanForAuction(loan.id);
     toast.success("Marked for auction", {
       description: `${loan.id} flagged. The pledged item will appear in the Auction list.`,
       icon: <ShieldAlert size={16} />,
@@ -529,29 +632,183 @@ export default function LoanLifecycle() {
         </CardContent>
       </Card>
 
-      {/* Close Loan dialog */}
-      <AlertDialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Close this loan?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pledgedItem
-                ? `${loan.id} will be marked as Closed and the pledged item (${pledgedItem.title}) will be released from the vault. This is recorded immediately and cannot be undone in one click — you'd need to re-originate.`
-                : `${loan.id} will be marked as Closed. This is recorded immediately and cannot be undone in one click.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleCloseLoan}
-              style={{ backgroundColor: "var(--brand-primary)" }}
+      {/* Final Settlement dialog — strict closure */}
+      <Dialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
+        <DialogContent
+          className="max-w-lg"
+          style={{ backgroundColor: "var(--bg-main)" }}
+        >
+          <DialogHeader>
+            <DialogTitle
+              className="flex items-center gap-2 text-base font-semibold"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              <FileSignature size={16} />
+              Final Settlement — {loan.id}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              The loan is only marked Closed when the entire balance is
+              cleared. Partial amounts post a receipt but keep the loan Active.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Outstanding breakdown */}
+          <div
+            className="rounded-lg border bg-white p-3 text-xs"
+            style={{ borderColor: "rgba(74,111,165,0.18)" }}
+          >
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Outstanding Balance
+            </div>
+            <div className="grid grid-cols-2 gap-y-1.5">
+              <div className="text-slate-600">Principal</div>
+              <div className="text-right font-mono">{inr(loan.principal)}</div>
+              <div className="text-slate-600">Accrued Interest</div>
+              <div className="text-right font-mono">
+                {inr(loan.accruedInterest ?? 0)}
+              </div>
+              <div className="text-slate-600">Already Collected</div>
+              <div className="text-right font-mono text-emerald-700">
+                − {inr(totalCollected)}
+              </div>
+              <div
+                className="border-t pt-1.5 font-semibold text-slate-700"
+                style={{ borderColor: "rgba(74,111,165,0.18)" }}
+              >
+                Balance Due
+              </div>
+              <div
+                className="border-t pt-1.5 text-right font-mono font-bold"
+                style={{
+                  borderColor: "rgba(74,111,165,0.18)",
+                  color:
+                    outstandingBalance === 0
+                      ? "rgb(21,128,61)"
+                      : "var(--brand-primary)",
+                }}
+              >
+                {inr(outstandingBalance)}
+              </div>
+            </div>
+          </div>
+
+          {/* Form */}
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="settlement-amount" className="text-xs font-semibold">
+                Amount Received
+              </Label>
+              <div className="relative mt-1">
+                <IndianRupee
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <Input
+                  id="settlement-amount"
+                  type="number"
+                  inputMode="decimal"
+                  className="pl-8 font-mono"
+                  value={settlementAmountStr}
+                  onChange={(e) => setSettlementAmountStr(e.target.value)}
+                  min={0}
+                  step={1}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="settlement-account" className="text-xs font-semibold">
+                Receive Into
+              </Label>
+              <Select
+                value={settlementAccountId}
+                onValueChange={setSettlementAccountId}
+              >
+                <SelectTrigger id="settlement-account" className="mt-1">
+                  <SelectValue placeholder="Pick account" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                      {a.subtitle ? ` · ${a.subtitle}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Live status banner */}
+            <div
+              className="rounded-lg border p-3 text-xs"
+              style={{
+                borderColor: isOverpaid
+                  ? "rgba(220,38,38,0.40)"
+                  : willFullyClose
+                  ? "rgba(34,197,94,0.40)"
+                  : "rgba(245,158,11,0.40)",
+                backgroundColor: isOverpaid
+                  ? "rgba(254,226,226,0.60)"
+                  : willFullyClose
+                  ? "rgba(220,252,231,0.55)"
+                  : "rgba(254,243,199,0.55)",
+                color: isOverpaid
+                  ? "rgb(185,28,28)"
+                  : willFullyClose
+                  ? "rgb(21,128,61)"
+                  : "rgb(146,64,14)",
+              }}
+            >
+              {settlementAmount === 0 ? (
+                <span>Enter an amount to record the settlement.</span>
+              ) : isOverpaid ? (
+                <span>
+                  Overpayment blocked — the customer owes only{" "}
+                  <strong>{inr(outstandingBalance)}</strong>. Reduce the amount
+                  to proceed.
+                </span>
+              ) : willFullyClose ? (
+                <span>
+                  <CheckCircle2 size={12} className="-mt-0.5 mr-1 inline" />
+                  Balance clears to ₹0 — loan will be marked{" "}
+                  <strong>Closed</strong>
+                  {pledgedItem
+                    ? " and the pledged item released from the vault."
+                    : "."}
+                </span>
+              ) : (
+                <span>
+                  Records a part payment of {inr(settlementAmount)}. Balance
+                  {" "}
+                  <strong>{inr(projectedBalance)}</strong> remains pending —
+                  the loan stays <strong>Active</strong>.
+                </span>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCloseDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleFinalSettlement}
+              disabled={
+                settlementAmount <= 0 || !settlementAccount || isOverpaid
+              }
+              style={{
+                backgroundColor: willFullyClose
+                  ? "rgb(22,163,74)"
+                  : "var(--brand-primary)",
+                color: "white",
+              }}
             >
               <FileSignature size={14} className="mr-1.5" />
-              Close Loan
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              {willFullyClose ? "Settle & Close Loan" : "Record Part Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Mark for Auction dialog */}
       <AlertDialog

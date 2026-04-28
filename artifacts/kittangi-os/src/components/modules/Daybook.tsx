@@ -382,7 +382,21 @@ export default function Daybook() {
               borderColor: "rgba(74,111,165,0.25)",
               color: "var(--brand-primary)",
             }}
-            onClick={() => window.print()}
+            onClick={() => {
+              // Aim the @media print rules in index.css at the chitta print
+              // region (the wrapper below has class `print-area--chitta`),
+              // print the page, then clear the attribute so a subsequent
+              // browser print (Ctrl+P) doesn't accidentally reuse this
+              // target after the user has navigated elsewhere.
+              const prev = document.body.dataset.printTarget;
+              document.body.dataset.printTarget = "chitta";
+              try {
+                window.print();
+              } finally {
+                if (prev) document.body.dataset.printTarget = prev;
+                else delete document.body.dataset.printTarget;
+              }
+            }}
           >
             <Printer size={14} className="mr-1.5" />
             Print Chitta
@@ -520,6 +534,34 @@ export default function Daybook() {
           </div>
         </div>
       )}
+
+      {/* Printable Chitta region — everything inside this wrapper is what
+          the @media print CSS in index.css promotes to a clean A4 sheet
+          when the user clicks "Print Chitta". The screen-only `display:
+          contents` on the wrapper means it has no visual side-effect on
+          the live page. */}
+      <div className="print-area print-area--chitta contents print:block">
+        {/* Print-only banner — hidden on screen, shown on paper. */}
+        <div className="chitta-print-banner hidden print:block">
+          <div className="text-lg font-bold text-slate-900">
+            Kittangi OS — Daybook (Chitta)
+          </div>
+          <div className="text-xs text-slate-700">
+            For the day:{" "}
+            <span className="font-semibold">{prettyDate(date)}</span>
+          </div>
+          <div className="mt-1 text-xs text-slate-700">
+            Opening Balance:{" "}
+            <span className="font-semibold">{inr(OPENING_BALANCE)}</span>
+            {"  ·  "}Closing Balance:{" "}
+            <span className="font-semibold">{inr(closing)}</span>
+            {"  ·  "}Net{" "}
+            <span className="font-semibold">
+              {(closing - OPENING_BALANCE) >= 0 ? "+" : "−"}
+              {inr(Math.abs(closing - OPENING_BALANCE))}
+            </span>
+          </div>
+        </div>
 
       {/* Summary Metrics */}
       <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -838,7 +880,19 @@ export default function Daybook() {
         </Card>
       </div>
 
-      <p className="mt-4 text-center text-[11px] text-slate-500">
+        {/* Print-only signature block — appears at the bottom of the
+            paper Chitta only. */}
+        <div className="chitta-print-signature hidden print:grid">
+          <div className="sig-line">
+            Branch Manager — Signature &amp; Date
+          </div>
+          <div className="sig-line">
+            Authorised Reviewer — Signature &amp; Date
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-4 text-center text-[11px] text-slate-500 no-print">
         Live Chitta · powered by the shared Daybook ledger (Receipts, Loan
         Disbursements, Investor Payouts and more).
       </p>

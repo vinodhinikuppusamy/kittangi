@@ -8,14 +8,19 @@ import {
   Calculator,
   Car,
   CheckCircle2,
+  FileCheck2,
   FileSignature,
+  FileText,
   Gauge,
   IndianRupee,
+  Paperclip,
   Percent,
   ShieldCheck,
   Truck,
+  UploadCloud,
   UserRoundCheck,
   Wallet,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -36,7 +41,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { addLoan, deleteLoan } from "@/lib/stores/loansStore";
+import {
+  addLoan,
+  deleteLoan,
+  type LegalDoc,
+  type LegalDocType,
+} from "@/lib/stores/loansStore";
 import {
   addDaybookEntry,
   DayLockedError,
@@ -101,6 +111,27 @@ const VERIFIED_CUSTOMERS = [
   { id: "KTG-10059", name: "Priya Menon", phone: "+91 99878 21006" },
 ];
 
+const LEGAL_DOC_LABELS: Record<LegalDocType, string> = {
+  RC: "RC Book",
+  INSURANCE: "Insurance Policy",
+  AGREEMENT: "Loan Agreement",
+  PERMIT: "Permits / Fitness",
+};
+
+const LEGAL_DOC_HINTS: Record<LegalDocType, string> = {
+  RC: "Vehicle Registration Certificate (front + back).",
+  INSURANCE: "Active comprehensive insurance certificate.",
+  AGREEMENT: "Signed loan agreement & promissory note.",
+  PERMIT: "Permit, road tax, or fitness certificate.",
+};
+
+const LEGAL_DOC_ORDER: LegalDocType[] = [
+  "RC",
+  "INSURANCE",
+  "AGREEMENT",
+  "PERMIT",
+];
+
 const VEHICLE_TYPES: { value: VehicleType; label: string; icon: typeof Car; sub: string }[] = [
   { value: "TWO_WHEELER", label: "2-Wheeler", icon: Bike, sub: "Bike, scooter, moped" },
   { value: "FOUR_WHEELER", label: "4-Wheeler", icon: Car, sub: "Car, SUV, sedan" },
@@ -155,6 +186,53 @@ export default function VehicleOrigination() {
   const navigate = useNavigate();
   const accounts = useAccounts();
   const values = useWatch({ control });
+
+  /**
+   * Scanned legal documents captured at origination. Each slot stores a
+   * single base64 dataUrl alongside its original filename and an upload
+   * timestamp; on submit we serialise the populated slots into the new
+   * loan's `legalDocs` array so Repossession Yard can display them later.
+   */
+  const [legalDocs, setLegalDocs] = useState<
+    Partial<Record<LegalDocType, LegalDoc>>
+  >({});
+
+  const handleDocUpload = async (
+    type: LegalDocType,
+    file: File | null,
+  ): Promise<void> => {
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      toast.error("Document too large — please attach a file under 4 MB.");
+      return;
+    }
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onerror = () => reject(fr.error ?? new Error("read failed"));
+        fr.onload = () => resolve(String(fr.result ?? ""));
+        fr.readAsDataURL(file);
+      });
+      setLegalDocs((prev) => ({
+        ...prev,
+        [type]: {
+          type,
+          name: file.name,
+          dataUrl,
+          uploadedAtIso: new Date().toISOString(),
+        },
+      }));
+    } catch {
+      toast.error("Could not read the selected file. Please try again.");
+    }
+  };
+
+  const removeDoc = (type: LegalDocType) =>
+    setLegalDocs((prev) => {
+      const next = { ...prev };
+      delete next[type];
+      return next;
+    });
   const selectedCustomer = useMemo(
     () => VERIFIED_CUSTOMERS.find((c) => c.id === values.customerId),
     [values.customerId],
@@ -226,6 +304,21 @@ export default function VehicleOrigination() {
       toast.error("RTO Hypothecation endorsement is mandatory before generating the agreement.");
       return;
     }
+    // All four legal documents are mandatory before disbursement so the
+    // Repossession Yard always has a complete folio to work from.
+    const requiredDocs: LegalDocType[] = [
+      "RC",
+      "INSURANCE",
+      "AGREEMENT",
+      "PERMIT",
+    ];
+    const missingDoc = requiredDocs.find((t) => !legalDocs[t]);
+    if (missingDoc) {
+      toast.error(
+        `Attach all four legal documents before disbursing — missing ${LEGAL_DOC_LABELS[missingDoc]}.`,
+      );
+      return;
+    }
 
     // Day-lock precheck — never let a disbursement post into a frozen day.
     if (isDateLocked(startIso)) {
@@ -266,6 +359,9 @@ export default function VehicleOrigination() {
         vehicleType: data.vehicleType as VehicleType,
       },
       notes: `Hypothecation endorsed. Engine: ${data.engineNumber || "—"} / Chassis: ${data.chassisNumber}.`,
+      legalDocs: requiredDocs
+        .map((t) => legalDocs[t])
+        .filter((d): d is LegalDoc => d !== undefined),
     });
 
     // 2) Post the actual cash movement so the chosen account balance
@@ -307,6 +403,7 @@ export default function VehicleOrigination() {
       },
     });
     reset();
+    setLegalDocs({});
   };
 
   return (
@@ -827,6 +924,121 @@ export default function VehicleOrigination() {
                 </SelectContent>
               </Select>
             </Field>
+          </CardContent>
+        </Card>
+
+        {/* ----- LEGAL DOCUMENTS ----- */}
+        <Card
+          className="border bg-white"
+          style={{ borderColor: "rgba(74,111,165,0.12)" }}
+        >
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-lg"
+                style={{ background: "var(--brand-light)" }}
+              >
+                <Paperclip
+                  className="h-5 w-5"
+                  style={{ color: "var(--brand-primary)" }}
+                />
+              </div>
+              <div>
+                <CardTitle className="text-base font-semibold text-slate-900">
+                  Legal Documents
+                </CardTitle>
+                <CardDescription className="text-sm text-slate-500">
+                  Attach scanned copies of all four documents. Repossession
+                  Yard reads these directly from the loan record.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {LEGAL_DOC_ORDER.map((type) => {
+                const doc = legalDocs[type];
+                const inputId = `legal-doc-${type}`;
+                return (
+                  <div
+                    key={type}
+                    className="flex flex-col gap-2 rounded-lg border bg-white p-3"
+                    style={{
+                      borderColor: doc
+                        ? "rgba(16,185,129,0.40)"
+                        : "rgba(74,111,165,0.18)",
+                      backgroundColor: doc
+                        ? "rgba(16,185,129,0.04)"
+                        : "white",
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <FileText
+                          size={16}
+                          style={{
+                            color: doc
+                              ? "#047857"
+                              : "var(--brand-primary)",
+                          }}
+                        />
+                        <div>
+                          <div className="text-sm font-semibold text-slate-900">
+                            {LEGAL_DOC_LABELS[type]}
+                          </div>
+                          <div className="text-[11px] text-slate-500">
+                            {LEGAL_DOC_HINTS[type]}
+                          </div>
+                        </div>
+                      </div>
+                      {doc ? (
+                        <FileCheck2
+                          size={16}
+                          className="shrink-0"
+                          style={{ color: "#047857" }}
+                        />
+                      ) : null}
+                    </div>
+
+                    {doc ? (
+                      <div className="flex items-center justify-between rounded-md border border-emerald-200 bg-white px-2.5 py-1.5">
+                        <span className="truncate text-xs font-medium text-slate-700">
+                          {doc.name}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${LEGAL_DOC_LABELS[type]}`}
+                          onClick={() => removeDoc(type)}
+                          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <label
+                        htmlFor={inputId}
+                        className="flex cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                        style={{ borderColor: "rgba(74,111,165,0.30)" }}
+                      >
+                        <UploadCloud size={14} />
+                        Upload file (PDF / image)
+                      </label>
+                    )}
+                    <input
+                      id={inputId}
+                      type="file"
+                      accept="application/pdf,image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] ?? null;
+                        void handleDocUpload(type, f);
+                        e.target.value = "";
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 

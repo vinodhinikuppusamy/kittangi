@@ -94,11 +94,14 @@
   body[data-print-target="thermal"] .print-area--thermal,
   body[data-print-target="thermal"] .print-area--thermal *,
   body[data-print-target="statement"] .print-area--statement,
-  body[data-print-target="statement"] .print-area--statement * {
+  body[data-print-target="statement"] .print-area--statement *,
+  body[data-print-target="chitta"] .print-area--chitta,
+  body[data-print-target="chitta"] .print-area--chitta * {
     visibility: visible !important;
   }
   body[data-print-target="thermal"] .print-area--thermal,
-  body[data-print-target="statement"] .print-area--statement {
+  body[data-print-target="statement"] .print-area--statement,
+  body[data-print-target="chitta"] .print-area--chitta {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
@@ -119,6 +122,51 @@
   body[data-print-target="statement"] .print-area--statement {
     width: 100% !important;
     padding: 0 !important;
+  }
+  body[data-print-target="chitta"] .print-area--chitta {
+    width: 100% !important;
+    padding: 6mm 4mm !important;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important;
+    font-size: 11pt !important;
+    line-height: 1.35 !important;
+  }
+  /* Hide controls / interactive widgets that are not meaningful on paper. */
+  body[data-print-target="chitta"] .print-area--chitta button,
+  body[data-print-target="chitta"] .print-area--chitta [data-print-hide],
+  body[data-print-target="chitta"] .print-area--chitta input,
+  body[data-print-target="chitta"] .print-area--chitta select {
+    display: none !important;
+  }
+  /* Crisp B&W tables on the chitta print. */
+  body[data-print-target="chitta"] .print-area--chitta table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  body[data-print-target="chitta"] .print-area--chitta th,
+  body[data-print-target="chitta"] .print-area--chitta td {
+    border: 1px solid #1f2937 !important;
+    padding: 4px 6px !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+  body[data-print-target="chitta"] .chitta-print-banner {
+    border-bottom: 2px solid #1f2937 !important;
+    padding-bottom: 6mm !important;
+    margin-bottom: 6mm !important;
+  }
+  body[data-print-target="chitta"] .chitta-print-signature {
+    margin-top: 14mm !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 16mm !important;
+    page-break-inside: avoid !important;
+  }
+  body[data-print-target="chitta"] .chitta-print-signature .sig-line {
+    border-top: 1px solid #1f2937 !important;
+    padding-top: 4px !important;
+    text-align: center !important;
+    font-size: 10pt !important;
+    color: #1f2937 !important;
   }
   .no-print {
     display: none !important;

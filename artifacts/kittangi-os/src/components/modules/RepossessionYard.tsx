@@ -5,7 +5,9 @@ import {
   Calendar,
   Camera,
   Car,
+  Download,
   FileText,
+  FileWarning,
   Gavel,
   IndianRupee,
   Layers,
@@ -35,6 +37,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useLoans, type LegalDoc, type LegalDocType } from "@/lib/stores/loansStore";
+
+const LEGAL_DOC_LABELS: Record<LegalDocType, string> = {
+  RC: "RC Book",
+  INSURANCE: "Insurance Policy",
+  AGREEMENT: "Loan Agreement",
+  PERMIT: "Permits / Fitness",
+};
 
 type VehicleType = "TWO_WHEELER" | "FOUR_WHEELER" | "COMMERCIAL";
 type YardStatus = "SEIZED" | "LEGAL_HOLD" | "AUCTION_READY";
@@ -405,7 +423,26 @@ function StatCard({
   );
 }
 
+const LEGAL_DOC_ORDER: LegalDocType[] = [
+  "RC",
+  "INSURANCE",
+  "AGREEMENT",
+  "PERMIT",
+];
+
 function YardVehicleCard({ vehicle }: { vehicle: SeizedVehicle }) {
+  const loans = useLoans();
+  const linkedLoan = useMemo(
+    () => loans.find((l) => l.id === vehicle.loanId),
+    [loans, vehicle.loanId],
+  );
+  const docsByType = useMemo(() => {
+    const map: Partial<Record<LegalDocType, LegalDoc>> = {};
+    for (const d of linkedLoan?.legalDocs ?? []) map[d.type] = d;
+    return map;
+  }, [linkedLoan]);
+  const presentCount = LEGAL_DOC_ORDER.filter((t) => docsByType[t]).length;
+  const [docsOpen, setDocsOpen] = useState(false);
   const sm = STATUS_META[vehicle.status];
   const tm = VEHICLE_TYPE_META[vehicle.vehicleType];
   const TypeIcon = tm.icon;
@@ -523,14 +560,29 @@ function YardVehicleCard({ vehicle }: { vehicle: SeizedVehicle }) {
               borderColor: "rgba(74,111,165,0.30)",
               color: "var(--brand-primary)",
             }}
-            onClick={() =>
-              toast.info("Opening legal documents…", {
-                description: `${vehicle.loanId} · ${vehicle.rcNumber}`,
-              })
+            onClick={() => setDocsOpen(true)}
+            title={
+              presentCount === 0
+                ? "No legal documents on file for this loan"
+                : `${presentCount} of 4 documents on file`
             }
           >
             <FileText className="h-3.5 w-3.5" />
             View Legal Docs
+            {presentCount > 0 && (
+              <span
+                className="ml-1 rounded-full px-1.5 py-px text-[10px] font-semibold"
+                style={{
+                  backgroundColor:
+                    presentCount === 4
+                      ? "rgba(16,185,129,0.14)"
+                      : "rgba(234,179,8,0.18)",
+                  color: presentCount === 4 ? "#047857" : "#a16207",
+                }}
+              >
+                {presentCount}/4
+              </span>
+            )}
           </Button>
           <Button
             type="button"
@@ -563,6 +615,117 @@ function YardVehicleCard({ vehicle }: { vehicle: SeizedVehicle }) {
           </Button>
         </div>
       </CardContent>
+
+      <Dialog open={docsOpen} onOpenChange={setDocsOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle
+              className="flex items-center gap-2 text-base font-semibold"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              <FileText size={16} />
+              Legal Documents — {vehicle.loanId}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {vehicle.makeModel} · {vehicle.rcNumber} · {vehicle.customer}
+            </DialogDescription>
+          </DialogHeader>
+
+          {!linkedLoan ? (
+            <div
+              className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs"
+              style={{
+                borderColor: "rgba(244,63,94,0.30)",
+                backgroundColor: "rgba(244,63,94,0.06)",
+                color: "#be123c",
+              }}
+            >
+              <FileWarning size={14} />
+              No matching loan record found in the system. The folio may
+              predate digital archival.
+            </div>
+          ) : presentCount === 0 ? (
+            <div
+              className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs"
+              style={{
+                borderColor: "rgba(234,179,8,0.40)",
+                backgroundColor: "rgba(234,179,8,0.08)",
+                color: "#a16207",
+              }}
+            >
+              <FileWarning size={14} />
+              No legal documents were attached at origination for this loan.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {LEGAL_DOC_ORDER.map((type) => {
+                const doc = docsByType[type];
+                if (!doc) {
+                  return (
+                    <div
+                      key={type}
+                      className="flex items-center justify-between rounded-md border bg-white px-3 py-2 text-xs"
+                      style={{
+                        borderColor: "rgba(100,116,139,0.20)",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      <span className="font-medium">
+                        {LEGAL_DOC_LABELS[type]}
+                      </span>
+                      <span className="text-[11px] italic">Not on file</span>
+                    </div>
+                  );
+                }
+                return (
+                  <div
+                    key={type}
+                    className="flex items-center justify-between gap-2 rounded-md border bg-white px-3 py-2"
+                    style={{ borderColor: "rgba(16,185,129,0.30)" }}
+                  >
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-slate-900">
+                        {LEGAL_DOC_LABELS[type]}
+                      </div>
+                      <div className="truncate text-[11px] text-slate-500">
+                        {doc.name} ·{" "}
+                        {new Date(doc.uploadedAtIso).toLocaleDateString(
+                          "en-IN",
+                          { day: "2-digit", month: "short", year: "numeric" },
+                        )}
+                      </div>
+                    </div>
+                    <a
+                      href={doc.dataUrl}
+                      download={doc.name}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium hover:bg-slate-50"
+                      style={{
+                        borderColor: "rgba(74,111,165,0.35)",
+                        color: "var(--brand-primary)",
+                      }}
+                    >
+                      <Download size={12} />
+                      Open
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDocsOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

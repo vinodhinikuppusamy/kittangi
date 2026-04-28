@@ -41,6 +41,11 @@ import {
   useInvestors,
   type Investor,
 } from "@/lib/stores/investorsStore";
+import {
+  useAccounts,
+  useAllAccountBalances,
+} from "@/lib/stores/accountsStore";
+import { useLoans } from "@/lib/stores/loansStore";
 
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -334,6 +339,33 @@ export default function Financials() {
     };
   }, [allEntries, investors, fy]);
 
+  // ---- Trial Balance (live, all-time) -----------------------------------
+  // Sums every persisted Daybook entry by category, separating debits from
+  // credits. The two columns must tie out — any drift indicates a posting
+  // bug somewhere upstream.
+  const trialBalance = useMemo(() => {
+    const map = new Map<string, { debit: number; credit: number }>();
+    let totalDebit = 0;
+    let totalCredit = 0;
+    for (const e of allEntries) {
+      const row = map.get(e.category) ?? { debit: 0, credit: 0 };
+      if (e.side === "DEBIT") {
+        row.debit += e.amount;
+        totalDebit += e.amount;
+      } else {
+        row.credit += e.amount;
+        totalCredit += e.amount;
+      }
+      map.set(e.category, row);
+    }
+    const rows = Array.from(map.entries())
+      .map(([category, v]) => ({ category, ...v }))
+      .sort((a, b) =>
+        b.debit + b.credit - (a.debit + a.credit),
+      );
+    return { rows, totalDebit, totalCredit };
+  }, [allEntries]);
+
   // ---- Balance-sheet snapshot ------------------------------------------
   // Total Assets (= current outstanding loan book principal) is computed by
   // walking the entire daybook, not just the selected FY. A loan disbursed
@@ -401,10 +433,62 @@ export default function Financials() {
     return {
       totalAssets: activePrincipal,
       totalLiabilities: activeInvestorDeposits,
+      activePrincipal,
       netWorth,
       activeInvestors: investors.filter((i) => i.status === "ACTIVE"),
     };
   }, [allEntries, investors]);
+
+  // ---- Yearly Balance Sheet --------------------------------------------
+  // A formal Assets = Liabilities + Equity statement. Cash & bank balances
+  // come from accountsStore (running balance after every Daybook posting),
+  // the loan book is the live `activePrincipal`, and accrued interest is
+  // summed from the loan ledger. Equity has two pieces: starting capital
+  // (sum of opening account balances on the books on Day 1) and the plug
+  // figure "Retained Earnings" derived from Assets − Liabilities − Capital,
+  // so the statement always balances by construction.
+  const accountBalances = useAllAccountBalances();
+  const accountsList = useAccounts();
+  const allLoans = useLoans();
+  const balanceSheet = useMemo(() => {
+    const cashOnHand = accountsList
+      .filter((a) => a.type === "CASH")
+      .reduce((s, a) => s + (accountBalances[a.id] ?? 0), 0);
+    const bankBalances = accountsList
+      .filter((a) => a.type !== "CASH")
+      .reduce((s, a) => s + (accountBalances[a.id] ?? 0), 0);
+    const accruedInterest = allLoans
+      .filter((l) => l.status === "ACTIVE")
+      .reduce((s, l) => s + (l.accruedInterest ?? 0), 0);
+
+    const totalAssets =
+      cashOnHand + bankBalances + balance.activePrincipal + accruedInterest;
+
+    const investorDeposits = balance.totalLiabilities;
+    const totalLiabilities = investorDeposits;
+
+    const startingCapital = accountsList.reduce(
+      (s, a) => s + (a.openingBalance ?? 0),
+      0,
+    );
+    const retainedEarnings = totalAssets - totalLiabilities - startingCapital;
+    const totalEquity = startingCapital + retainedEarnings;
+
+    return {
+      cashOnHand,
+      bankBalances,
+      activePrincipal: balance.activePrincipal,
+      accruedInterest,
+      totalAssets,
+      investorDeposits,
+      totalLiabilities,
+      startingCapital,
+      retainedEarnings,
+      totalEquity,
+      // Should always be ~0 by construction; surfaced as a tie-out check.
+      tieOut: totalAssets - (totalLiabilities + totalEquity),
+    };
+  }, [accountsList, accountBalances, allLoans, balance]);
 
   // ---- Render -----------------------------------------------------------
   return (
@@ -602,7 +686,254 @@ export default function Financials() {
             </CardContent>
           </Card>
 
-          {/* ============ SECTION 2 — Health Snapshot ============ */}
+          {/* ============ SECTION 2 — Trial Balance ============ */}
+          <Card
+            className="border bg-white shadow-sm"
+            style={{ borderColor: "rgba(74,111,165,0.12)" }}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-start gap-3">
+                <div
+                  className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: "var(--brand-light)" }}
+                >
+                  <Receipt size={16} style={{ color: "var(--brand-primary)" }} />
+                </div>
+                <div className="flex-1">
+                  <CardTitle
+                    className="text-base font-semibold"
+                    style={{ color: "var(--brand-primary)" }}
+                  >
+                    Trial Balance
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Live aggregation of every Daybook posting by category.
+                    Total Debits must equal Total Credits.
+                  </CardDescription>
+                </div>
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                  style={{
+                    backgroundColor:
+                      Math.abs(
+                        trialBalance.totalDebit - trialBalance.totalCredit,
+                      ) < 0.5
+                        ? "rgba(34,197,94,0.14)"
+                        : "rgba(244,63,94,0.14)",
+                    color:
+                      Math.abs(
+                        trialBalance.totalDebit - trialBalance.totalCredit,
+                      ) < 0.5
+                        ? "rgb(21,128,61)"
+                        : "#be123c",
+                  }}
+                >
+                  {Math.abs(
+                    trialBalance.totalDebit - trialBalance.totalCredit,
+                  ) < 0.5
+                    ? "Balanced"
+                    : `Out by ${inr(
+                        Math.abs(
+                          trialBalance.totalDebit - trialBalance.totalCredit,
+                        ),
+                      )}`}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div
+                className="overflow-hidden rounded-lg border"
+                style={{ borderColor: "rgba(74,111,165,0.12)" }}
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow style={{ backgroundColor: "rgba(74,111,165,0.04)" }}>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
+                        Category
+                      </TableHead>
+                      <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wider">
+                        Debit (₹)
+                      </TableHead>
+                      <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wider">
+                        Credit (₹)
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {trialBalance.rows.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={3}
+                          className="py-6 text-center text-xs text-slate-500"
+                        >
+                          No Daybook entries yet.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      trialBalance.rows.map((r) => (
+                        <TableRow key={r.category}>
+                          <TableCell className="text-sm font-medium text-slate-800">
+                            {r.category}
+                          </TableCell>
+                          <TableCell className="text-right text-sm tabular-nums text-slate-700">
+                            {r.debit > 0 ? inr(r.debit) : "—"}
+                          </TableCell>
+                          <TableCell className="text-right text-sm tabular-nums text-slate-700">
+                            {r.credit > 0 ? inr(r.credit) : "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                    <TableRow
+                      style={{
+                        backgroundColor: "rgba(74,111,165,0.06)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <TableCell
+                        className="text-sm uppercase tracking-wide"
+                        style={{ color: "var(--brand-primary)" }}
+                      >
+                        Total
+                      </TableCell>
+                      <TableCell
+                        className="text-right text-sm tabular-nums"
+                        style={{ color: "var(--brand-primary)" }}
+                      >
+                        {inr(trialBalance.totalDebit)}
+                      </TableCell>
+                      <TableCell
+                        className="text-right text-sm tabular-nums"
+                        style={{ color: "var(--brand-primary)" }}
+                      >
+                        {inr(trialBalance.totalCredit)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ============ SECTION 3 — Yearly Balance Sheet ============ */}
+          <Card
+            className="border bg-white shadow-sm"
+            style={{ borderColor: "rgba(74,111,165,0.12)" }}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-start gap-3">
+                <div
+                  className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: "var(--brand-light)" }}
+                >
+                  <Scale size={16} style={{ color: "var(--brand-primary)" }} />
+                </div>
+                <div className="flex-1">
+                  <CardTitle
+                    className="text-base font-semibold"
+                    style={{ color: "var(--brand-primary)" }}
+                  >
+                    Yearly Balance Sheet — As of {fy.label.split(" ")[1]}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Assets = Liabilities + Equity. Cash &amp; bank from the
+                    accounts ledger, loan book from active disbursements,
+                    capital from the opening account balances.
+                  </CardDescription>
+                </div>
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                  style={{
+                    backgroundColor:
+                      Math.abs(balanceSheet.tieOut) < 0.5
+                        ? "rgba(34,197,94,0.14)"
+                        : "rgba(244,63,94,0.14)",
+                    color:
+                      Math.abs(balanceSheet.tieOut) < 0.5
+                        ? "rgb(21,128,61)"
+                        : "#be123c",
+                  }}
+                >
+                  {Math.abs(balanceSheet.tieOut) < 0.5
+                    ? "Balanced"
+                    : `Out by ${inr(Math.abs(balanceSheet.tieOut))}`}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {/* Assets column */}
+                <BSColumn
+                  heading="Assets"
+                  rows={[
+                    { label: "Cash in Hand", value: balanceSheet.cashOnHand },
+                    { label: "Bank Balances", value: balanceSheet.bankBalances },
+                    {
+                      label: "Loans Outstanding",
+                      value: balanceSheet.activePrincipal,
+                    },
+                    {
+                      label: "Accrued Interest Receivable",
+                      value: balanceSheet.accruedInterest,
+                    },
+                  ]}
+                  total={balanceSheet.totalAssets}
+                  totalLabel="Total Assets"
+                />
+
+                {/* Liabilities + Equity column */}
+                <div className="space-y-4">
+                  <BSColumn
+                    heading="Liabilities"
+                    rows={[
+                      {
+                        label: "Investor Deposits",
+                        value: balanceSheet.investorDeposits,
+                      },
+                    ]}
+                    total={balanceSheet.totalLiabilities}
+                    totalLabel="Total Liabilities"
+                  />
+                  <BSColumn
+                    heading="Equity"
+                    rows={[
+                      {
+                        label: "Owner's Capital (opening)",
+                        value: balanceSheet.startingCapital,
+                      },
+                      {
+                        label:
+                          balanceSheet.retainedEarnings >= 0
+                            ? "Retained Earnings"
+                            : "Accumulated Loss",
+                        value: balanceSheet.retainedEarnings,
+                        emphasizeNegative: true,
+                      },
+                    ]}
+                    total={balanceSheet.totalEquity}
+                    totalLabel="Total Equity"
+                  />
+                  <div
+                    className="flex items-center justify-between rounded-lg px-4 py-3 text-sm font-semibold"
+                    style={{
+                      backgroundColor: "var(--brand-light)",
+                      color: "var(--brand-primary)",
+                    }}
+                  >
+                    <span>Liabilities + Equity</span>
+                    <span className="tabular-nums">
+                      {inr(
+                        balanceSheet.totalLiabilities +
+                          balanceSheet.totalEquity,
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ============ SECTION 4 — Health Snapshot ============ */}
           <Card
             className="border bg-white shadow-sm"
             style={{ borderColor: "rgba(74,111,165,0.12)" }}
@@ -821,5 +1152,66 @@ function SubtotalRow({
         {inr(amount)}
       </TableCell>
     </TableRow>
+  );
+}
+
+function BSColumn({
+  heading,
+  rows,
+  total,
+  totalLabel,
+}: {
+  heading: string;
+  rows: Array<{ label: string; value: number; emphasizeNegative?: boolean }>;
+  total: number;
+  totalLabel: string;
+}) {
+  return (
+    <div
+      className="overflow-hidden rounded-lg border bg-white"
+      style={{ borderColor: "rgba(74,111,165,0.12)" }}
+    >
+      <div
+        className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider"
+        style={{
+          backgroundColor: "rgba(74,111,165,0.06)",
+          color: "var(--brand-primary)",
+        }}
+      >
+        {heading}
+      </div>
+      <div className="divide-y" style={{ borderColor: "rgba(74,111,165,0.10)" }}>
+        {rows.map((r) => {
+          const negative = r.emphasizeNegative && r.value < 0;
+          return (
+            <div
+              key={r.label}
+              className="flex items-center justify-between px-4 py-2 text-sm"
+            >
+              <span className="text-slate-700">{r.label}</span>
+              <span
+                className="tabular-nums"
+                style={{
+                  color: negative ? "#be123c" : "rgb(15,23,42)",
+                  fontWeight: negative ? 600 : 500,
+                }}
+              >
+                {r.value < 0 ? `(${inr(Math.abs(r.value))})` : inr(r.value)}
+              </span>
+            </div>
+          );
+        })}
+        <div
+          className="flex items-center justify-between px-4 py-2.5 text-sm font-bold"
+          style={{
+            backgroundColor: "rgba(74,111,165,0.04)",
+            color: "var(--brand-primary)",
+          }}
+        >
+          <span>{totalLabel}</span>
+          <span className="tabular-nums">{inr(total)}</span>
+        </div>
+      </div>
+    </div>
   );
 }

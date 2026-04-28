@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { QRCodeSVG } from "qrcode.react";
 import {
   Banknote,
   CalendarClock,
@@ -12,6 +13,7 @@ import {
   Lock,
   Percent,
   Scale,
+  ScanLine,
   Sparkles,
   User,
   Wallet,
@@ -27,6 +29,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -182,6 +192,24 @@ export default function PawnOrigination() {
    */
   const [itemPhotos, setItemPhotos] = useState<string[]>([]);
 
+  /**
+   * Holds the just-issued ticket so we can render the success Vault QR
+   * dialog. The QR encodes a JSON envelope of {loanId, customer, customerCode,
+   * vaultLoc} which the vault scanner uses to confirm the right packet went
+   * into the right locker.
+   */
+  const [successTicket, setSuccessTicket] = useState<{
+    loanId: string;
+    customer: string;
+    customerCode: string;
+    safeLabel: string;
+    locker: string;
+    vaultLoc: string;
+    netDisbursement: number;
+    sourceAccount: string;
+    itemTitle: string;
+  } | null>(null);
+
   const selectedCustomer = useMemo(
     () => verifiedCustomers.find((c) => c.id === values.customerId),
     [values.customerId, verifiedCustomers],
@@ -255,16 +283,49 @@ export default function PawnOrigination() {
 
     const ticketNo = `PWN-${Math.floor(100000 + Math.random() * 899999)}`;
     const sourceAccount = accounts.find((a) => a.id === data.paymentSource);
-
-    // Forward the newly originated pledge — including any captured photos —
-    // into the shared Pledged Inventory store. The PledgedItems gallery and
-    // "Manage Item" modal subscribe to the same store and pick this up
-    // immediately without a refresh.
     const safe = SAFES.find((s) => s.value === data.safeNumber);
     const itemTitle =
       data.itemType === "GOLD"
         ? `${parseFloat(data.netWeight).toFixed(2)}g Gold Item`
         : `${parseFloat(data.netWeight).toFixed(2)}g Silver Item`;
+
+    // Atomic three-way commit (cash ↔ loan ↔ pledged item):
+    // 1. Post the cash DEBIT to the Daybook FIRST. This is the only step
+    //    that can fail (DayLockedError). If it throws we abort BEFORE
+    //    creating the pledged item or loan record, so we can never end up
+    //    with an orphan pledge / loan that has no matching disbursement.
+    // 2. Only after the post succeeds do we add the pledged item, then
+    //    commit the loan referencing the pledged item id. Both store
+    //    helpers are pure synchronous Zustand mutations and cannot fail.
+    try {
+      addDaybookEntry({
+        dateIso: today,
+        time: timeNow(),
+        side: "DEBIT",
+        category: "Loan Disbursement",
+        particulars: `Pawn loan disbursement to ${
+          selectedCustomer?.name ?? data.customerId
+        } (${data.itemType.toLowerCase()})`,
+        refId: ticketNo,
+        account: data.paymentSource,
+        amount: netDisbursement,
+        customerName: selectedCustomer?.name,
+        customerId: data.customerId,
+      });
+    } catch (err) {
+      if (err instanceof DayLockedError) {
+        toast.error(
+          "Today's Daybook was locked just now — disbursement was not posted.",
+        );
+        return;
+      }
+      throw err;
+    }
+
+    // Forward the newly originated pledge — including any captured photos —
+    // into the shared Pledged Inventory store. The PledgedItems gallery and
+    // "Manage Item" modal subscribe to the same store and pick this up
+    // immediately without a refresh.
     const pledged = addPledgedItem({
       title: itemTitle,
       category: data.itemType,
@@ -298,43 +359,16 @@ export default function PawnOrigination() {
       pledgedItemId: pledged?.id,
     });
 
-    // Post the cash movement to the Centralized Financial Engine. Marking
-    // the entry as a DEBIT against the source account decreases its live
-    // balance via `accountsStore.useAccountBalance`.
-    try {
-      addDaybookEntry({
-        dateIso: today,
-        time: timeNow(),
-        side: "DEBIT",
-        category: "Loan Disbursement",
-        particulars: `Pawn loan disbursement to ${
-          selectedCustomer?.name ?? data.customerId
-        } (${data.itemType.toLowerCase()})`,
-        refId: ticketNo,
-        account: data.paymentSource,
-        amount: netDisbursement,
-        customerName: selectedCustomer?.name,
-        customerId: data.customerId,
-      });
-    } catch (err) {
-      if (err instanceof DayLockedError) {
-        toast.error(
-          "Today's Daybook was locked just now — disbursement was not posted.",
-        );
-        return;
-      }
-      throw err;
-    }
-
-    toast.success("Pawn ticket generated", {
-      description: `${ticketNo} • ${inr(netDisbursement)} disbursed via ${
-        sourceAccount?.name ?? data.paymentSource
-      }`,
-      icon: <CheckCircle2 size={18} />,
-      action: {
-        label: "Open Loan",
-        onClick: () => navigate(`/loans/${ticketNo}`),
-      },
+    setSuccessTicket({
+      loanId: ticketNo,
+      customer: selectedCustomer?.name ?? data.customerId,
+      customerCode: data.customerId,
+      safeLabel: safe?.label ?? data.safeNumber,
+      locker: data.lockerNumber,
+      vaultLoc: safe ? `${safe.label} · ${data.lockerNumber}` : data.lockerNumber,
+      netDisbursement,
+      sourceAccount: sourceAccount?.name ?? data.paymentSource,
+      itemTitle,
     });
     reset();
     setItemPhotos([]);
@@ -1086,6 +1120,126 @@ export default function PawnOrigination() {
           </p>
         )}
       </form>
+
+      <Dialog
+        open={successTicket !== null}
+        onOpenChange={(o) => {
+          if (!o) setSuccessTicket(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle
+              className="flex items-center gap-2 text-base font-semibold"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              <CheckCircle2 size={18} />
+              Pawn Ticket Generated
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Affix this Vault QR to the sealed packet before stowing it in the
+              locker. Vault staff scan it during locker handover to confirm
+              packet ↔ locker integrity.
+            </DialogDescription>
+          </DialogHeader>
+
+          {successTicket && (
+            <div className="space-y-4 pt-1">
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <div className="font-semibold uppercase tracking-wide text-slate-500">
+                    Ticket No.
+                  </div>
+                  <div
+                    className="mt-0.5 font-mono text-sm font-semibold"
+                    style={{ color: "var(--brand-primary)" }}
+                  >
+                    {successTicket.loanId}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-semibold uppercase tracking-wide text-slate-500">
+                    Disbursed
+                  </div>
+                  <div className="mt-0.5 text-sm font-semibold text-slate-900">
+                    {inr(successTicket.netDisbursement)}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-semibold uppercase tracking-wide text-slate-500">
+                    Customer
+                  </div>
+                  <div className="mt-0.5 text-sm font-medium text-slate-900">
+                    {successTicket.customer}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {successTicket.customerCode}
+                  </div>
+                </div>
+                <div>
+                  <div className="font-semibold uppercase tracking-wide text-slate-500">
+                    Vault Location
+                  </div>
+                  <div
+                    className="mt-0.5 text-sm font-semibold"
+                    style={{ color: "var(--brand-primary)" }}
+                  >
+                    {successTicket.vaultLoc}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="flex flex-col items-center gap-2 rounded-xl border bg-white p-4"
+                style={{ borderColor: "rgba(74,111,165,0.20)" }}
+              >
+                <QRCodeSVG
+                  size={184}
+                  level="M"
+                  includeMargin
+                  value={JSON.stringify({
+                    type: "kittangi.vault.packet",
+                    loanId: successTicket.loanId,
+                    customer: successTicket.customer,
+                    customerCode: successTicket.customerCode,
+                    safe: successTicket.safeLabel,
+                    locker: successTicket.locker,
+                    item: successTicket.itemTitle,
+                  })}
+                  bgColor="#ffffff"
+                  fgColor="#1f2937"
+                />
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+                  <ScanLine size={12} />
+                  Scan at Vault counter to confirm packet placement
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSuccessTicket(null)}
+            >
+              Originate Another
+            </Button>
+            <Button
+              type="button"
+              className="font-semibold text-white"
+              style={{ backgroundColor: "var(--brand-primary)" }}
+              onClick={() => {
+                const id = successTicket?.loanId;
+                setSuccessTicket(null);
+                if (id) navigate(`/loans/${id}`);
+              }}
+            >
+              Open Loan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

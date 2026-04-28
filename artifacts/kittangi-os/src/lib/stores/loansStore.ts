@@ -2,15 +2,16 @@ import {
   createPersistentStore,
   usePersistentStore,
 } from "@/lib/stores/persistentStore";
+import { updatePledgedItem } from "@/lib/stores/pledgedItemsStore";
 
 /**
- * Unified Loan record covering both pawn and vehicle products. The Loan
- * Management module renders one row per record; the per-loan Lifecycle page
- * pulls the matching pledged item, vehicle details, and receipts from the
- * other persisted stores using the loan id as the join key.
+ * Unified Loan record covering pawn, vehicle, and unsecured "document" loans.
+ * The Loan Management module renders one row per record; the per-loan
+ * Lifecycle page pulls the matching pledged item, vehicle details, and
+ * receipts from the other persisted stores using the loan id as the join key.
  */
 
-export type LoanProduct = "PAWN" | "VEHICLE";
+export type LoanProduct = "PAWN" | "VEHICLE" | "DOCUMENT";
 export type LoanStatus = "ACTIVE" | "CLOSED" | "AUCTION";
 
 export type VehicleDetails = {
@@ -18,6 +19,24 @@ export type VehicleDetails = {
   regNo?: string;
   year?: string;
   vehicleType?: "TWO_WHEELER" | "FOUR_WHEELER" | "COMMERCIAL";
+};
+
+/**
+ * A scanned/uploaded legal document attached to a loan. Currently used by
+ * Vehicle Origination to capture the four mandatory documents (RC, Insurance,
+ * Hypothecation Agreement, Permits) which are surfaced again from the
+ * Repossession Yard "View Legal Docs" action.
+ */
+export type LegalDocType = "RC" | "INSURANCE" | "AGREEMENT" | "PERMIT";
+
+export type LegalDoc = {
+  type: LegalDocType;
+  /** Original file name as uploaded by the operator. */
+  name: string;
+  /** Base64 data URL. Persisted alongside the loan record. */
+  dataUrl: string;
+  /** ISO timestamp when the document was attached. */
+  uploadedAtIso: string;
 };
 
 export type Loan = {
@@ -50,6 +69,8 @@ export type Loan = {
    * inserted without computing it.
    */
   accruedInterest?: number;
+  /** Scanned legal documents (vehicle loans). */
+  legalDocs?: LegalDoc[];
 };
 
 const STORAGE_KEY = "kittangi:loans:v1";
@@ -202,4 +223,45 @@ export function deleteLoan(id: string): void {
 
 export function resetLoans(): void {
   loansStore.set(SEED_LOANS);
+}
+
+// ---------------------------------------------------------------------------
+// Atomic lifecycle helpers
+//
+// These helpers exist so loan-status transitions and pledged-item state stay
+// in lock-step. Callers should prefer them over a bare `updateLoan` when
+// flipping ACTIVE → CLOSED or ACTIVE → AUCTION on a pawn loan, otherwise the
+// vault locker can be left in an incorrect state (showing OCCUPIED for a
+// closed loan or RELEASED for one in auction).
+// ---------------------------------------------------------------------------
+
+/**
+ * Mark a loan as fully settled. The pledged item — if one is linked — is
+ * released from the vault and its `vaultLoc` is cleared so the locker shows
+ * AVAILABLE in the Vault Management view in the same render cycle.
+ */
+export function closeLoanWithSettlement(loanId: string): void {
+  const loan = loansStore.get().find((l) => l.id === loanId);
+  if (!loan) return;
+  updateLoan(loanId, { status: "CLOSED" });
+  if (loan.pledgedItemId) {
+    updatePledgedItem(loan.pledgedItemId, {
+      status: "RELEASED",
+      vaultLoc: undefined,
+    });
+  }
+}
+
+/**
+ * Move a defaulted loan to the auction queue. The pledged item moves to
+ * AUCTION but its `vaultLoc` is preserved — the asset is physically still
+ * in the safe pending the auction.
+ */
+export function markLoanForAuction(loanId: string): void {
+  const loan = loansStore.get().find((l) => l.id === loanId);
+  if (!loan) return;
+  updateLoan(loanId, { status: "AUCTION" });
+  if (loan.pledgedItemId) {
+    updatePledgedItem(loan.pledgedItemId, { status: "AUCTION" });
+  }
 }

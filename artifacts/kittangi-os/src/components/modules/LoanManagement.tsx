@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
+  FileSignature,
   Filter,
   IndianRupee,
   Landmark,
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { useLoans, type Loan, type LoanStatus } from "@/lib/stores/loansStore";
 import { useAccounts } from "@/lib/stores/accountsStore";
+import DocumentLoanDialog from "./DocumentLoanDialog";
 
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -97,6 +99,12 @@ function statusBadge(status: LoanStatus) {
 }
 
 function productBadge(product: Loan["product"]) {
+  const label =
+    product === "PAWN"
+      ? "Pawn"
+      : product === "VEHICLE"
+        ? "Vehicle"
+        : "Document";
   return (
     <Badge
       variant="outline"
@@ -106,12 +114,12 @@ function productBadge(product: Loan["product"]) {
         color: "var(--brand-primary)",
       }}
     >
-      {product === "PAWN" ? "Pawn" : "Vehicle"}
+      {label}
     </Badge>
   );
 }
 
-type ProductFilter = "ALL" | "PAWN" | "VEHICLE";
+type ProductFilter = "ALL" | "PAWN" | "VEHICLE" | "DOCUMENT";
 type StatusFilter = "ALL" | LoanStatus;
 
 export default function LoanManagement() {
@@ -122,6 +130,7 @@ export default function LoanManagement() {
   const [query, setQuery] = useState("");
   const [productFilter, setProductFilter] = useState<ProductFilter>("ALL");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [docDialogOpen, setDocDialogOpen] = useState(false);
 
   const filteredLoans = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -172,11 +181,20 @@ export default function LoanManagement() {
               Loan Management
             </h1>
             <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-              Single source of truth for every pawn ticket and vehicle
-              agreement on the books.
+              Single source of truth for every pawn ticket, vehicle
+              agreement, and document loan on the books.
             </p>
           </div>
         </div>
+        <Button
+          type="button"
+          className="h-10 px-4 text-sm font-semibold text-white shadow-sm"
+          style={{ backgroundColor: "var(--brand-primary)" }}
+          onClick={() => setDocDialogOpen(true)}
+        >
+          <FileSignature size={16} className="mr-2" />
+          Document Loan
+        </Button>
       </div>
 
       {/* Summary cards */}
@@ -254,6 +272,7 @@ export default function LoanManagement() {
                 <SelectItem value="ALL">All products</SelectItem>
                 <SelectItem value="PAWN">Pawn</SelectItem>
                 <SelectItem value="VEHICLE">Vehicle</SelectItem>
+                <SelectItem value="DOCUMENT">Document</SelectItem>
               </SelectContent>
             </Select>
             <Select
@@ -382,6 +401,12 @@ export default function LoanManagement() {
           </div>
         </CardContent>
       </Card>
+
+      <DocumentLoanDialog
+        open={docDialogOpen}
+        onOpenChange={setDocDialogOpen}
+        onCreated={(id) => navigate(`/loans/${id}`)}
+      />
     </div>
   );
 }
