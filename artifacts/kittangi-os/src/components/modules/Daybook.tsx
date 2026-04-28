@@ -8,6 +8,7 @@ import {
   Copy,
   Lock,
   LockOpen,
+  Plus,
   Printer,
   Scale,
   TrendingDown,
@@ -18,6 +19,8 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -42,6 +45,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -52,8 +62,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  addDaybookEntry,
+  DayLockedError,
   useDaybook,
   type DaybookAccount,
+  type DaybookCategory,
   type DaybookEntry,
 } from "@/lib/stores/daybookStore";
 import {
@@ -63,6 +76,22 @@ import {
   type DayLock,
 } from "@/lib/stores/dayLocksStore";
 import { useAccounts, type Account } from "@/lib/stores/accountsStore";
+import { useIsAdmin } from "@/lib/stores/userRoleStore";
+
+const EXPENSE_CATEGORIES: DaybookCategory[] = [
+  "Salary",
+  "Branch Expense",
+  "Utilities",
+  "Other Expense",
+];
+
+function timeNow(): string {
+  return new Date().toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
 
 const OPENING_BALANCE = 218430;
 
@@ -201,6 +230,73 @@ export default function Daybook() {
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
   const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
   const [pendingLock, setPendingLock] = useState<DayLock | null>(null);
+  const isAdmin = useIsAdmin();
+
+  // ===== Manual Expense Entry =====
+  const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  const [expenseCategory, setExpenseCategory] = useState<DaybookCategory>(
+    "Branch Expense",
+  );
+  const [expenseAccount, setExpenseAccount] = useState<string>("");
+  const [expenseAmount, setExpenseAmount] = useState<string>("");
+  const [expenseParticulars, setExpenseParticulars] = useState<string>("");
+  const [expenseNotes, setExpenseNotes] = useState<string>("");
+  const expenseAmountNum = Number(
+    (expenseAmount || "").toString().replace(/[^0-9.]/g, ""),
+  );
+
+  const resetExpenseForm = () => {
+    setExpenseCategory("Branch Expense");
+    setExpenseAccount("");
+    setExpenseAmount("");
+    setExpenseParticulars("");
+    setExpenseNotes("");
+  };
+
+  const handlePostExpense = () => {
+    if (!expenseAccount) {
+      toast.error("Please choose the source account.");
+      return;
+    }
+    if (!Number.isFinite(expenseAmountNum) || expenseAmountNum <= 0) {
+      toast.error("Amount must be greater than zero.");
+      return;
+    }
+    if (!expenseParticulars.trim()) {
+      toast.error("Please describe what this expense is for.");
+      return;
+    }
+    try {
+      const refSeq = Math.floor(10000 + Math.random() * 89999);
+      addDaybookEntry({
+        dateIso: date,
+        time: timeNow(),
+        side: "DEBIT",
+        category: expenseCategory,
+        particulars: expenseParticulars.trim(),
+        refId: `EXP-${refSeq}`,
+        account: expenseAccount,
+        amount: expenseAmountNum,
+        notes: expenseNotes.trim() || undefined,
+      });
+      toast.success("Expense recorded", {
+        icon: <CheckCircle2 size={16} />,
+        description: `${expenseCategory} · ${inr(expenseAmountNum)} from ${
+          accounts.find((a) => a.id === expenseAccount)?.name ?? expenseAccount
+        }`,
+      });
+      resetExpenseForm();
+      setExpenseDialogOpen(false);
+    } catch (err) {
+      if (err instanceof DayLockedError) {
+        toast.error(
+          `${prettyDate(date)} is locked — unlock the day before posting expenses.`,
+        );
+        return;
+      }
+      throw err;
+    }
+  };
 
   // STRICT date filter — the table only ever shows transactions whose
   // dateIso exactly matches the picker. Switching to yesterday in the
@@ -291,6 +387,24 @@ export default function Daybook() {
             <Printer size={14} className="mr-1.5" />
             Print Chitta
           </Button>
+          {!isLocked && isAdmin && (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 px-3 text-xs"
+              style={{
+                borderColor: "rgba(74,111,165,0.25)",
+                color: "var(--brand-primary)",
+              }}
+              onClick={() => {
+                resetExpenseForm();
+                setExpenseDialogOpen(true);
+              }}
+            >
+              <Plus size={14} className="mr-1.5" />
+              Add Expense
+            </Button>
+          )}
           {isLocked ? (
             <Button
               type="button"
@@ -864,6 +978,151 @@ export default function Daybook() {
                 Confirm &amp; Lock
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Expense — manual outflow into the Daybook */}
+      <Dialog
+        open={expenseDialogOpen}
+        onOpenChange={(o) => {
+          if (!o) resetExpenseForm();
+          setExpenseDialogOpen(o);
+        }}
+      >
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Add Expense Entry</DialogTitle>
+            <DialogDescription>
+              Records a DEBIT against the chosen account. The day must be
+              unlocked.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Category
+                </Label>
+                <Select
+                  value={expenseCategory}
+                  onValueChange={(v) =>
+                    setExpenseCategory(v as DaybookCategory)
+                  }
+                >
+                  <SelectTrigger className="h-10 w-full bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXPENSE_CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Source Account
+                </Label>
+                <Select
+                  value={expenseAccount}
+                  onValueChange={setExpenseAccount}
+                >
+                  <SelectTrigger
+                    className="h-10 w-full bg-white"
+                    aria-label="Source Account"
+                  >
+                    <SelectValue placeholder="Select account..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{a.name}</span>
+                          {a.subtitle ? (
+                            <span className="text-xs text-slate-500">
+                              {a.subtitle}
+                            </span>
+                          ) : null}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="expenseAmount"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Amount (₹)
+              </Label>
+              <Input
+                id="expenseAmount"
+                type="number"
+                inputMode="numeric"
+                placeholder="e.g., 12,500"
+                value={expenseAmount}
+                onChange={(e) => setExpenseAmount(e.target.value)}
+                className="h-10"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="expenseParticulars"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Particulars
+              </Label>
+              <Input
+                id="expenseParticulars"
+                placeholder="e.g., April electricity bill"
+                value={expenseParticulars}
+                onChange={(e) => setExpenseParticulars(e.target.value)}
+                className="h-10"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="expenseNotes"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Notes (optional)
+              </Label>
+              <Textarea
+                id="expenseNotes"
+                placeholder="Vendor, invoice number, etc."
+                value={expenseNotes}
+                onChange={(e) => setExpenseNotes(e.target.value)}
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                resetExpenseForm();
+                setExpenseDialogOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="font-semibold text-white"
+              style={{ backgroundColor: "var(--brand-primary)" }}
+              onClick={handlePostExpense}
+            >
+              Post Expense
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

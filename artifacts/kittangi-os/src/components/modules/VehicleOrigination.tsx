@@ -1,14 +1,17 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm, useWatch, type Control } from "react-hook-form";
 import { toast } from "sonner";
 import {
   Bike,
+  CalendarClock,
   Calculator,
   Car,
   CheckCircle2,
   FileSignature,
   Gauge,
   IndianRupee,
+  Percent,
   ShieldCheck,
   Truck,
   UserRoundCheck,
@@ -33,6 +36,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { addLoan, deleteLoan } from "@/lib/stores/loansStore";
+import {
+  addDaybookEntry,
+  DayLockedError,
+} from "@/lib/stores/daybookStore";
+import { isDateLocked } from "@/lib/stores/dayLocksStore";
+import { useAccounts } from "@/lib/stores/accountsStore";
 
 type VehicleType = "TWO_WHEELER" | "FOUR_WHEELER" | "COMMERCIAL";
 
@@ -48,8 +58,40 @@ type VehicleForm = {
   loanAmount: string;
   rtoFee: string;
   docCharges: string;
+  ratePctPerAnnum: string;
+  tenureMonths: string;
+  paymentSource: string;
   hypothecation: boolean;
 };
+
+function todayIso(): string {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function timeNow(): string {
+  return new Date().toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function addMonthsIso(startIso: string, months: number): string {
+  const d = new Date(startIso + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return startIso;
+  const target = new Date(d);
+  target.setMonth(target.getMonth() + months);
+  return [
+    target.getFullYear(),
+    String(target.getMonth() + 1).padStart(2, "0"),
+    String(target.getDate()).padStart(2, "0"),
+  ].join("-");
+}
 
 const VERIFIED_CUSTOMERS = [
   { id: "KTG-10042", name: "Aanya Sharma", phone: "+91 98212 44510" },
@@ -103,10 +145,15 @@ export default function VehicleOrigination() {
       loanAmount: "",
       rtoFee: "",
       docCharges: "",
+      ratePctPerAnnum: "13",
+      tenureMonths: "36",
+      paymentSource: "",
       hypothecation: false,
     },
   });
 
+  const navigate = useNavigate();
+  const accounts = useAccounts();
   const values = useWatch({ control });
   const selectedCustomer = useMemo(
     () => VERIFIED_CUSTOMERS.find((c) => c.id === values.customerId),
@@ -117,6 +164,9 @@ export default function VehicleOrigination() {
   const loanAmount = toNum(values.loanAmount);
   const rtoFee = toNum(values.rtoFee);
   const docCharges = toNum(values.docCharges);
+  const tenureMonths = toNum(values.tenureMonths);
+  const startIso = todayIso();
+  const maturityIso = tenureMonths > 0 ? addMonthsIso(startIso, tenureMonths) : "";
 
   const ltv = marketValue > 0 ? (loanAmount / marketValue) * 100 : 0;
   const netDisbursement = Math.max(loanAmount - rtoFee - docCharges, 0);
@@ -159,14 +209,102 @@ export default function VehicleOrigination() {
       toast.error("Fees and charges cannot meet or exceed the loan amount — net disbursement must be positive.");
       return;
     }
+    const ratePct = toNum(data.ratePctPerAnnum);
+    if (ratePct <= 0 || ratePct > 60) {
+      toast.error("Interest rate must be between 0 and 60% per annum.");
+      return;
+    }
+    if (tenureMonths <= 0 || tenureMonths > 84) {
+      toast.error("Tenure must be between 1 and 84 months.");
+      return;
+    }
+    if (!data.paymentSource) {
+      toast.error("Please choose the source account from which the loan will be disbursed.");
+      return;
+    }
     if (!data.hypothecation) {
       toast.error("RTO Hypothecation endorsement is mandatory before generating the agreement.");
       return;
     }
 
-    toast.success("Vehicle loan agreement generated", {
+    // Day-lock precheck — never let a disbursement post into a frozen day.
+    if (isDateLocked(startIso)) {
+      toast.error(
+        "Today's Daybook is locked — unlock it before disbursing a new vehicle loan.",
+      );
+      return;
+    }
+
+    // Generate a stable VEH-NNNNN id following the same shape as PWN ids
+    // already in the seed (`VEH-30091`, etc.).
+    const loanId = `VEH-${Math.floor(100000 + Math.random() * 899999)}`;
+    const vehicleTypeLabel =
+      data.vehicleType === "TWO_WHEELER"
+        ? "2W"
+        : data.vehicleType === "FOUR_WHEELER"
+          ? "4W"
+          : "Comm";
+
+    // 1) Persist the loan in the global store so it appears in
+    //    Loan Management, Customer 360, and Vehicle Reports.
+    addLoan({
+      id: loanId,
+      product: "VEHICLE",
+      customer: selectedCustomer?.name ?? "Unknown",
+      customerCode: data.customerId,
+      principal: loanAmount,
+      ratePctPerAnnum: ratePct,
+      startedAtIso: startIso,
+      durationLabel: `${tenureMonths} months`,
+      maturityIso,
+      status: "ACTIVE",
+      disbursedFromAccountId: data.paymentSource,
+      vehicleDetails: {
+        makeModel: data.makeModel || vehicleTypeLabel,
+        regNo: data.rcNumber,
+        year: data.year || undefined,
+        vehicleType: data.vehicleType as VehicleType,
+      },
+      notes: `Hypothecation endorsed. Engine: ${data.engineNumber || "—"} / Chassis: ${data.chassisNumber}.`,
+    });
+
+    // 2) Post the actual cash movement so the chosen account balance
+    //    drops by the net disbursement on the Settings → Accounts tab.
+    //    If the daybook write fails for any reason (day-lock race, etc.)
+    //    roll back the loan so the books never carry an orphan disbursement.
+    try {
+      addDaybookEntry({
+        dateIso: startIso,
+        time: timeNow(),
+        side: "DEBIT",
+        category: "Loan Disbursement",
+        particulars: `${selectedCustomer?.name ?? "Customer"} — ${data.makeModel || "Vehicle"} loan disbursed`,
+        refId: loanId,
+        account: data.paymentSource,
+        amount: netDisbursement,
+        customerName: selectedCustomer?.name,
+        customerId: data.customerId,
+      });
+    } catch (err) {
+      deleteLoan(loanId);
+      if (err instanceof DayLockedError) {
+        toast.error(
+          "Today's Daybook is locked — unlock it before disbursing a new vehicle loan.",
+        );
+        return;
+      }
+      throw err;
+    }
+
+    toast.success("Vehicle loan disbursed", {
       icon: <CheckCircle2 className="h-4 w-4" />,
-      description: `${selectedCustomer?.name} · ${data.makeModel || "vehicle"} · Net Disbursement ${inr(netDisbursement)}`,
+      description: `${loanId} · ${selectedCustomer?.name ?? ""} · ${inr(netDisbursement)} debited from ${
+        accounts.find((a) => a.id === data.paymentSource)?.name ?? data.paymentSource
+      }`,
+      action: {
+        label: "View Loan",
+        onClick: () => navigate(`/loans/${loanId}`),
+      },
     });
     reset();
   };
@@ -595,6 +733,102 @@ export default function VehicleOrigination() {
             </Card>
           </div>
         </div>
+
+        {/* ----- LOAN TERMS + DISBURSEMENT SOURCE ----- */}
+        <Card className="border bg-white" style={{ borderColor: "rgba(74,111,165,0.12)" }}>
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-lg"
+                style={{ background: "var(--brand-light)" }}
+              >
+                <CalendarClock className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+              </div>
+              <div>
+                <CardTitle className="text-base font-semibold text-slate-900">
+                  Loan Terms &amp; Disbursement Source
+                </CardTitle>
+                <CardDescription className="text-sm text-slate-500">
+                  Sets repayment schedule and the account that funds the disbursement.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <Field label="Interest Rate (% p.a.)" htmlFor="ratePctPerAnnum">
+              <div className="relative">
+                <Percent
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                />
+                <Input
+                  id="ratePctPerAnnum"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="60"
+                  className="h-11 pl-9 text-base"
+                  placeholder="13"
+                  style={inputBaseStyle}
+                  {...register("ratePctPerAnnum")}
+                />
+              </div>
+            </Field>
+            <Field label="Tenure (months)" htmlFor="tenureMonths">
+              <Input
+                id="tenureMonths"
+                type="number"
+                step="1"
+                min="1"
+                max="84"
+                className="h-11 text-base"
+                placeholder="36"
+                style={inputBaseStyle}
+                {...register("tenureMonths")}
+              />
+            </Field>
+            <Field label="Maturity Date" htmlFor="maturityIso">
+              <Input
+                id="maturityIso"
+                type="date"
+                value={maturityIso}
+                readOnly
+                className="h-11 bg-slate-50 text-base"
+                style={inputBaseStyle}
+              />
+            </Field>
+            <Field label="Disburse From" htmlFor="paymentSource">
+              <Select
+                value={values.paymentSource || ""}
+                onValueChange={(v) =>
+                  setValue("paymentSource", v, { shouldDirty: true })
+                }
+              >
+                <SelectTrigger
+                  id="paymentSource"
+                  className="h-11 w-full bg-white text-base"
+                  style={inputBaseStyle}
+                  aria-label="Source Account"
+                >
+                  <SelectValue placeholder="Select account..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{a.name}</span>
+                        {a.subtitle ? (
+                          <span className="text-xs text-slate-500">
+                            {a.subtitle}
+                          </span>
+                        ) : null}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </CardContent>
+        </Card>
 
         {/* ----- HYPOTHECATION + ACTION ----- */}
         <Card className="border bg-white" style={{ borderColor: "rgba(74,111,165,0.12)" }}>

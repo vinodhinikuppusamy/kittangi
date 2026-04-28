@@ -4,18 +4,14 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   Banknote,
-  Bike,
   CalendarClock,
-  Car,
   CheckCircle2,
   CircleAlert,
   FileSignature,
-  Gem,
   Lock,
   Printer,
   ReceiptText,
   ShieldAlert,
-  Truck,
   Vault,
   Wallet,
 } from "lucide-react";
@@ -48,7 +44,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  getLoan,
   updateLoan,
   useLoans,
   type Loan,
@@ -62,9 +57,11 @@ import {
   updatePledgedItem,
 } from "@/lib/stores/pledgedItemsStore";
 import { useAccounts } from "@/lib/stores/accountsStore";
+import { useCustomers } from "@/lib/stores/customersStore";
 import { isDateLocked } from "@/lib/stores/dayLocksStore";
 import { useBranchProfile } from "@/lib/stores/branchProfileStore";
 import { useIsAdmin } from "@/lib/stores/userRoleStore";
+import DocumentViewer from "@/components/shared/DocumentViewer";
 
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -100,6 +97,7 @@ export default function LoanLifecycle() {
   const allEntries = useDaybook();
   const accounts = useAccounts();
   const pledgedItems = usePledgedItems();
+  const customers = useCustomers();
   const branch = useBranchProfile();
   const isAdmin = useIsAdmin();
 
@@ -120,6 +118,20 @@ export default function LoanLifecycle() {
     () => pledgedItems.find((p) => p.id === loan?.pledgedItemId),
     [pledgedItems, loan],
   );
+
+  // Resolve the borrower from the global customer store so the printable
+  // document can render their KYC photo + ID details. We try by id first
+  // (loan.customerCode === Customer.id) and then fall back to a name match
+  // for legacy seed records that pre-date strict id linkage.
+  const customer = useMemo(() => {
+    if (!loan) return undefined;
+    return (
+      customers.find((c) => c.id === loan.customerCode) ??
+      customers.find(
+        (c) => c.fullName.toLowerCase() === loan.customer.toLowerCase(),
+      )
+    );
+  }, [customers, loan]);
 
   // Daybook entries linked to this loan: receipts (CREDIT) + the disbursement
   // (DEBIT). The refId convention is "RCP-XXXXX • LOAN-ID" or just "LOAN-ID".
@@ -192,7 +204,14 @@ export default function LoanLifecycle() {
     }
     updateLoan(loan.id, { status: "CLOSED" });
     if (pledgedItem) {
-      updatePledgedItem(pledgedItem.id, { status: "RELEASED" });
+      // Release the item AND clear its vault location so the locker
+      // shows AVAILABLE in the Vault Management view and the Pledged
+      // Items table no longer displays a stale "Safe-X · L-NNN" cell
+      // for an item that has physically left the safe.
+      updatePledgedItem(pledgedItem.id, {
+        status: "RELEASED",
+        vaultLoc: undefined,
+      });
     }
     toast.success("Loan closed", {
       description: `${loan.id} marked as Closed${
@@ -227,13 +246,6 @@ export default function LoanLifecycle() {
   };
 
   const isPawn = loan.product === "PAWN";
-  const ProductIcon = isPawn
-    ? Gem
-    : loan.vehicleDetails?.vehicleType === "TWO_WHEELER"
-      ? Bike
-      : loan.vehicleDetails?.vehicleType === "COMMERCIAL"
-        ? Truck
-        : Car;
 
   return (
     <div className="mx-auto max-w-7xl pb-10">
@@ -319,196 +331,14 @@ export default function LoanLifecycle() {
 
       {/* Main grid */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
-        {/* LEFT — Printable Ticket */}
-        <Card
-          className="print-area border bg-white shadow-sm"
-          data-print-area="loan-ticket"
-          style={{ borderColor: "rgba(74,111,165,0.12)" }}
-        >
-          <CardContent className="p-8">
-            {/* Branch header */}
-            <div className="flex items-start justify-between border-b pb-4">
-              <div>
-                <div
-                  className="text-lg font-bold tracking-tight"
-                  style={{ color: "var(--brand-primary)" }}
-                >
-                  {branch.branchName}
-                </div>
-                <div className="text-xs text-slate-500">{branch.address}</div>
-                <div className="text-xs text-slate-500">
-                  GSTIN: {branch.gstin} · {branch.contact}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                  {isPawn ? "Pawn Ticket" : "Vehicle Loan Agreement"}
-                </div>
-                <div
-                  className="font-mono text-xl font-bold"
-                  style={{ color: "var(--brand-primary)" }}
-                >
-                  {loan.id}
-                </div>
-                <div className="text-[11px] text-slate-500">
-                  Issued {prettyDate(loan.startedAtIso)}
-                </div>
-              </div>
-            </div>
-
-            {/* Customer */}
-            <section className="mt-5 grid grid-cols-2 gap-4">
-              <DetailRow label="Customer" value={loan.customer} />
-              <DetailRow label="Customer Code" value={loan.customerCode} />
-              <DetailRow
-                label="Loan Amount (Principal)"
-                value={inr(loan.principal)}
-                emphasis
-              />
-              <DetailRow
-                label="Interest Rate"
-                value={`${loan.ratePctPerAnnum}% per annum`}
-              />
-              <DetailRow
-                label="Loan Start Date"
-                value={prettyDate(loan.startedAtIso)}
-              />
-              <DetailRow
-                label="Maturity Date"
-                value={prettyDate(loan.maturityIso)}
-              />
-              <DetailRow
-                label="Tenure"
-                value={loan.durationLabel ?? "—"}
-              />
-              <DetailRow
-                label="Disbursed From"
-                value={accountName(loan.disbursedFromAccountId)}
-              />
-            </section>
-
-            {/* Item / vehicle details */}
-            <section className="mt-6">
-              <div
-                className="mb-2 text-[11px] font-semibold uppercase tracking-wider"
-                style={{ color: "var(--brand-primary)" }}
-              >
-                {isPawn ? "Pledged Item" : "Vehicle Details"}
-              </div>
-              <div
-                className="rounded-lg border p-4"
-                style={{
-                  borderColor: "rgba(74,111,165,0.18)",
-                  backgroundColor: "var(--bg-main)",
-                }}
-              >
-                <div className="flex items-start gap-4">
-                  <div
-                    className="flex h-12 w-12 items-center justify-center rounded-lg"
-                    style={{ backgroundColor: "white" }}
-                  >
-                    <ProductIcon
-                      size={20}
-                      style={{ color: "var(--brand-primary)" }}
-                    />
-                  </div>
-                  {isPawn && pledgedItem ? (
-                    <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                      <span className="text-slate-500">Item</span>
-                      <span className="text-right font-medium text-slate-800">
-                        {pledgedItem.title}
-                      </span>
-                      <span className="text-slate-500">Category</span>
-                      <span className="text-right font-medium text-slate-800">
-                        {pledgedItem.category}
-                      </span>
-                      <span className="text-slate-500">Gross / Net Weight</span>
-                      <span className="text-right font-medium text-slate-800">
-                        {pledgedItem.grossWeightG.toFixed(2)}g /{" "}
-                        {pledgedItem.netWeightG.toFixed(2)}g
-                      </span>
-                      <span className="text-slate-500">Pledged Value</span>
-                      <span className="text-right font-medium text-slate-800">
-                        {inr(pledgedItem.pledgedValue)}
-                      </span>
-                      <span className="text-slate-500 flex items-center gap-1">
-                        <Vault size={11} /> Vault Location
-                      </span>
-                      <span className="text-right font-mono text-xs text-slate-800">
-                        {pledgedItem.vaultLoc ?? "—"}
-                      </span>
-                    </div>
-                  ) : !isPawn && loan.vehicleDetails ? (
-                    <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                      <span className="text-slate-500">Make &amp; Model</span>
-                      <span className="text-right font-medium text-slate-800">
-                        {loan.vehicleDetails.makeModel}
-                      </span>
-                      <span className="text-slate-500">Registration No.</span>
-                      <span className="text-right font-mono text-slate-800">
-                        {loan.vehicleDetails.regNo ?? "—"}
-                      </span>
-                      <span className="text-slate-500">Year</span>
-                      <span className="text-right font-medium text-slate-800">
-                        {loan.vehicleDetails.year ?? "—"}
-                      </span>
-                      <span className="text-slate-500">Type</span>
-                      <span className="text-right font-medium text-slate-800">
-                        {loan.vehicleDetails.vehicleType ?? "—"}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="text-xs text-slate-500">
-                      No item or vehicle details on file for this loan.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-
-            {/* Terms + signature */}
-            <section className="mt-6">
-              <div
-                className="mb-2 text-[11px] font-semibold uppercase tracking-wider"
-                style={{ color: "var(--brand-primary)" }}
-              >
-                Terms &amp; Conditions
-              </div>
-              <ol className="list-decimal space-y-1 pl-5 text-[11px] text-slate-600">
-                <li>
-                  Interest accrues monthly at the rate stated above and is
-                  payable on or before the maturity date.
-                </li>
-                <li>
-                  Failure to settle dues by the maturity date may result in the
-                  pledged item being moved to auction after a 30-day grace
-                  period.
-                </li>
-                <li>
-                  Items will be released only on full settlement (principal +
-                  accrued interest) and surrender of this ticket.
-                </li>
-              </ol>
-
-              <div className="mt-8 grid grid-cols-2 gap-8 text-[11px]">
-                <div>
-                  <div className="border-t border-dashed pt-2 text-center text-slate-500"
-                    style={{ borderColor: "rgba(74,111,165,0.40)" }}
-                  >
-                    Customer Signature
-                  </div>
-                </div>
-                <div>
-                  <div className="border-t border-dashed pt-2 text-center text-slate-500"
-                    style={{ borderColor: "rgba(74,111,165,0.40)" }}
-                  >
-                    For {branch.branchName}
-                  </div>
-                </div>
-              </div>
-            </section>
-          </CardContent>
-        </Card>
+        {/* LEFT — Printable Ticket / Agreement */}
+        <DocumentViewer
+          loan={loan}
+          customer={customer}
+          pledgedItem={pledgedItem}
+          branch={branch}
+          sourceAccountName={sourceAccount?.name}
+        />
 
         {/* RIGHT — Status + summary */}
         <div className="space-y-5">
@@ -776,30 +606,6 @@ function StatusPill({ status }: { status: Loan["status"] }) {
     >
       {cfg.label}
     </span>
-  );
-}
-
-function DetailRow({
-  label,
-  value,
-  emphasis = false,
-}: {
-  label: string;
-  value: string;
-  emphasis?: boolean;
-}) {
-  return (
-    <div>
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-        {label}
-      </div>
-      <div
-        className={`mt-0.5 ${emphasis ? "text-xl font-bold" : "text-sm font-medium text-slate-800"}`}
-        style={emphasis ? { color: "var(--brand-primary)" } : undefined}
-      >
-        {value}
-      </div>
-    </div>
   );
 }
 

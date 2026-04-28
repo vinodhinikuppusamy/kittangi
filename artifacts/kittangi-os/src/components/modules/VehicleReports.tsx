@@ -11,6 +11,10 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { downloadCsv, type CsvColumn } from "@/lib/csv";
+
+type VehicleReportTab = "disbursal" | "collection" | "npa";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -111,21 +115,116 @@ const inr = (n: number) =>
 export default function VehicleReports() {
   const [from, setFrom] = useState("2026-04-01");
   const [to, setTo] = useState("2026-04-27");
+  const [activeTab, setActiveTab] = useState<VehicleReportTab>("disbursal");
+
+  const inRange = (iso: string) => iso >= from && iso <= to;
+  const filteredDisbursals = useMemo(
+    () => DISBURSALS.filter((d) => inRange(d.date)),
+    [from, to],
+  );
+  // Collections (current month EMI cycle) and NPA defaults are point-in-time
+  // datasets — they don't carry a per-row date — so we deliberately export
+  // them as-is and let the date range only scope the disbursal log.
 
   const totals = useMemo(() => {
-    const totalDisbursed = DISBURSALS.reduce((s, r) => s + r.loanAmount, 0);
+    const totalDisbursed = filteredDisbursals.reduce(
+      (s, r) => s + r.loanAmount,
+      0,
+    );
     const expected = COLLECTIONS.reduce((s, r) => s + r.expectedEMI, 0);
     const collected = COLLECTIONS.reduce((s, r) => s + r.collectedEMI, 0);
     const collectionRate = expected > 0 ? (collected / expected) * 100 : 0;
     const totalOutstanding = DEFAULTS.reduce((s, r) => s + r.outstanding, 0);
-    return { totalDisbursed, expected, collected, collectionRate, totalOutstanding };
-  }, []);
+    return {
+      totalDisbursed,
+      expected,
+      collected,
+      collectionRate,
+      totalOutstanding,
+    };
+  }, [filteredDisbursals]);
 
-  const onExport = (which: string) =>
-    toast.success(`${which} export queued`, {
+  const onExport = (which: VehicleReportTab) => {
+    const range = `${from}_to_${to}`;
+    if (which === "disbursal") {
+      const cols: CsvColumn<DisbursalRow>[] = [
+        { header: "Date", key: "date" },
+        { header: "Loan ID", key: "loanId" },
+        { header: "Customer", key: "customer" },
+        { header: "Vehicle (Make/Model)", key: "vehicle" },
+        { header: "Vehicle Type", key: "vehicleType" },
+        { header: "Loan Amount (INR)", key: "loanAmount" },
+        { header: "LTV (%)", key: "ltv" },
+      ];
+      const rows: DisbursalRow[] = [
+        ...filteredDisbursals,
+        {
+          date: "",
+          loanId: "",
+          customer: "",
+          vehicle: `TOTAL (${filteredDisbursals.length} loans)`,
+          vehicleType: "4W",
+          loanAmount: filteredDisbursals.reduce((s, r) => s + r.loanAmount, 0),
+          ltv: 0,
+        },
+      ];
+      downloadCsv(`kittangi-vehicle-disbursals-${range}.csv`, cols, rows);
+    } else if (which === "collection") {
+      const cols: CsvColumn<CollectionRow>[] = [
+        { header: "Loan ID", key: "loanId" },
+        { header: "Customer", key: "customer" },
+        { header: "Vehicle", key: "vehicle" },
+        { header: "Expected EMI (INR)", key: "expectedEMI" },
+        { header: "Collected EMI (INR)", key: "collectedEMI" },
+        { header: "Status", key: "status" },
+      ];
+      const rows: CollectionRow[] = [
+        ...COLLECTIONS,
+        {
+          loanId: "",
+          customer: `TOTAL (${COLLECTIONS.length} accounts)`,
+          vehicle: "",
+          expectedEMI: COLLECTIONS.reduce((s, r) => s + r.expectedEMI, 0),
+          collectedEMI: COLLECTIONS.reduce((s, r) => s + r.collectedEMI, 0),
+          status: "PAID",
+        },
+      ];
+      downloadCsv(`kittangi-vehicle-collections-${range}.csv`, cols, rows);
+    } else {
+      const cols: CsvColumn<DefaultRow>[] = [
+        { header: "Loan ID", key: "loanId" },
+        { header: "Customer", key: "customer" },
+        { header: "Vehicle", key: "vehicle" },
+        { header: "RC Number", key: "rcNumber" },
+        { header: "Missed EMIs", key: "missedEMIs" },
+        { header: "Outstanding (INR)", key: "outstanding" },
+        { header: "Flagged", key: "flagged" },
+      ];
+      const rows: DefaultRow[] = [
+        ...DEFAULTS,
+        {
+          loanId: "",
+          customer: `TOTAL (${DEFAULTS.length} accounts)`,
+          vehicle: "",
+          rcNumber: "",
+          missedEMIs: 0,
+          outstanding: DEFAULTS.reduce((s, r) => s + r.outstanding, 0),
+          flagged: "WATCH",
+        },
+      ];
+      downloadCsv(`kittangi-vehicle-npa-${range}.csv`, cols, rows);
+    }
+    toast.success("Downloaded", {
       icon: <CheckCircle2 className="h-4 w-4" />,
-      description: "We'll drop a CSV in your downloads in a moment.",
+      description: `${
+        which === "disbursal"
+          ? "Disbursal Log"
+          : which === "collection"
+            ? "Collection Report"
+            : "NPA / Default List"
+      } CSV saved to your downloads.`,
     });
+  };
 
   return (
     <div className="mx-auto max-w-7xl p-6 lg:p-8">
@@ -181,7 +280,7 @@ export default function VehicleReports() {
           icon={Wallet}
           label="Total Disbursed"
           value={inr(totals.totalDisbursed)}
-          sub={`${DISBURSALS.length} loans this period`}
+          sub={`${filteredDisbursals.length} loans this period`}
         />
         <StatCard
           icon={TrendingUp}
@@ -206,7 +305,11 @@ export default function VehicleReports() {
         />
       </div>
 
-      <Tabs defaultValue="disbursal" className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as VehicleReportTab)}
+        className="w-full"
+      >
         <TabsList
           className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3"
           style={{ background: "rgba(191,221,245,0.30)" }}
@@ -236,7 +339,7 @@ export default function VehicleReports() {
           <ReportCard
             title="Disbursal Log"
             description="Vehicle loans originated during the selected period."
-            onExport={() => onExport("Disbursal Log")}
+            onExport={() => onExport("disbursal")}
           >
             <Table>
               <TableHeader>
@@ -250,7 +353,7 @@ export default function VehicleReports() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {DISBURSALS.map((r) => (
+                {filteredDisbursals.map((r) => (
                   <TableRow key={r.loanId} className="text-sm">
                     <TableCell className="text-slate-600">{r.date}</TableCell>
                     <TableCell>
@@ -281,7 +384,7 @@ export default function VehicleReports() {
           <ReportCard
             title="Collection Report"
             description="Total EMIs collected vs. expected for the current month."
-            onExport={() => onExport("Collection Report")}
+            onExport={() => onExport("collection")}
             headerExtra={
               <div className="flex flex-wrap items-center gap-3 text-xs">
                 <Badge variant="outline" className="font-medium" style={{ borderColor: "rgba(16,185,129,0.40)", color: "#047857" }}>
@@ -351,7 +454,7 @@ export default function VehicleReports() {
           <ReportCard
             title="NPA / Default List"
             description="Loans with more than 2 missed EMIs — repossession candidates highlighted in rose."
-            onExport={() => onExport("NPA Default List")}
+            onExport={() => onExport("npa")}
           >
             <Table>
               <TableHeader>

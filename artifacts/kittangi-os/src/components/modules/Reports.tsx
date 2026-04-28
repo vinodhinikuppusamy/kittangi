@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -9,6 +9,8 @@ import {
   Landmark,
   PieChart,
 } from "lucide-react";
+
+import { downloadCsv, type CsvColumn } from "@/lib/csv";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,14 +153,107 @@ function thirtyDaysAgoIso() {
   return `${y}-${m}-${day}`;
 }
 
+type ReportTab = "register" | "collections" | "defaults";
+
 export default function Reports() {
   const [from, setFrom] = useState(thirtyDaysAgoIso());
   const [to, setTo] = useState(todayIso());
+  const [activeTab, setActiveTab] = useState<ReportTab>("register");
+
+  const inRange = (iso: string) => iso >= from && iso <= to;
+
+  const filteredRegister = useMemo(
+    () => LOAN_REGISTER.filter((r) => inRange(r.date)),
+    [from, to],
+  );
+  const filteredCollections = useMemo(
+    () => COLLECTIONS.filter((r) => inRange(r.date)),
+    [from, to],
+  );
+  // The defaults list is point-in-time, not date-ranged — show it as-is.
+  const filteredDefaults = DEFAULTS;
 
   const handleExport = () => {
-    toast.success("Export queued", {
+    const range = `${from}_to_${to}`;
+    if (activeTab === "register") {
+      const cols: CsvColumn<LoanRow>[] = [
+        { header: "Date", key: "date" },
+        { header: "Loan ID", key: "loanId" },
+        { header: "Customer", key: "customer" },
+        { header: "Item Description", key: "itemDesc" },
+        { header: "Gross Weight (g)", key: "grossWeightG" },
+        { header: "Disbursed (INR)", key: "disbursed" },
+      ];
+      const total = filteredRegister.reduce((s, r) => s + r.disbursed, 0);
+      const rows: LoanRow[] = [
+        ...filteredRegister,
+        {
+          date: "",
+          loanId: "",
+          customer: "",
+          itemDesc: `TOTAL (${filteredRegister.length} loans)`,
+          grossWeightG: filteredRegister.reduce(
+            (s, r) => s + r.grossWeightG,
+            0,
+          ),
+          disbursed: total,
+        },
+      ];
+      downloadCsv(`kittangi-loan-register-${range}.csv`, cols, rows);
+    } else if (activeTab === "collections") {
+      const cols: CsvColumn<CollectionRow>[] = [
+        { header: "Date", key: "date" },
+        { header: "Receipt ID", key: "receiptId" },
+        { header: "Loan ID", key: "loanId" },
+        { header: "Customer", key: "customer" },
+        { header: "Mode", key: "mode" },
+        { header: "Interest (INR)", key: "interest" },
+      ];
+      const total = filteredCollections.reduce((s, r) => s + r.interest, 0);
+      const rows: CollectionRow[] = [
+        ...filteredCollections,
+        {
+          date: "",
+          receiptId: "",
+          loanId: "",
+          customer: `TOTAL (${filteredCollections.length} receipts)`,
+          mode: "CASH",
+          interest: total,
+        },
+      ];
+      downloadCsv(`kittangi-interest-collections-${range}.csv`, cols, rows);
+    } else {
+      const cols: CsvColumn<DefaultRow>[] = [
+        { header: "Loan ID", key: "loanId" },
+        { header: "Customer", key: "customer" },
+        { header: "Disbursed Date", key: "disbursedDate" },
+        { header: "Due Date", key: "dueDate" },
+        { header: "Days Overdue", key: "daysOverdue" },
+        { header: "Outstanding (INR)", key: "outstanding" },
+      ];
+      const total = filteredDefaults.reduce((s, r) => s + r.outstanding, 0);
+      const rows: DefaultRow[] = [
+        ...filteredDefaults,
+        {
+          loanId: "",
+          customer: `TOTAL (${filteredDefaults.length} accounts)`,
+          disbursedDate: "",
+          dueDate: "",
+          daysOverdue: 0,
+          outstanding: total,
+        },
+      ];
+      downloadCsv(`kittangi-maturity-defaults-${range}.csv`, cols, rows);
+    }
+    toast.success("Downloaded", {
       icon: <CheckCircle2 className="h-4 w-4" />,
-      description: `Excel export for ${fmtDate(from)} → ${fmtDate(to)} will arrive in your inbox.`,
+      description: `${
+        activeTab === "register"
+          ? "Loan Register"
+          : activeTab === "collections"
+            ? "Interest Collections"
+            : "Maturity & Defaults"
+      } CSV for ${fmtDate(from)} → ${fmtDate(to)}.`,
     });
   };
 
@@ -232,7 +327,11 @@ export default function Reports() {
         </div>
       </div>
 
-      <Tabs defaultValue="register" className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as ReportTab)}
+        className="w-full"
+      >
         <TabsList
           className="mb-6 h-auto w-full justify-start gap-1 rounded-xl border bg-white p-1.5"
           style={{ borderColor: "rgba(74,111,165,0.15)" }}
@@ -261,15 +360,15 @@ export default function Reports() {
         </TabsList>
 
         <TabsContent value="register" className="m-0">
-          <LoanRegisterTab rows={LOAN_REGISTER} />
+          <LoanRegisterTab rows={filteredRegister} />
         </TabsContent>
 
         <TabsContent value="collections" className="m-0">
-          <CollectionsTab rows={COLLECTIONS} />
+          <CollectionsTab rows={filteredCollections} />
         </TabsContent>
 
         <TabsContent value="defaults" className="m-0">
-          <DefaultsTab rows={DEFAULTS} />
+          <DefaultsTab rows={filteredDefaults} />
         </TabsContent>
       </Tabs>
     </div>
