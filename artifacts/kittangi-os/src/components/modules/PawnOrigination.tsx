@@ -1,13 +1,16 @@
 import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Banknote,
+  CalendarClock,
   Camera,
   CheckCircle2,
   IndianRupee,
   Landmark,
   Lock,
+  Percent,
   Scale,
   Sparkles,
   User,
@@ -33,10 +36,16 @@ import {
 } from "@/components/ui/select";
 import ItemImageUploader from "@/components/shared/ItemImageUploader";
 import { addPledgedItem } from "@/lib/stores/pledgedItemsStore";
+import { addLoan } from "@/lib/stores/loansStore";
+import {
+  addDaybookEntry,
+  DayLockedError,
+} from "@/lib/stores/daybookStore";
+import { isDateLocked } from "@/lib/stores/dayLocksStore";
+import { useAccounts } from "@/lib/stores/accountsStore";
 
 type ItemType = "GOLD" | "SILVER";
 type SafeNumber = "SAFE_A" | "SAFE_B" | "SAFE_C";
-type PaymentSource = "CASH" | "HDFC" | "SBI";
 
 type PawnFormValues = {
   customerId: string;
@@ -49,8 +58,52 @@ type PawnFormValues = {
   lendingRate: string;
   requestedLoanAmount: string;
   chitExpense: string;
-  paymentSource: PaymentSource | "";
+  /** Account id (from accountsStore) the disbursement is paid out from. */
+  paymentSource: string;
+  /** Annual interest rate captured at origination. */
+  interestRatePct: string;
+  /** ISO date the loan principal becomes due. */
+  maturityDate: string;
 };
+
+/** Default loan tenor (months) when the cashier hasn't typed a maturity date. */
+const DEFAULT_TENOR_MONTHS = 6;
+
+function todayIso(): string {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function timeNow(): string {
+  return new Date().toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function addMonthsIso(iso: string, months: number): string {
+  const d = new Date(iso + "T00:00:00");
+  d.setMonth(d.getMonth() + months);
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function monthsBetween(startIso: string, endIso: string): number {
+  const a = new Date(startIso + "T00:00:00");
+  const b = new Date(endIso + "T00:00:00");
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
+  const months =
+    (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+  return Math.max(0, months);
+}
 
 const VERIFIED_CUSTOMERS = [
   { id: "KTG-10042", name: "Aanya Sharma", phone: "+91 98212 44510" },
@@ -72,13 +125,6 @@ const LOCKERS_BY_SAFE: Record<SafeNumber, string[]> = {
   SAFE_C: ["L-301", "L-302", "L-303"],
 };
 
-const PAYMENT_SOURCES: { value: PaymentSource; label: string; sub: string }[] =
-  [
-    { value: "CASH", label: "Cash in Hand", sub: "Branch cash drawer" },
-    { value: "HDFC", label: "HDFC Bank", sub: "Current A/c ••• 4521" },
-    { value: "SBI", label: "SBI Bank", sub: "Overdraft A/c ••• 8870" },
-  ];
-
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -92,6 +138,8 @@ const inputBaseStyle: React.CSSProperties = {
 } as React.CSSProperties;
 
 export default function PawnOrigination() {
+  const navigate = useNavigate();
+  const accounts = useAccounts();
   const {
     register,
     handleSubmit,
@@ -112,6 +160,8 @@ export default function PawnOrigination() {
       requestedLoanAmount: "",
       chitExpense: "250",
       paymentSource: "",
+      interestRatePct: "13",
+      maturityDate: addMonthsIso(todayIso(), DEFAULT_TENOR_MONTHS),
     },
   });
 
@@ -175,8 +225,32 @@ export default function PawnOrigination() {
       toast.error("Select a payment source for disbursement.");
       return;
     }
+    const ratePct = parseFloat(data.interestRatePct || "0");
+    if (!Number.isFinite(ratePct) || ratePct <= 0) {
+      toast.error("Enter a valid annual interest rate.");
+      return;
+    }
+    if (!data.maturityDate) {
+      toast.error("Set a maturity date for the loan.");
+      return;
+    }
+
+    // ---------------------------------------------------------------
+    // Day-lock pre-check. The disbursement entry below would throw a
+    // DayLockedError on its own, but checking up-front gives a much
+    // cleaner UX (no half-applied side-effects on the pledged-items
+    // store) and a more actionable error message.
+    // ---------------------------------------------------------------
+    const today = todayIso();
+    if (isDateLocked(today)) {
+      toast.error(
+        "Today's Daybook is locked. Unlock the day in the Chitta page before originating new loans.",
+      );
+      return;
+    }
 
     const ticketNo = `PWN-${Math.floor(100000 + Math.random() * 899999)}`;
+    const sourceAccount = accounts.find((a) => a.id === data.paymentSource);
 
     // Forward the newly originated pledge — including any captured photos —
     // into the shared Pledged Inventory store. The PledgedItems gallery and
@@ -187,7 +261,7 @@ export default function PawnOrigination() {
       data.itemType === "GOLD"
         ? `${parseFloat(data.netWeight).toFixed(2)}g Gold Item`
         : `${parseFloat(data.netWeight).toFixed(2)}g Silver Item`;
-    addPledgedItem({
+    const pledged = addPledgedItem({
       title: itemTitle,
       category: data.itemType,
       grossWeightG: parseFloat(data.grossWeight || data.netWeight) || 0,
@@ -201,11 +275,62 @@ export default function PawnOrigination() {
       originatedAt: new Date().toISOString(),
     });
 
+    // Persist the canonical Loan record. The Loan Management module + the
+    // Loan Lifecycle detail page (`/loans/:id`) read straight from this
+    // store, so the new ticket appears there immediately.
+    const tenorMonths = monthsBetween(today, data.maturityDate);
+    addLoan({
+      id: ticketNo,
+      product: "PAWN",
+      customer: selectedCustomer?.name ?? data.customerId,
+      customerCode: data.customerId,
+      principal: requested,
+      ratePctPerAnnum: ratePct,
+      startedAtIso: today,
+      durationLabel: tenorMonths > 0 ? `${tenorMonths} months` : undefined,
+      maturityIso: data.maturityDate,
+      status: "ACTIVE",
+      disbursedFromAccountId: data.paymentSource,
+      pledgedItemId: pledged?.id,
+    });
+
+    // Post the cash movement to the Centralized Financial Engine. Marking
+    // the entry as a DEBIT against the source account decreases its live
+    // balance via `accountsStore.useAccountBalance`.
+    try {
+      addDaybookEntry({
+        dateIso: today,
+        time: timeNow(),
+        side: "DEBIT",
+        category: "Loan Disbursement",
+        particulars: `Pawn loan disbursement to ${
+          selectedCustomer?.name ?? data.customerId
+        } (${data.itemType.toLowerCase()})`,
+        refId: ticketNo,
+        account: data.paymentSource,
+        amount: netDisbursement,
+        customerName: selectedCustomer?.name,
+        customerId: data.customerId,
+      });
+    } catch (err) {
+      if (err instanceof DayLockedError) {
+        toast.error(
+          "Today's Daybook was locked just now — disbursement was not posted.",
+        );
+        return;
+      }
+      throw err;
+    }
+
     toast.success("Pawn ticket generated", {
       description: `${ticketNo} • ${inr(netDisbursement)} disbursed via ${
-        PAYMENT_SOURCES.find((p) => p.value === data.paymentSource)?.label
+        sourceAccount?.name ?? data.paymentSource
       }`,
       icon: <CheckCircle2 size={18} />,
+      action: {
+        label: "Open Loan",
+        onClick: () => navigate(`/loans/${ticketNo}`),
+      },
     });
     reset();
     setItemPhotos([]);
@@ -700,6 +825,54 @@ export default function PawnOrigination() {
                   </div>
                 </div>
 
+                {/* Loan Terms — interest rate & maturity */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-600">
+                      Interest Rate (% p.a.)
+                    </Label>
+                    <div className="relative">
+                      <Percent
+                        size={14}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="36"
+                        placeholder="13"
+                        className="h-10 bg-white pl-8"
+                        style={inputBaseStyle}
+                        {...register("interestRatePct")}
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Annual rate quoted to the customer.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-600">
+                      Maturity Date
+                    </Label>
+                    <div className="relative">
+                      <CalendarClock
+                        size={14}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                      <Input
+                        type="date"
+                        className="h-10 bg-white pl-8"
+                        style={inputBaseStyle}
+                        {...register("maturityDate")}
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Principal becomes due on this date.
+                    </p>
+                  </div>
+                </div>
+
                 {/* Net Disbursement Amount */}
                 <div
                   className="rounded-xl border p-5"
@@ -807,9 +980,7 @@ export default function PawnOrigination() {
                 </Label>
                 <Select
                   value={values.paymentSource || ""}
-                  onValueChange={(v) =>
-                    setValue("paymentSource", v as PaymentSource)
-                  }
+                  onValueChange={(v) => setValue("paymentSource", v)}
                 >
                   <SelectTrigger
                     className="h-10 w-full bg-white"
@@ -818,14 +989,12 @@ export default function PawnOrigination() {
                     <SelectValue placeholder="Select payment source..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {PAYMENT_SOURCES.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium">
-                            {p.label}
-                          </span>
+                          <span className="text-sm font-medium">{a.name}</span>
                           <span className="text-xs text-slate-500">
-                            {p.sub}
+                            {a.subtitle ?? a.id}
                           </span>
                         </div>
                       </SelectItem>

@@ -62,14 +62,23 @@ import {
   useDayLocks,
   type DayLock,
 } from "@/lib/stores/dayLocksStore";
+import { useAccounts, type Account } from "@/lib/stores/accountsStore";
 
 const OPENING_BALANCE = 218430;
 
-const ACCOUNT_SHORT: Record<DaybookAccount, string> = {
-  CASH: "Cash",
-  HDFC: "HDFC",
-  SBI: "SBI",
-};
+/**
+ * Resolve an account id to a short display label (e.g. "Cash", "HDFC").
+ * Falls back to the raw id so unknown accounts do not produce blank cells.
+ */
+function shortAccountLabel(
+  accountId: DaybookAccount,
+  accounts: Account[],
+): string {
+  const acc = accounts.find((a) => a.id === accountId);
+  if (!acc) return accountId;
+  // Strip common bank suffixes for the chip.
+  return acc.name.replace(/\s+(Bank|in Hand)$/i, "");
+}
 
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -98,7 +107,7 @@ function prettyDate(iso: string) {
   });
 }
 
-function accountChip(account: DaybookAccount) {
+function accountChip(account: DaybookAccount, accounts: Account[]) {
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-md border bg-white px-2 py-0.5 text-[11px] font-medium"
@@ -108,7 +117,7 @@ function accountChip(account: DaybookAccount) {
       }}
     >
       <Wallet size={11} />
-      {ACCOUNT_SHORT[account]}
+      {shortAccountLabel(account, accounts)}
     </span>
   );
 }
@@ -176,6 +185,7 @@ function SummaryCard({
 export default function Daybook() {
   const allEntries = useDaybook();
   const dayLocks = useDayLocks();
+  const accounts = useAccounts();
 
   // Default to the most recent date that actually has entries so the page
   // never opens to an empty Chitta even after several demo days have passed.
@@ -571,7 +581,7 @@ export default function Daybook() {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell>{accountChip(row.account)}</TableCell>
+                        <TableCell>{accountChip(row.account, accounts)}</TableCell>
                         <TableCell className="text-right text-sm font-semibold text-emerald-700">
                           + {inr(row.amount)}
                         </TableCell>
@@ -687,7 +697,7 @@ export default function Daybook() {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell>{accountChip(row.account)}</TableCell>
+                        <TableCell>{accountChip(row.account, accounts)}</TableCell>
                         <TableCell className="text-right text-sm font-semibold text-red-700">
                           − {inr(row.amount)}
                         </TableCell>

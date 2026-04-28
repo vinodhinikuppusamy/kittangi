@@ -11,6 +11,7 @@ import {
   HandCoins,
   PieChart,
   LineChart,
+  ListChecks,
   Settings as SettingsIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -27,6 +28,7 @@ export const PAWN_NAV: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/customers", label: "Global Customers", icon: Users },
   { to: "/pawn-origination", label: "Pawn Origination", icon: Landmark },
+  { to: "/loans", label: "Loan Management", icon: ListChecks },
   { to: "/pledged-items", label: "Pledged Items", icon: Gem },
   { to: "/vault-management", label: "Vault Management", icon: Vault },
   { to: "/receipts-ledger", label: "Receipts & Ledger", icon: ReceiptText },
@@ -38,6 +40,7 @@ export const VEHICLE_NAV: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/customers", label: "Global Customers", icon: Users },
   { to: "/vehicle-origination", label: "Vehicle Origination", icon: Car },
+  { to: "/loans", label: "Loan Management", icon: ListChecks },
   { to: "/repossession-yard", label: "Repossession Yard", icon: Wrench },
   { to: "/receipts-ledger", label: "Receipts & Ledger", icon: ReceiptText },
   { to: "/daybook", label: "Daybook (Chitta)", icon: BookOpen },

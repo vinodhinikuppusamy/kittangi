@@ -22,7 +22,15 @@ export class DayLockedError extends Error {
 }
 
 export type DaybookSide = "CREDIT" | "DEBIT";
-export type DaybookAccount = "CASH" | "HDFC" | "SBI";
+
+/**
+ * Account identifier — references an Account record managed by
+ * `accountsStore`. Kept as a free-form string so the Centralized Financial
+ * Engine can introduce new accounts (additional banks, wallets, etc.)
+ * without having to widen a literal union here. Existing seed data still
+ * uses "CASH" | "HDFC" | "SBI" which match the seeded account ids.
+ */
+export type DaybookAccount = string;
 
 /**
  * Canonical set of accounting categories shown across the Daybook and the
@@ -63,6 +71,17 @@ export type DaybookEntry = {
    */
   customerName?: string;
   customerId?: string;
+  /**
+   * Receipt-specific extensions. These are populated only when the entry
+   * was created from the Record Payment flow in ReceiptsLedger and are used
+   * to faithfully re-render the printable thermal receipt without keeping a
+   * second store in sync. Optional everywhere else.
+   */
+  paymentMode?: "CASH" | "UPI" | "BANK";
+  /** Outstanding balance on the loan AFTER this receipt was applied. */
+  outstandingAfter?: number;
+  /** Cashier-entered note attached to the receipt. */
+  notes?: string;
 };
 
 const STORAGE_KEY = "kittangi:daybook:v1";
@@ -438,6 +457,46 @@ export function addDaybookEntry(
   // Newest-first so the Daybook table naturally bubbles fresh activity.
   daybookStore.set((prev) => [created, ...prev]);
   return created;
+}
+
+/**
+ * Remove a Daybook entry by id and return the removed record (or `null` if
+ * it did not exist). Day-lock is enforced at this write path too: removing a
+ * frozen entry would silently invalidate the published lock snapshot, so the
+ * call throws `DayLockedError` for entries dated on a locked day.
+ *
+ * Used by the "Delete Receipt" admin action in Receipts & Ledger to fully
+ * reverse a posted transaction (the corresponding account balance is
+ * derived live from the ledger via `accountsStore.useAccountBalance`, so it
+ * recomputes automatically once the entry is gone).
+ */
+export function removeDaybookEntry(id: string): DaybookEntry | null {
+  const target = daybookStore.get().find((e) => e.id === id) ?? null;
+  if (!target) return null;
+  if (isDateLocked(target.dateIso)) {
+    throw new DayLockedError(target.dateIso);
+  }
+  daybookStore.set((prev) => prev.filter((e) => e.id !== id));
+  return target;
+}
+
+/**
+ * Remove every entry that shares a `refId`. Useful for receipt deletion
+ * where a mixed payment was split into two ledger lines (interest +
+ * principal) sharing the same `RCP-XXXXX • LOAN-ID` reference. Returns the
+ * removed entries.
+ */
+export function removeDaybookEntriesByRefId(refId: string): DaybookEntry[] {
+  const targets = daybookStore.get().filter((e) => e.refId === refId);
+  if (targets.length === 0) return [];
+  // All splits of a single receipt are by definition posted on the same
+  // day (the receipt's dateIso), so checking one of them is enough.
+  if (isDateLocked(targets[0].dateIso)) {
+    throw new DayLockedError(targets[0].dateIso);
+  }
+  const ids = new Set(targets.map((t) => t.id));
+  daybookStore.set((prev) => prev.filter((e) => !ids.has(e.id)));
+  return targets;
 }
 
 export function resetDaybook(): void {

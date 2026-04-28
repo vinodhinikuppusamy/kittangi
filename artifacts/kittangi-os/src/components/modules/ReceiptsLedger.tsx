@@ -5,10 +5,12 @@ import {
   Banknote,
   CheckCircle2,
   CircleDollarSign,
+  Eye,
   History,
   IndianRupee,
   Receipt,
   Search,
+  Trash2,
   Wallet,
 } from "lucide-react";
 
@@ -39,54 +41,47 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import ThermalReceiptDialog, {
   type ThermalReceiptData,
 } from "@/components/modules/ThermalReceipt";
 import {
   addDaybookEntry,
+  removeDaybookEntriesByRefId,
   useDaybook,
-  type DaybookAccount,
   type DaybookCategory,
   type DaybookEntry,
 } from "@/lib/stores/daybookStore";
 import { isDateLocked } from "@/lib/stores/dayLocksStore";
+import { useAccounts, getAccount } from "@/lib/stores/accountsStore";
+import { useLoans } from "@/lib/stores/loansStore";
+import { useIsAdmin } from "@/lib/stores/userRoleStore";
 
 type PaymentType = "INTEREST" | "PARTIAL" | "FULL";
 type PaymentMode = "CASH" | "UPI" | "BANK";
-type CreditAccount = "CASH_HAND" | "HDFC" | "SBI";
 
-type ActiveLoan = {
-  id: string;
-  customer: string;
-  customerCode: string;
-  product: "PAWN" | "VEHICLE";
-  principal: number;
-  accruedInterest: number;
-  rate: string;
-  startedOn: string;
-};
-
-type LedgerEntry = {
+type LedgerRow = {
+  /** Receipt id derived from the daybook entry's refId. */
   receiptId: string;
+  /** Stable ref grouping all entries that belong to this receipt. */
+  refId: string;
   time: string;
   customer: string;
   loanId: string;
   paymentType: PaymentType;
   amount: number;
-  account: CreditAccount;
-};
-
-/** Maps a CreditAccount picker value to the canonical Daybook account key. */
-const ACCOUNT_TO_DAYBOOK: Record<CreditAccount, DaybookAccount> = {
-  CASH_HAND: "CASH",
-  HDFC: "HDFC",
-  SBI: "SBI",
-};
-
-const DAYBOOK_TO_ACCOUNT: Record<DaybookAccount, CreditAccount> = {
-  CASH: "CASH_HAND",
-  HDFC: "HDFC",
-  SBI: "SBI",
+  accountId: string;
+  /** Daybook entries that compose this receipt (1 for FULL, 1-2 for split). */
+  entries: DaybookEntry[];
 };
 
 /** Categories that count as a customer payment receipt for today's ledger. */
@@ -135,62 +130,9 @@ type FormValues = {
   paymentType: PaymentType;
   amountPaid: string;
   paymentMode: PaymentMode | "";
-  creditAccount: CreditAccount | "";
+  creditAccountId: string;
   notes: string;
 };
-
-const ACTIVE_LOANS: ActiveLoan[] = [
-  {
-    id: "PWN-204512",
-    customer: "Aanya Sharma",
-    customerCode: "KTG-10042",
-    product: "PAWN",
-    principal: 130000,
-    accruedInterest: 4225,
-    rate: "13% p.a.",
-    startedOn: "12 Apr 2026",
-  },
-  {
-    id: "PWN-204519",
-    customer: "Meera Iyer",
-    customerCode: "KTG-10044",
-    product: "PAWN",
-    principal: 197600,
-    accruedInterest: 5928,
-    rate: "12% p.a.",
-    startedOn: "14 Apr 2026",
-  },
-  {
-    id: "PWN-204527",
-    customer: "Kunal Mehta",
-    customerCode: "KTG-10047",
-    product: "PAWN",
-    principal: 31200,
-    accruedInterest: 715,
-    rate: "13.5% p.a.",
-    startedOn: "16 Apr 2026",
-  },
-  {
-    id: "PWN-204540",
-    customer: "Priya Menon",
-    customerCode: "KTG-10059",
-    product: "PAWN",
-    principal: 48400,
-    accruedInterest: 1089,
-    rate: "13% p.a.",
-    startedOn: "18 Apr 2026",
-  },
-  {
-    id: "VEH-30021",
-    customer: "Rohan Verma",
-    customerCode: "KTG-10051",
-    product: "VEHICLE",
-    principal: 540000,
-    accruedInterest: 12150,
-    rate: "11.25% p.a.",
-    startedOn: "02 Mar 2026",
-  },
-];
 
 const PAYMENT_TYPE_LABEL: Record<PaymentType, string> = {
   INTEREST: "Interest Only",
@@ -198,16 +140,10 @@ const PAYMENT_TYPE_LABEL: Record<PaymentType, string> = {
   FULL: "Full Settlement / Closure",
 };
 
-const ACCOUNT_LABEL: Record<CreditAccount, string> = {
-  CASH_HAND: "Cash in Hand",
-  HDFC: "HDFC Bank",
-  SBI: "SBI Bank",
-};
-
-const ACCOUNT_SUB: Record<CreditAccount, string> = {
-  CASH_HAND: "Branch cash drawer",
-  HDFC: "Current A/c ••• 4521",
-  SBI: "Overdraft A/c ••• 8870",
+const PAYMENT_MODE_LABEL: Record<PaymentMode, string> = {
+  CASH: "Cash",
+  UPI: "UPI",
+  BANK: "Bank Transfer",
 };
 
 const inr = (n: number) =>
@@ -263,7 +199,8 @@ function paymentTypeBadge(type: PaymentType) {
   }
 }
 
-function accountBadge(account: CreditAccount) {
+function accountBadge(accountId: string) {
+  const account = getAccount(accountId);
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-md border bg-white px-2 py-0.5 text-[11px] font-medium"
@@ -273,16 +210,25 @@ function accountBadge(account: CreditAccount) {
       }}
     >
       <Wallet size={11} />
-      {ACCOUNT_LABEL[account]}
+      {account?.name ?? accountId}
     </span>
   );
 }
 
 export default function ReceiptsLedger() {
   const allEntries = useDaybook();
+  const accounts = useAccounts();
+  const allLoans = useLoans();
+  const isAdmin = useIsAdmin();
   const [loanQuery, setLoanQuery] = useState("");
   const [pendingReceipt, setPendingReceipt] =
     useState<ThermalReceiptData | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<LedgerRow | null>(null);
+
+  const activeLoans = useMemo(
+    () => allLoans.filter((l) => l.status === "ACTIVE"),
+    [allLoans],
+  );
 
   const {
     register,
@@ -296,7 +242,7 @@ export default function ReceiptsLedger() {
       paymentType: "INTEREST",
       amountPaid: "",
       paymentMode: "",
-      creditAccount: "",
+      creditAccountId: "",
       notes: "",
     },
   });
@@ -304,51 +250,166 @@ export default function ReceiptsLedger() {
   const values = useWatch({ control });
 
   const selectedLoan = useMemo(
-    () => ACTIVE_LOANS.find((l) => l.id === values.loanId) ?? null,
-    [values.loanId],
+    () => activeLoans.find((l) => l.id === values.loanId) ?? null,
+    [values.loanId, activeLoans],
   );
 
   const filteredLoans = useMemo(() => {
     const q = loanQuery.trim().toLowerCase();
-    if (!q) return ACTIVE_LOANS;
-    return ACTIVE_LOANS.filter(
+    if (!q) return activeLoans;
+    return activeLoans.filter(
       (l) =>
         l.id.toLowerCase().includes(q) ||
         l.customer.toLowerCase().includes(q) ||
         l.customerCode.toLowerCase().includes(q),
     );
-  }, [loanQuery]);
+  }, [loanQuery, activeLoans]);
 
   const principal = selectedLoan?.principal ?? 0;
   const interest = selectedLoan?.accruedInterest ?? 0;
   const totalDue = principal + interest;
 
-  // Today's Receipts Ledger is derived from the persisted daybook so it stays
-  // in sync with anything posted from this module (or seeded in the store).
-  const ledger = useMemo<LedgerEntry[]>(() => {
+  // ---------------------------------------------------------------------------
+  // Today's Receipts Ledger — derived live from the persisted Daybook so
+  // anything posted from this module (or seeded in the store) shows up
+  // immediately. We GROUP by refId to collapse split mixed-payment receipts
+  // (one interest line + one principal line) into a single visible row that
+  // can be re-printed or deleted as a unit.
+  // ---------------------------------------------------------------------------
+  const ledger = useMemo<LedgerRow[]>(() => {
     const today = todayIsoString();
-    return allEntries
-      .filter(
-        (e: DaybookEntry) =>
-          e.dateIso === today &&
-          e.side === "CREDIT" &&
-          RECEIPT_CATEGORIES.has(e.category),
-      )
-      .map((e) => ({
-        receiptId: deriveReceiptId(e.refId, e.id),
-        time: e.time,
-        customer: e.customerName ?? "—",
-        loanId: deriveLoanId(e.refId),
-        paymentType: categoryToPaymentType(e.category),
-        amount: e.amount,
-        account: DAYBOOK_TO_ACCOUNT[e.account],
-      }));
+    const todays = allEntries.filter(
+      (e) =>
+        e.dateIso === today &&
+        e.side === "CREDIT" &&
+        RECEIPT_CATEGORIES.has(e.category),
+    );
+
+    // Group by refId — entries without a refId fall back to their own id so
+    // they remain individually visible. We preserve the time of the first
+    // (newest) entry encountered so sort order matches the daybook.
+    const groups = new Map<string, DaybookEntry[]>();
+    const order: string[] = [];
+    for (const e of todays) {
+      const key = e.refId ?? e.id;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+        order.push(key);
+      }
+      groups.get(key)!.push(e);
+    }
+
+    return order.map((key) => {
+      const entries = groups.get(key)!;
+      // Pick the "primary" entry for display purposes — Full Settlement wins,
+      // otherwise the first (newest) entry in the group.
+      const primary =
+        entries.find((e) => e.category === "Full Settlement") ?? entries[0];
+      return {
+        receiptId: deriveReceiptId(primary.refId, primary.id),
+        refId: key,
+        time: primary.time,
+        customer: primary.customerName ?? "—",
+        loanId: deriveLoanId(primary.refId),
+        paymentType: categoryToPaymentType(primary.category),
+        amount: entries.reduce((s, e) => s + e.amount, 0),
+        accountId: primary.account,
+        entries,
+      };
+    });
   }, [allEntries]);
 
   const todayTotal = useMemo(
     () => ledger.reduce((s, e) => s + e.amount, 0),
     [ledger],
   );
+
+  // ---------------------------------------------------------------------------
+  // Re-print: rebuild ThermalReceiptData from a row's underlying daybook
+  // entries. Mixed payments are reconstructed by summing the interest +
+  // principal splits; FULL settlement uses the single combined entry.
+  // ---------------------------------------------------------------------------
+  const handleViewReceipt = (row: LedgerRow) => {
+    const interestEntry = row.entries.find(
+      (e) => e.category === "Interest Income" || e.category === "EMI Received",
+    );
+    const principalEntry = row.entries.find(
+      (e) => e.category === "Principal Recovery",
+    );
+    const fullEntry = row.entries.find((e) => e.category === "Full Settlement");
+
+    let interestPortion = interestEntry?.amount ?? 0;
+    let principalPortion = principalEntry?.amount ?? 0;
+
+    // For Full Settlement we don't have an explicit split on the entry, but
+    // we can reconstruct it from the loan record (interest accrued at the
+    // time the receipt was generated equals what was owed in interest).
+    if (fullEntry) {
+      const loan = allLoans.find((l) => l.id === row.loanId);
+      const accrued = loan?.accruedInterest ?? 0;
+      interestPortion = Math.min(accrued, fullEntry.amount);
+      principalPortion = fullEntry.amount - interestPortion;
+    }
+
+    const dateLabel = new Date(row.entries[0].dateIso + "T00:00:00")
+      .toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+
+    const account = getAccount(row.accountId);
+    const primary = fullEntry ?? interestEntry ?? principalEntry ?? row.entries[0];
+    const outstanding = primary.outstandingAfter ?? 0;
+    const mode = primary.paymentMode;
+
+    setPendingReceipt({
+      receiptId: row.receiptId,
+      dateLabel,
+      timeLabel: row.time,
+      customerName: row.customer,
+      loanId: row.loanId,
+      paymentTypeLabel: PAYMENT_TYPE_LABEL[row.paymentType],
+      paymentMode: mode ? PAYMENT_MODE_LABEL[mode] : "—",
+      accountLabel: account?.name ?? row.accountId,
+      amountPaid: row.amount,
+      interestPortion,
+      principalPortion,
+      outstandingBalance: outstanding,
+      cashier: "Cashier",
+      notes: primary.notes,
+    });
+  };
+
+  // ---------------------------------------------------------------------------
+  // Admin-only: fully reverse a receipt by removing every Daybook entry that
+  // shares its refId. The corresponding account balance is derived live from
+  // the ledger so it recomputes automatically once the entries are gone.
+  // ---------------------------------------------------------------------------
+  const handleConfirmDelete = () => {
+    if (!pendingDelete) return;
+    try {
+      const removed = removeDaybookEntriesByRefId(pendingDelete.refId);
+      const reversedTotal = removed.reduce((s, e) => s + e.amount, 0);
+      const accountName =
+        getAccount(pendingDelete.accountId)?.name ?? pendingDelete.accountId;
+      toast.success(`Receipt ${pendingDelete.receiptId} deleted`, {
+        icon: <Trash2 size={16} />,
+        description: `${inr(reversedTotal)} reversed from ${accountName} • ${removed.length} ledger ${
+          removed.length === 1 ? "entry" : "entries"
+        } removed.`,
+      });
+    } catch (err) {
+      toast.error("Could not delete receipt", {
+        description:
+          err instanceof Error
+            ? err.message
+            : "Day-lock or persistence error.",
+      });
+    } finally {
+      setPendingDelete(null);
+    }
+  };
 
   const onSubmit = (data: FormValues) => {
     if (!data.loanId || !selectedLoan) {
@@ -364,7 +425,7 @@ export default function ReceiptsLedger() {
       toast.error("Select a payment mode.");
       return;
     }
-    if (!data.creditAccount) {
+    if (!data.creditAccountId) {
       toast.error("Select an account to credit (for the daybook).");
       return;
     }
@@ -426,11 +487,13 @@ export default function ReceiptsLedger() {
       return;
     }
 
-    const account = data.creditAccount as CreditAccount;
-    const dbAccount = ACCOUNT_TO_DAYBOOK[account];
+    const accountId = data.creditAccountId;
+    const account = getAccount(accountId);
     const refId = `${receiptId} • ${selectedLoan.id}`;
     const interestCategory: DaybookCategory =
       selectedLoan.product === "VEHICLE" ? "EMI Received" : "Interest Income";
+    const paymentMode = data.paymentMode as PaymentMode;
+    const noteText = data.notes?.trim() || undefined;
 
     // ------------------------------------------------------------
     // Post to the persisted Daybook. We split mixed payments into two
@@ -438,6 +501,8 @@ export default function ReceiptsLedger() {
     // Customer 360 lifetime totals stay accurate. Full Settlement is
     // posted as a single line so the closure event is easy to surface
     // in reports — its principal share equals `principalPortion`.
+    // The receipt-only fields (paymentMode, outstandingAfter, notes) are
+    // attached so re-print can faithfully reconstruct the thermal slip.
     // ------------------------------------------------------------
     if (data.paymentType === "FULL") {
       addDaybookEntry({
@@ -449,9 +514,12 @@ export default function ReceiptsLedger() {
           principalPortion,
         )} + Interest ${inr(interestPortion)})`,
         refId,
-        account: dbAccount,
+        account: accountId,
         amount,
         customerName: selectedLoan.customer,
+        paymentMode,
+        outstandingAfter: outstandingBalance,
+        notes: noteText,
       });
     } else {
       if (interestPortion > 0) {
@@ -464,9 +532,12 @@ export default function ReceiptsLedger() {
             selectedLoan.product === "VEHICLE" ? "EMI Received" : "Interest Paid"
           }`,
           refId,
-          account: dbAccount,
+          account: accountId,
           amount: interestPortion,
           customerName: selectedLoan.customer,
+          paymentMode,
+          outstandingAfter: outstandingBalance,
+          notes: noteText,
         });
       }
       if (principalPortion > 0) {
@@ -477,15 +548,18 @@ export default function ReceiptsLedger() {
           category: "Principal Recovery",
           particulars: `${selectedLoan.customer} — Partial Principal`,
           refId,
-          account: dbAccount,
+          account: accountId,
           amount: principalPortion,
           customerName: selectedLoan.customer,
+          paymentMode,
+          outstandingAfter: outstandingBalance,
+          notes: noteText,
         });
       }
     }
 
     toast.success("Receipt generated", {
-      description: `${receiptId} • ${inr(amount)} credited to ${ACCOUNT_LABEL[account]}`,
+      description: `${receiptId} • ${inr(amount)} credited to ${account?.name ?? accountId}`,
       icon: <CheckCircle2 size={18} />,
     });
 
@@ -497,19 +571,14 @@ export default function ReceiptsLedger() {
       customerName: selectedLoan.customer,
       loanId: selectedLoan.id,
       paymentTypeLabel: PAYMENT_TYPE_LABEL[data.paymentType],
-      paymentMode:
-        data.paymentMode === "CASH"
-          ? "Cash"
-          : data.paymentMode === "UPI"
-            ? "UPI"
-            : "Bank Transfer",
-      accountLabel: ACCOUNT_LABEL[account],
+      paymentMode: PAYMENT_MODE_LABEL[paymentMode],
+      accountLabel: account?.name ?? accountId,
       amountPaid: amount,
       interestPortion,
       principalPortion,
       outstandingBalance,
       cashier: "Cashier",
-      notes: data.notes?.trim() || undefined,
+      notes: noteText,
     });
 
     reset();
@@ -626,7 +695,7 @@ export default function ReceiptsLedger() {
                               </span>
                               <span className="text-xs text-slate-500">
                                 {l.product === "PAWN" ? "Pawn" : "Vehicle"} •{" "}
-                                {l.rate} • Started {l.startedOn}
+                                {l.ratePctPerAnnum}% p.a.
                               </span>
                             </div>
                           </SelectItem>
@@ -672,7 +741,7 @@ export default function ReceiptsLedger() {
                       }}
                     >
                       {selectedLoan.product === "PAWN" ? "Pawn" : "Vehicle"} •{" "}
-                      {selectedLoan.rate}
+                      {selectedLoan.ratePctPerAnnum}% p.a.
                     </span>
                   </div>
                 )}
@@ -703,53 +772,20 @@ export default function ReceiptsLedger() {
                       Outstanding Dues
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Read-only summary as of today.
+                      Live snapshot of what the borrower owes today.
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <DueRow
-                    label="Principal Balance"
-                    value={selectedLoan ? inr(principal) : "—"}
-                  />
-                  <DueRow
-                    label="Accrued Interest"
-                    value={selectedLoan ? inr(interest) : "—"}
-                  />
-                </div>
-                <div
-                  className="rounded-xl border p-4"
-                  style={{
-                    borderColor: "rgba(74,111,165,0.20)",
-                    background:
-                      "linear-gradient(135deg, rgba(191,221,245,0.35) 0%, rgba(233,244,251,0.65) 100%)",
-                  }}
-                >
-                  <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                      <div
-                        className="text-[11px] font-semibold uppercase tracking-wider"
-                        style={{ color: "var(--brand-primary)" }}
-                      >
-                        Total Due
-                      </div>
-                      <div className="mt-0.5 text-[11px] text-slate-500">
-                        Principal + Accrued Interest
-                      </div>
-                    </div>
-                    <div
-                      className="text-3xl font-extrabold tracking-tight"
-                      style={{ color: "var(--brand-primary)" }}
-                    >
-                      {selectedLoan ? inr(totalDue) : "—"}
-                    </div>
-                  </div>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-3">
+                  <DueRow label="Principal" value={inr(principal)} />
+                  <DueRow label="Accrued Interest" value={inr(interest)} />
+                  <DueRow label="Total Due" value={inr(totalDue)} />
                 </div>
                 {!selectedLoan && (
-                  <p className="text-[11px] text-slate-500">
-                    Select a loan above to view outstanding dues.
+                  <p className="mt-3 text-[11px] text-slate-500">
+                    Pick a loan above to populate the dues breakdown.
                   </p>
                 )}
               </CardContent>
@@ -767,7 +803,7 @@ export default function ReceiptsLedger() {
                   className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
                   style={{ backgroundColor: "var(--brand-light)" }}
                 >
-                  <Receipt
+                  <IndianRupee
                     size={16}
                     style={{ color: "var(--brand-primary)" }}
                   />
@@ -780,69 +816,51 @@ export default function ReceiptsLedger() {
                     Record Payment
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Captures the receipt and posts a credit entry into the
-                    daybook.
+                    Captures interest + principal split and posts a credit to
+                    the chosen account.
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-600">
-                    Payment Type
-                  </Label>
-                  <Select
-                    value={values.paymentType || "INTEREST"}
-                    onValueChange={(v) =>
-                      setValue("paymentType", v as PaymentType)
-                    }
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-600">Payment Type</Label>
+                <Select
+                  value={values.paymentType || "INTEREST"}
+                  onValueChange={(v) =>
+                    setValue("paymentType", v as PaymentType)
+                  }
+                >
+                  <SelectTrigger
+                    className="h-10 w-full bg-white"
+                    style={inputBaseStyle}
                   >
-                    <SelectTrigger
-                      className="h-10 w-full bg-white"
-                      style={inputBaseStyle}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="INTEREST">Interest Only</SelectItem>
-                      <SelectItem value="PARTIAL">
-                        Partial Principal
-                      </SelectItem>
-                      <SelectItem value="FULL">
-                        Full Settlement / Closure
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-600">
-                    Amount Paid
-                  </Label>
-                  <div className="relative">
-                    <IndianRupee
-                      size={14}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <Input
-                      type="number"
-                      step="1"
-                      min="0"
-                      placeholder="0"
-                      className="h-10 bg-white pl-8"
-                      style={inputBaseStyle}
-                      {...register("amountPaid")}
-                    />
-                  </div>
-                  {selectedLoan && values.paymentType === "FULL" && (
-                    <p className="text-[11px] text-slate-500">
-                      Settlement requires {inr(totalDue)}.
-                    </p>
-                  )}
-                </div>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INTEREST">Interest Only</SelectItem>
+                    <SelectItem value="PARTIAL">Partial Principal</SelectItem>
+                    <SelectItem value="FULL">
+                      Full Settlement / Closure
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-slate-600">
+                    Amount Paid (₹)
+                  </Label>
+                  <Input
+                    type="number"
+                    step="1"
+                    placeholder="0"
+                    className="h-10"
+                    style={inputBaseStyle}
+                    {...register("amountPaid")}
+                  />
+                </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-slate-600">
                     Payment Mode
@@ -857,7 +875,7 @@ export default function ReceiptsLedger() {
                       className="h-10 w-full bg-white"
                       style={inputBaseStyle}
                     >
-                      <SelectValue placeholder="Select mode..." />
+                      <SelectValue placeholder="Cash / UPI / Bank Transfer" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="CASH">Cash</SelectItem>
@@ -866,110 +884,67 @@ export default function ReceiptsLedger() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-600">
-                    Credit To Account
-                  </Label>
-                  <Select
-                    value={values.creditAccount || ""}
-                    onValueChange={(v) =>
-                      setValue("creditAccount", v as CreditAccount)
-                    }
-                  >
-                    <SelectTrigger
-                      className="h-10 w-full bg-white"
-                      style={inputBaseStyle}
-                    >
-                      <SelectValue placeholder="Select account..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(
-                        [
-                          "CASH_HAND",
-                          "HDFC",
-                          "SBI",
-                        ] as CreditAccount[]
-                      ).map((a) => (
-                        <SelectItem key={a} value={a}>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium">
-                              {ACCOUNT_LABEL[a]}
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              {ACCOUNT_SUB[a]}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs text-slate-600">
-                  Internal Notes / Remarks
+                  Account to Credit (Daybook)
                 </Label>
+                <Select
+                  value={values.creditAccountId || ""}
+                  onValueChange={(v) => setValue("creditAccountId", v)}
+                >
+                  <SelectTrigger
+                    className="h-10 w-full bg-white"
+                    style={inputBaseStyle}
+                  >
+                    <SelectValue placeholder="Select an account..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{a.name}</span>
+                          <span className="text-xs text-slate-500">
+                            {a.subtitle ?? a.id}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-600">Notes</Label>
                 <Textarea
                   rows={3}
-                  placeholder="Any reference notes for the cashier or accountant..."
+                  placeholder="Optional — e.g. cashier notes, partial-payment context."
                   className="bg-white"
                   style={inputBaseStyle}
                   {...register("notes")}
                 />
               </div>
 
-              {selectedLoan && parseFloat(values.amountPaid || "0") > 0 && (
-                <div
-                  className="flex items-center justify-between rounded-lg border px-3 py-2 text-xs"
-                  style={{
-                    borderColor: "rgba(74,111,165,0.18)",
-                    backgroundColor: "var(--bg-main)",
-                    color: "var(--brand-primary)",
-                  }}
-                >
-                  <span className="flex items-center gap-2">
-                    <Banknote size={14} />
-                    Posting{" "}
-                    <span className="font-semibold">
-                      {inr(parseFloat(values.amountPaid || "0"))}
-                    </span>{" "}
-                    to{" "}
-                    <span className="font-semibold">
-                      {values.creditAccount
-                        ? ACCOUNT_LABEL[values.creditAccount as CreditAccount]
-                        : "—"}
-                    </span>
-                  </span>
-                  <span className="text-slate-500">
-                    {PAYMENT_TYPE_LABEL[values.paymentType as PaymentType]}
-                  </span>
-                </div>
-              )}
-
               <Button
                 type="submit"
-                className="h-12 w-full text-sm font-semibold text-white shadow-md transition-transform active:scale-[0.99]"
-                style={{
-                  backgroundColor: "var(--brand-primary)",
-                  boxShadow:
-                    "0 8px 20px rgba(74,111,165,0.30), 0 2px 6px rgba(74,111,165,0.20)",
-                }}
+                className="h-10 w-full font-semibold text-white shadow-sm"
+                style={{ backgroundColor: "var(--brand-primary)" }}
               >
-                <Receipt size={18} className="mr-2" />
-                Record Payment &amp; Generate Receipt
+                <Banknote size={14} className="mr-1.5" />
+                Generate Receipt
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Today's Receipts Ledger */}
+        {/* TODAY'S RECEIPTS LEDGER */}
         <Card
           className="border bg-white shadow-sm"
           style={{ borderColor: "rgba(74,111,165,0.12)" }}
         >
           <CardHeader className="pb-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
                 <div
                   className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
@@ -985,19 +960,21 @@ export default function ReceiptsLedger() {
                     className="text-base font-semibold"
                     style={{ color: "var(--brand-primary)" }}
                   >
-                    Today’s Receipts Ledger
+                    Today’s Receipts
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    All payments recorded today, in chronological order.
+                    Live ledger sourced from the Daybook. Use{" "}
+                    <strong>View</strong> to re-print.
+                    {isAdmin
+                      ? " Admin Mode is on — receipts can be deleted."
+                      : " Enable Admin Mode in Settings → Users to delete."}
                   </CardDescription>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500">
-                  {ledger.length} receipts
-                </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-500">Today’s total</span>
                 <span
-                  className="rounded-md px-2.5 py-1 text-xs font-semibold"
+                  className="rounded-md px-2.5 py-1 text-sm font-bold"
                   style={{
                     backgroundColor: "var(--brand-light)",
                     color: "var(--brand-primary)",
@@ -1036,35 +1013,87 @@ export default function ReceiptsLedger() {
                     <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
                       Account Credited
                     </TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wider">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {ledger.map((row) => (
-                    <TableRow key={row.receiptId} className="hover:bg-slate-50/60">
+                  {ledger.length === 0 ? (
+                    <TableRow>
                       <TableCell
-                        className="font-mono text-xs"
-                        style={{ color: "var(--brand-primary)" }}
+                        colSpan={7}
+                        className="py-12 text-center text-sm text-slate-500"
                       >
-                        {row.receiptId}
+                        No receipts posted yet today.
                       </TableCell>
-                      <TableCell className="text-xs text-slate-600">
-                        {row.time}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm font-semibold text-slate-800">
-                          {row.customer}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          {row.loanId}
-                        </div>
-                      </TableCell>
-                      <TableCell>{paymentTypeBadge(row.paymentType)}</TableCell>
-                      <TableCell className="text-right text-sm font-semibold text-slate-800">
-                        {inr(row.amount)}
-                      </TableCell>
-                      <TableCell>{accountBadge(row.account)}</TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    ledger.map((row) => (
+                      <TableRow
+                        key={row.refId}
+                        className="hover:bg-slate-50/60"
+                      >
+                        <TableCell
+                          className="font-mono text-xs"
+                          style={{ color: "var(--brand-primary)" }}
+                        >
+                          {row.receiptId}
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-600">
+                          {row.time}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm font-semibold text-slate-800">
+                            {row.customer}
+                          </div>
+                          <div className="text-[11px] text-slate-500">
+                            {row.loanId}
+                          </div>
+                        </TableCell>
+                        <TableCell>{paymentTypeBadge(row.paymentType)}</TableCell>
+                        <TableCell className="text-right text-sm font-semibold text-slate-800">
+                          {inr(row.amount)}
+                        </TableCell>
+                        <TableCell>{accountBadge(row.accountId)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleViewReceipt(row);
+                              }}
+                              className="h-8 px-2 text-xs font-medium"
+                              style={{ color: "var(--brand-primary)" }}
+                              aria-label={`View ${row.receiptId}`}
+                            >
+                              <Eye size={13} className="mr-1" />
+                              View
+                            </Button>
+                            {isAdmin && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setPendingDelete(row);
+                                }}
+                                className="h-8 w-8 p-0"
+                                style={{ color: "#B91C1C" }}
+                                aria-label={`Delete ${row.receiptId}`}
+                              >
+                                <Trash2 size={13} />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -1088,6 +1117,44 @@ export default function ReceiptsLedger() {
         }}
         data={pendingReceipt}
       />
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(o) => {
+          if (!o) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this receipt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will <strong>permanently reverse</strong>{" "}
+              {pendingDelete ? inr(pendingDelete.amount) : "—"} from{" "}
+              <strong>
+                {pendingDelete
+                  ? getAccount(pendingDelete.accountId)?.name ??
+                    pendingDelete.accountId
+                  : "—"}
+              </strong>{" "}
+              and remove every Daybook entry tied to{" "}
+              <span className="font-mono">
+                {pendingDelete?.receiptId ?? ""}
+              </span>
+              . This action cannot be undone and will fail if today’s Chitta
+              has been locked.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              style={{ backgroundColor: "#B91C1C", color: "#fff" }}
+            >
+              Delete &amp; Reverse
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

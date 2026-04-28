@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
+  Banknote,
   Building2,
   CheckCircle2,
   IndianRupee,
+  KeyRound,
+  Landmark,
   Pencil,
   Percent,
   Plus,
@@ -13,6 +16,7 @@ import {
   Trash2,
   Users as UsersIcon,
   Vault,
+  Wallet,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -72,6 +76,17 @@ import {
   useVaultConfig,
   type SafeConfig,
 } from "@/lib/stores/vaultConfigStore";
+import {
+  addAccount,
+  deleteAccount,
+  updateAccount,
+  useAccounts,
+  useAllAccountBalances,
+  type Account,
+  type AccountType,
+} from "@/lib/stores/accountsStore";
+import { setUserRole, useUserRole } from "@/lib/stores/userRoleStore";
+import { Switch } from "@/components/ui/switch";
 
 const inputBaseStyle: React.CSSProperties = {
   borderColor: "rgba(74,111,165,0.20)",
@@ -231,6 +246,13 @@ export default function Settings() {
             Rates &amp; Fees
           </TabsTrigger>
           <TabsTrigger
+            value="accounts"
+            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            <Landmark className="h-4 w-4" />
+            Accounts
+          </TabsTrigger>
+          <TabsTrigger
             value="vault"
             className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
@@ -249,6 +271,10 @@ export default function Settings() {
 
         <TabsContent value="rates" className="m-0">
           <RatesAndFeesTab />
+        </TabsContent>
+
+        <TabsContent value="accounts" className="m-0">
+          <AccountsTab />
         </TabsContent>
 
         <TabsContent value="vault" className="m-0">
@@ -391,12 +417,27 @@ function BranchProfileTab() {
 
 function UserManagementTab() {
   const [users, setUsers] = useState<StaffUser[]>(STAFF);
+  const role = useUserRole();
+  const isAdmin = role === "ADMIN";
 
   const handleAdd = () => {
     toast.success("Add new user", {
       icon: <Plus className="h-4 w-4" />,
       description: "Stub: invite/onboard flow will open here.",
     });
+  };
+
+  const handleAdminToggle = (next: boolean) => {
+    setUserRole(next ? "ADMIN" : "CASHIER");
+    toast.success(
+      next ? "Admin Mode enabled" : "Admin Mode disabled",
+      {
+        icon: <KeyRound className="h-4 w-4" />,
+        description: next
+          ? "Destructive actions (delete receipts, close loans) are now available."
+          : "Reverted to Cashier role. Destructive actions are hidden.",
+      },
+    );
   };
 
   const toggleStatus = (id: string) => {
@@ -410,42 +451,92 @@ function UserManagementTab() {
   };
 
   return (
-    <Card
-      className="border bg-white"
-      style={{ borderColor: "rgba(74,111,165,0.12)" }}
-    >
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-5">
+      {/* Admin Mode toggle — controls visibility of destructive actions across
+          the app (e.g. Delete Receipt, Close Loan, Mark for Auction). Persisted
+          via userRoleStore so the choice survives a refresh. */}
+      <Card
+        className="border bg-white"
+        style={{ borderColor: "rgba(74,111,165,0.12)" }}
+      >
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
           <div className="flex items-start gap-3">
             <div
-              className="flex h-9 w-9 items-center justify-center rounded-lg"
+              className="flex h-10 w-10 items-center justify-center rounded-lg"
               style={{ background: "var(--brand-light)" }}
             >
-              <ShieldCheck className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+              <KeyRound
+                className="h-5 w-5"
+                style={{ color: "var(--brand-primary)" }}
+              />
             </div>
             <div>
-              <CardTitle className="text-base font-semibold text-slate-900">
-                Staff Access &amp; Roles
-              </CardTitle>
-              <CardDescription className="text-sm text-slate-500">
-                Manage user accounts, assign roles, and toggle access for branch staff.
-              </CardDescription>
+              <div className="text-sm font-semibold text-slate-900">
+                Admin Mode
+              </div>
+              <p className="text-xs text-slate-500">
+                Unlocks destructive actions like deleting receipts and closing
+                loans. Disable when handing the till to a cashier.
+              </p>
             </div>
           </div>
+          <div className="flex items-center gap-3">
+            <Badge
+              className="px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+              style={{
+                background: isAdmin
+                  ? "rgba(34,197,94,0.14)"
+                  : "rgba(100,116,139,0.12)",
+                color: isAdmin ? "rgb(21,128,61)" : "#475569",
+                border: "1px solid",
+                borderColor: isAdmin
+                  ? "rgba(34,197,94,0.30)"
+                  : "rgba(100,116,139,0.20)",
+              }}
+            >
+              {isAdmin ? "Admin" : "Cashier"}
+            </Badge>
+            <Switch checked={isAdmin} onCheckedChange={handleAdminToggle} />
+          </div>
+        </CardContent>
+      </Card>
 
-          <Button
-            type="button"
-            onClick={handleAdd}
-            className="h-10 font-semibold text-white shadow-sm"
-            style={{ background: "var(--brand-primary)" }}
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            Add New User
-          </Button>
-        </div>
-      </CardHeader>
+      <Card
+        className="border bg-white"
+        style={{ borderColor: "rgba(74,111,165,0.12)" }}
+      >
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-lg"
+                style={{ background: "var(--brand-light)" }}
+              >
+                <ShieldCheck className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+              </div>
+              <div>
+                <CardTitle className="text-base font-semibold text-slate-900">
+                  Staff Access &amp; Roles
+                </CardTitle>
+                <CardDescription className="text-sm text-slate-500">
+                  Manage user accounts, assign roles, and toggle access for branch staff.
+                </CardDescription>
+              </div>
+            </div>
 
-      <CardContent>
+            <Button
+              type="button"
+              onClick={handleAdd}
+              className="h-10 font-semibold text-white shadow-sm"
+              style={{ background: "var(--brand-primary)" }}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Add New User
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent>
         <div
           className="overflow-hidden rounded-lg border"
           style={{ borderColor: "rgba(74,111,165,0.12)" }}
@@ -526,6 +617,500 @@ function UserManagementTab() {
         </div>
       </CardContent>
     </Card>
+    </div>
+  );
+}
+
+/* -------------------- Tab 4: Accounts -------------------- */
+
+type AccountFormValues = {
+  id: string;
+  name: string;
+  type: AccountType;
+  subtitle: string;
+  openingBalance: string;
+  openedAtIso: string;
+};
+
+function todayIsoForAccount(): string {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function AccountsTab() {
+  const accounts = useAccounts();
+  const balances = useAllAccountBalances();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editing, setEditing] = useState<Account | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Account | null>(null);
+
+  const totalLiquid = accounts.reduce(
+    (s, a) => s + (balances[a.id] ?? 0),
+    0,
+  );
+
+  const openAdd = () => {
+    setEditing(null);
+    setDrawerOpen(true);
+  };
+  const openEdit = (a: Account) => {
+    setEditing(a);
+    setDrawerOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    deleteAccount(pendingDelete.id);
+    toast.success("Account removed", {
+      description: `${pendingDelete.name} was removed. Existing ledger entries pinned to it remain on the books.`,
+    });
+    setPendingDelete(null);
+  };
+
+  return (
+    <Card
+      className="border bg-white"
+      style={{ borderColor: "rgba(74,111,165,0.12)" }}
+    >
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-lg"
+              style={{ background: "var(--brand-light)" }}
+            >
+              <Landmark
+                className="h-5 w-5"
+                style={{ color: "var(--brand-primary)" }}
+              />
+            </div>
+            <div>
+              <CardTitle className="text-base font-semibold text-slate-900">
+                Accounts &amp; Cash Sources
+              </CardTitle>
+              <CardDescription className="text-sm text-slate-500">
+                Every cash drawer and bank account the firm transacts on.
+                Balances are derived live from the Daybook.
+              </CardDescription>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            onClick={openAdd}
+            className="h-10 font-semibold text-white shadow-sm"
+            style={{ background: "var(--brand-primary)" }}
+          >
+            <Plus className="mr-1 h-4 w-4" />
+            Add Account
+          </Button>
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <SummaryTile
+            label="Configured Accounts"
+            value={String(accounts.length)}
+          />
+          <SummaryTile
+            label="Total Liquid Position"
+            value={new Intl.NumberFormat("en-IN", {
+              style: "currency",
+              currency: "INR",
+              maximumFractionDigits: 0,
+            }).format(totalLiquid)}
+          />
+          <SummaryTile
+            label="Cash Drawers"
+            value={String(accounts.filter((a) => a.type === "CASH").length)}
+          />
+        </div>
+
+        <div
+          className="overflow-hidden rounded-lg border"
+          style={{ borderColor: "rgba(74,111,165,0.12)" }}
+        >
+          <Table>
+            <TableHeader>
+              <TableRow style={{ background: "rgba(191,221,245,0.25)" }}>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  Account
+                </TableHead>
+                <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  Type
+                </TableHead>
+                <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  Opening Balance
+                </TableHead>
+                <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  Current Balance
+                </TableHead>
+                <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {accounts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <Wallet className="h-6 w-6 text-slate-300" />
+                      <p className="text-sm font-medium text-slate-700">
+                        No accounts configured yet
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Click <strong>Add Account</strong> to register your
+                        first cash drawer or bank account.
+                      </p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                accounts.map((a) => {
+                  const bal = balances[a.id] ?? 0;
+                  return (
+                    <TableRow key={a.id} className="hover:bg-slate-50/60">
+                      <TableCell className="py-3">
+                        <div className="flex items-start gap-2">
+                          <div
+                            className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg"
+                            style={{
+                              background:
+                                a.type === "CASH"
+                                  ? "rgba(34,197,94,0.10)"
+                                  : "var(--brand-light)",
+                            }}
+                          >
+                            {a.type === "CASH" ? (
+                              <Banknote
+                                size={14}
+                                style={{ color: "rgb(21,128,61)" }}
+                              />
+                            ) : (
+                              <Landmark
+                                size={14}
+                                style={{ color: "var(--brand-primary)" }}
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-900">
+                              {a.name}
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              {a.subtitle ?? a.id}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3 text-xs text-slate-600">
+                        {a.type === "CASH" ? "Cash" : "Bank"}
+                      </TableCell>
+                      <TableCell className="py-3 text-right text-sm text-slate-600">
+                        {new Intl.NumberFormat("en-IN", {
+                          style: "currency",
+                          currency: "INR",
+                          maximumFractionDigits: 0,
+                        }).format(a.openingBalance)}
+                      </TableCell>
+                      <TableCell
+                        className="py-3 text-right text-sm font-bold"
+                        style={{
+                          color:
+                            bal < 0
+                              ? "rgb(185,28,28)"
+                              : "var(--brand-primary)",
+                        }}
+                      >
+                        {new Intl.NumberFormat("en-IN", {
+                          style: "currency",
+                          currency: "INR",
+                          maximumFractionDigits: 0,
+                        }).format(bal)}
+                      </TableCell>
+                      <TableCell className="py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEdit(a)}
+                            className="h-8 w-8 p-0"
+                            style={{ color: "var(--brand-primary)" }}
+                            aria-label={`Edit ${a.name}`}
+                          >
+                            <Pencil size={14} />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPendingDelete(a)}
+                            className="h-8 w-8 p-0"
+                            style={{ color: "#B91C1C" }}
+                            aria-label={`Delete ${a.name}`}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <p className="mt-3 text-[11px] text-slate-500">
+          Current balance = Opening Balance + Σ Credits − Σ Debits across all
+          Daybook entries pinned to this account.
+        </p>
+      </CardContent>
+
+      <AccountDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        editing={editing}
+      />
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(o) => {
+          if (!o) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{pendingDelete?.name}</strong> will no longer appear in
+              the account pickers across Pawn Origination, Receipts and
+              Deposits. Existing Daybook entries pinned to it remain on the
+              books for audit purposes. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              style={{ backgroundColor: "#B91C1C", color: "#fff" }}
+            >
+              Remove Account
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
+  );
+}
+
+function AccountDrawer({
+  open,
+  onOpenChange,
+  editing,
+}: {
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  editing: Account | null;
+}) {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<AccountFormValues>({
+    defaultValues: {
+      id: "",
+      name: "",
+      type: "BANK",
+      subtitle: "",
+      openingBalance: "0",
+      openedAtIso: todayIsoForAccount(),
+    },
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      reset({
+        id: editing.id,
+        name: editing.name,
+        type: editing.type,
+        subtitle: editing.subtitle ?? "",
+        openingBalance: String(editing.openingBalance),
+        openedAtIso: editing.openedAtIso,
+      });
+    } else {
+      reset({
+        id: "",
+        name: "",
+        type: "BANK",
+        subtitle: "",
+        openingBalance: "0",
+        openedAtIso: todayIsoForAccount(),
+      });
+    }
+  }, [open, editing, reset]);
+
+  const typeValue = watch("type");
+
+  const onSubmit = (data: AccountFormValues) => {
+    const opening = parseFloat(data.openingBalance || "0");
+    const payload = {
+      name: data.name.trim(),
+      type: data.type,
+      subtitle: data.subtitle.trim() || undefined,
+      openingBalance: Number.isFinite(opening) ? opening : 0,
+      openedAtIso: data.openedAtIso || todayIsoForAccount(),
+    };
+    if (editing) {
+      updateAccount(editing.id, payload);
+      toast.success("Account updated", {
+        description: `${payload.name} is now ${payload.type === "CASH" ? "a cash drawer" : "a bank account"}.`,
+      });
+    } else {
+      const created = addAccount(payload);
+      toast.success("Account added", {
+        description: `${created.name} (${created.id}) is ready to receive ledger entries.`,
+      });
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle
+            className="text-base font-semibold"
+            style={{ color: "var(--brand-primary)" }}
+          >
+            {editing ? `Edit ${editing.name}` : "Add a new account"}
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Used as a source/destination across Pawn Origination, Receipts and
+            Investor Payouts.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <FieldGroup
+            label="Account Name"
+            htmlFor="acc-name"
+            error={errors.name?.message}
+          >
+            <Input
+              id="acc-name"
+              placeholder="e.g., HDFC Bank"
+              className="h-10"
+              style={inputBaseStyle}
+              {...register("name", { required: "Required" })}
+            />
+          </FieldGroup>
+
+          <FieldGroup label="Subtitle / Sub-account" htmlFor="acc-sub">
+            <Input
+              id="acc-sub"
+              placeholder="e.g., Current A/c ••• 4521"
+              className="h-10"
+              style={inputBaseStyle}
+              {...register("subtitle")}
+            />
+          </FieldGroup>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                Account Type
+              </Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setValue("type", "CASH")}
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${
+                    typeValue === "CASH"
+                      ? "bg-[var(--brand-light)] text-[color:var(--brand-primary)]"
+                      : "bg-white text-slate-600"
+                  }`}
+                  style={{ borderColor: "rgba(74,111,165,0.20)" }}
+                >
+                  Cash
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setValue("type", "BANK")}
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${
+                    typeValue === "BANK"
+                      ? "bg-[var(--brand-light)] text-[color:var(--brand-primary)]"
+                      : "bg-white text-slate-600"
+                  }`}
+                  style={{ borderColor: "rgba(74,111,165,0.20)" }}
+                >
+                  Bank
+                </button>
+              </div>
+            </div>
+
+            <FieldGroup
+              label="Opened On"
+              htmlFor="acc-date"
+              error={errors.openedAtIso?.message}
+            >
+              <Input
+                id="acc-date"
+                type="date"
+                className="h-10"
+                style={inputBaseStyle}
+                {...register("openedAtIso")}
+              />
+            </FieldGroup>
+          </div>
+
+          <FieldGroup
+            label="Opening Balance (₹)"
+            htmlFor="acc-opening"
+            error={errors.openingBalance?.message}
+          >
+            <Input
+              id="acc-opening"
+              type="number"
+              step="1"
+              placeholder="0"
+              className="h-10"
+              style={inputBaseStyle}
+              {...register("openingBalance", { required: "Required" })}
+            />
+          </FieldGroup>
+
+          <DialogFooter className="mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="font-semibold text-white shadow-sm"
+              style={{ background: "var(--brand-primary)" }}
+            >
+              <CheckCircle2 className="mr-1 h-4 w-4" />
+              {editing ? "Save Changes" : "Add Account"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

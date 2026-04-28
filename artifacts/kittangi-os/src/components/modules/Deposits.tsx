@@ -38,6 +38,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   addInvestor,
   monthlyInterest,
   recordPayout,
@@ -46,6 +53,7 @@ import {
 } from "@/lib/stores/investorsStore";
 import { addDaybookEntry } from "@/lib/stores/daybookStore";
 import { isDateLocked } from "@/lib/stores/dayLocksStore";
+import { useAccounts } from "@/lib/stores/accountsStore";
 
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -368,23 +376,52 @@ export default function Deposits() {
     };
   }, [investors, allInvestors]);
 
+  // ----- Payout source picker ------------------------------------------------
+  // We no longer post payouts straight to "CASH". Instead, opening the dialog
+  // captures the funding account and only commits when the cashier confirms.
+  const accounts = useAccounts();
+  const [payoutTarget, setPayoutTarget] = useState<Investor | null>(null);
+  const [payoutAccountId, setPayoutAccountId] = useState<string>("");
+
+  const handleOpenPayout = (investor: Investor) => {
+    if (monthlyInterest(investor) <= 0) {
+      toast.error("Cannot record a zero-rupee payout.");
+      return;
+    }
+    if (isDateLocked(todayIso())) {
+      toast.error("Day is locked", {
+        description:
+          "Today's Chitta is closed. Unlock it from the Daybook page before recording payouts.",
+      });
+      return;
+    }
+    setPayoutAccountId(accounts[0]?.id ?? "");
+    setPayoutTarget(investor);
+  };
+
   /**
-   * Record an interest payout for an investor:
+   * Record an interest payout for the staged investor:
    *  1. Append the payout to the investor's history.
    *  2. Push a matching DEBIT entry into the Daybook under
-   *     "Interest Expense" so the firm-level P&L stays consistent.
+   *     "Interest Expense" against the chosen source account so the
+   *     firm-level P&L and per-account balances stay consistent.
    */
-  const handleRecordPayout = (investor: Investor) => {
+  const handleConfirmPayout = () => {
+    const investor = payoutTarget;
+    if (!investor) return;
+    if (!payoutAccountId) {
+      toast.error("Select a source account for the payout.");
+      return;
+    }
     const amount = monthlyInterest(investor);
     if (amount <= 0) {
       toast.error("Cannot record a zero-rupee payout.");
+      setPayoutTarget(null);
       return;
     }
     const period = periodLabel(new Date());
     const date = todayIso();
 
-    // Pre-check the day lock BEFORE any persistence and clearly surface
-    // why the action was blocked.
     if (isDateLocked(date)) {
       toast.error("Day is locked", {
         description:
@@ -405,7 +442,7 @@ export default function Deposits() {
         category: "Interest Expense",
         particulars: `${investor.name} — Interest Payout (${period})`,
         refId: `${investor.id} • Payout ${period}`,
-        account: "CASH",
+        account: payoutAccountId,
         amount,
       });
     } catch (err) {
@@ -424,9 +461,12 @@ export default function Deposits() {
       amount,
     });
 
+    const accountName =
+      accounts.find((a) => a.id === payoutAccountId)?.name ?? payoutAccountId;
     toast.success("Interest payout recorded", {
-      description: `${inr(amount)} paid to ${investor.name} for ${period} • Daybook updated`,
+      description: `${inr(amount)} paid to ${investor.name} for ${period} from ${accountName}`,
     });
+    setPayoutTarget(null);
   };
 
   return (
@@ -665,7 +705,7 @@ export default function Deposits() {
                         <Button
                           type="button"
                           size="sm"
-                          onClick={() => handleRecordPayout(inv)}
+                          onClick={() => handleOpenPayout(inv)}
                           className="h-8 px-3 text-xs text-white"
                           style={{ backgroundColor: "var(--brand-primary)" }}
                         >
@@ -688,6 +728,109 @@ export default function Deposits() {
       </p>
 
       <NewDepositDialog open={showNew} onOpenChange={setShowNew} />
+
+      {/* Payout dialog — funds an investor's monthly interest from a chosen
+          account. We require an explicit account so cashiers don't blindly
+          drain Cash in Hand when a bank transfer was actually made. */}
+      <Dialog
+        open={!!payoutTarget}
+        onOpenChange={(o) => {
+          if (!o) setPayoutTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle
+              className="text-base font-semibold"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              Record Interest Payout
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Posts a Debit entry under <strong>Interest Expense</strong>{" "}
+              against the selected account.
+            </DialogDescription>
+          </DialogHeader>
+
+          {payoutTarget && (
+            <div className="space-y-4">
+              <div
+                className="rounded-lg border p-3"
+                style={{
+                  borderColor: "rgba(74,111,165,0.18)",
+                  backgroundColor: "var(--bg-main)",
+                }}
+              >
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Investor
+                </div>
+                <div className="mt-0.5 text-sm font-semibold text-slate-800">
+                  {payoutTarget.name}
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="text-slate-500">
+                    {periodLabel(new Date())}
+                  </span>
+                  <span
+                    className="text-base font-bold"
+                    style={{ color: "var(--brand-primary)" }}
+                  >
+                    {inr(monthlyInterest(payoutTarget))}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-600">
+                  Pay From Account
+                </Label>
+                <Select
+                  value={payoutAccountId}
+                  onValueChange={setPayoutAccountId}
+                >
+                  <SelectTrigger
+                    className="h-10 w-full bg-white"
+                    style={inputStyle}
+                  >
+                    <SelectValue placeholder="Select source account..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{a.name}</span>
+                          <span className="text-xs text-slate-500">
+                            {a.subtitle ?? a.id}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPayoutTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmPayout}
+              className="font-semibold text-white"
+              style={{ backgroundColor: "var(--brand-primary)" }}
+            >
+              <Banknote size={14} className="mr-1.5" />
+              Record Payout
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

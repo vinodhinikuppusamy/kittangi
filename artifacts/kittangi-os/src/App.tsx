@@ -21,6 +21,8 @@ import ReceiptsLedgerRouter from "@/components/modules/ReceiptsLedgerRouter";
 import ReportsRouter from "@/components/modules/ReportsRouter";
 import Deposits from "@/components/modules/Deposits";
 import Financials from "@/components/modules/Financials";
+import LoanManagement from "@/components/modules/LoanManagement";
+import LoanLifecycle from "@/components/modules/LoanLifecycle";
 
 function App() {
   return (
@@ -34,6 +36,8 @@ function App() {
           <Route path="/customers" element={<Customers />} />
           <Route path="/receipts-ledger" element={<ReceiptsLedgerRouter />} />
           <Route path="/daybook" element={<Daybook />} />
+          <Route path="/loans" element={<LoanManagement />} />
+          <Route path="/loans/:id" element={<LoanLifecycle />} />
           <Route path="/reports" element={<ReportsRouter />} />
 
           {/* Pawn vertical */}
