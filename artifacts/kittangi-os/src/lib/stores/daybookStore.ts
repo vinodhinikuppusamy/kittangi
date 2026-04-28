@@ -2,6 +2,24 @@ import {
   createPersistentStore,
   usePersistentStore,
 } from "@/lib/stores/persistentStore";
+import { isDateLocked } from "@/lib/stores/dayLocksStore";
+
+/**
+ * Thrown by `addDaybookEntry` when a caller attempts to post to a date that
+ * has been frozen via the Daybook "Lock Day & Generate Report" workflow.
+ * Callers (Receipts, Loan Disbursement, Investor Payout, etc.) should catch
+ * this and surface a friendly toast so cashiers know the day is closed.
+ */
+export class DayLockedError extends Error {
+  readonly dateIso: string;
+  constructor(dateIso: string) {
+    super(
+      `Daybook for ${dateIso} is locked. Unlock the day from the Chitta page before posting new entries.`,
+    );
+    this.name = "DayLockedError";
+    this.dateIso = dateIso;
+  }
+}
 
 export type DaybookSide = "CREDIT" | "DEBIT";
 export type DaybookAccount = "CASH" | "HDFC" | "SBI";
@@ -407,6 +425,12 @@ export function useDaybook(): DaybookEntry[] {
 export function addDaybookEntry(
   draft: Omit<DaybookEntry, "id"> & { id?: string },
 ): DaybookEntry {
+  // Enforce day-lock integrity: once a day is closed, no new entries can be
+  // appended for that date or the lock-snapshot would silently drift out of
+  // sync with the underlying ledger.
+  if (isDateLocked(draft.dateIso)) {
+    throw new DayLockedError(draft.dateIso);
+  }
   const created: DaybookEntry = {
     ...draft,
     id: draft.id ?? nextEntryId(daybookStore.get()),

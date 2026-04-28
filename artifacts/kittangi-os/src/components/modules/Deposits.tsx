@@ -45,6 +45,7 @@ import {
   type Investor,
 } from "@/lib/stores/investorsStore";
 import { addDaybookEntry } from "@/lib/stores/daybookStore";
+import { isDateLocked } from "@/lib/stores/dayLocksStore";
 
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -382,20 +383,44 @@ export default function Deposits() {
     const period = periodLabel(new Date());
     const date = todayIso();
 
-    const payout = recordPayout(investor.id, {
+    // Pre-check the day lock BEFORE any persistence and clearly surface
+    // why the action was blocked.
+    if (isDateLocked(date)) {
+      toast.error("Day is locked", {
+        description:
+          "Today's Chitta is closed. Unlock it from the Daybook page before recording payouts.",
+      });
+      return;
+    }
+
+    // Atomic-write strategy: post the (riskier) Daybook entry FIRST. Only
+    // if that succeeds do we persist the payout on the investor record.
+    // This eliminates the prior divergence risk where a failed daybook
+    // write would leave a payout without a matching ledger entry.
+    try {
+      addDaybookEntry({
+        dateIso: date,
+        time: timeNow(),
+        side: "DEBIT",
+        category: "Interest Expense",
+        particulars: `${investor.name} — Interest Payout (${period})`,
+        refId: `${investor.id} • Payout ${period}`,
+        account: "CASH",
+        amount,
+      });
+    } catch (err) {
+      toast.error("Could not record payout", {
+        description:
+          err instanceof Error
+            ? err.message
+            : "Daybook write failed; nothing was persisted.",
+      });
+      return;
+    }
+
+    recordPayout(investor.id, {
       dateIso: date,
       period,
-      amount,
-    });
-
-    addDaybookEntry({
-      dateIso: date,
-      time: timeNow(),
-      side: "DEBIT",
-      category: "Interest Expense",
-      particulars: `${investor.name} — Interest Payout (${period})`,
-      refId: `${payout.id} • ${investor.id}`,
-      account: "CASH",
       amount,
     });
 

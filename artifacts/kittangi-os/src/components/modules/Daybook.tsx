@@ -4,12 +4,17 @@ import {
   ArrowUpRight,
   BookOpen,
   Calendar,
+  CheckCircle2,
+  Copy,
+  Lock,
+  LockOpen,
   Printer,
   Scale,
   TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,10 +34,34 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   useDaybook,
   type DaybookAccount,
   type DaybookEntry,
 } from "@/lib/stores/daybookStore";
+import {
+  lockDay,
+  unlockDay,
+  useDayLocks,
+  type DayLock,
+} from "@/lib/stores/dayLocksStore";
 
 const OPENING_BALANCE = 218430;
 
@@ -146,6 +175,7 @@ function SummaryCard({
 
 export default function Daybook() {
   const allEntries = useDaybook();
+  const dayLocks = useDayLocks();
 
   // Default to the most recent date that actually has entries so the page
   // never opens to an empty Chitta even after several demo days have passed.
@@ -158,11 +188,23 @@ export default function Daybook() {
   }, [allEntries]);
 
   const [date, setDate] = useState<string>(() => latestDate);
+  const [lockDialogOpen, setLockDialogOpen] = useState(false);
+  const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
+  const [pendingLock, setPendingLock] = useState<DayLock | null>(null);
 
+  // STRICT date filter — the table only ever shows transactions whose
+  // dateIso exactly matches the picker. Switching to yesterday in the
+  // date picker drops today's entries entirely from view.
   const dayEntries = useMemo<DaybookEntry[]>(
     () => allEntries.filter((e) => e.dateIso === date),
     [allEntries, date],
   );
+
+  const existingLock = useMemo(
+    () => dayLocks.find((l) => l.dateIso === date),
+    [dayLocks, date],
+  );
+  const isLocked = !!existingLock;
   const inflows = useMemo(
     () => dayEntries.filter((e) => e.side === "CREDIT"),
     [dayEntries],
@@ -239,8 +281,121 @@ export default function Daybook() {
             <Printer size={14} className="mr-1.5" />
             Print Chitta
           </Button>
+          {isLocked ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 px-3 text-xs"
+              style={{
+                borderColor: "rgba(220,38,38,0.30)",
+                color: "rgb(185,28,28)",
+              }}
+              onClick={() => setUnlockConfirmOpen(true)}
+            >
+              <LockOpen size={14} className="mr-1.5" />
+              Unlock Day
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              className="h-9 px-3 text-xs font-semibold text-white"
+              style={{ backgroundColor: "var(--brand-primary)" }}
+              onClick={() => {
+                if (dayEntries.length === 0) {
+                  toast.error("Nothing to lock", {
+                    description:
+                      "There are no entries recorded for this date.",
+                  });
+                  return;
+                }
+                const lock: DayLock = {
+                  dateIso: date,
+                  lockedAtIso: new Date().toISOString(),
+                  totalCashIn: totalInflows,
+                  totalCashOut: totalOutflows,
+                  netChange: totalInflows - totalOutflows,
+                  entryCount: dayEntries.length,
+                };
+                setPendingLock(lock);
+                setLockDialogOpen(true);
+              }}
+            >
+              <Lock size={14} className="mr-1.5" />
+              Lock Day &amp; Generate Report
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Locked banner — surfaces the frozen totals so anyone re-opening
+       * this date instantly sees the closure summary without re-running it. */}
+      {isLocked && existingLock && (
+        <div
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 px-4 py-3"
+          style={{
+            borderColor: "rgba(74,111,165,0.30)",
+            backgroundColor: "rgba(191,221,245,0.30)",
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-lg"
+              style={{ backgroundColor: "var(--brand-primary)" }}
+            >
+              <Lock size={16} className="text-white" />
+            </div>
+            <div>
+              <div
+                className="text-sm font-semibold"
+                style={{ color: "var(--brand-primary)" }}
+              >
+                Day Closed · {prettyDate(date)}
+              </div>
+              <div className="text-[11px] text-slate-600">
+                Locked on{" "}
+                {new Date(existingLock.lockedAtIso).toLocaleString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}{" "}
+                · {existingLock.entryCount} entries frozen.
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-4 text-xs">
+            <span className="text-slate-600">
+              Cash In{" "}
+              <span className="font-semibold text-emerald-700">
+                {inr(existingLock.totalCashIn)}
+              </span>
+            </span>
+            <span className="text-slate-600">
+              Cash Out{" "}
+              <span className="font-semibold text-red-700">
+                {inr(existingLock.totalCashOut)}
+              </span>
+            </span>
+            <span
+              className="rounded-md px-2 py-0.5 font-semibold"
+              style={{
+                backgroundColor:
+                  existingLock.netChange >= 0
+                    ? "rgba(34,197,94,0.14)"
+                    : "rgba(220,38,38,0.10)",
+                color:
+                  existingLock.netChange >= 0
+                    ? "rgb(21,128,61)"
+                    : "rgb(185,28,28)",
+              }}
+            >
+              Net {existingLock.netChange >= 0 ? "+" : "−"}
+              {inr(Math.abs(existingLock.netChange))}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Summary Metrics */}
       <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -563,6 +718,172 @@ export default function Daybook() {
         Live Chitta · powered by the shared Daybook ledger (Receipts, Loan
         Disbursements, Investor Payouts and more).
       </p>
+
+      {/* Lock Day report dialog */}
+      <Dialog
+        open={lockDialogOpen}
+        onOpenChange={(o) => {
+          setLockDialogOpen(o);
+          if (!o) setPendingLock(null);
+        }}
+      >
+        <DialogContent
+          className="max-w-md"
+          style={{ backgroundColor: "var(--bg-main)" }}
+        >
+          <DialogHeader>
+            <DialogTitle
+              className="flex items-center gap-2 text-base font-semibold"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              <Lock size={16} />
+              Confirm Day Closure
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Once locked, the totals below are frozen and persisted as the
+              audit-trail snapshot for {prettyDate(date)}. You can unlock
+              later if a correction is required.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pendingLock && (
+            <div
+              className="rounded-lg border bg-white p-4 font-mono text-xs leading-relaxed"
+              style={{ borderColor: "rgba(74,111,165,0.18)" }}
+            >
+              <div className="mb-2 font-sans text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                Closure Report
+              </div>
+              <div>
+                <span className="text-slate-500">Day Closed:</span>{" "}
+                <span style={{ color: "var(--brand-primary)" }}>
+                  {prettyDate(pendingLock.dateIso)}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500">Total Cash In:</span>{" "}
+                <span className="font-semibold text-emerald-700">
+                  {inr(pendingLock.totalCashIn)}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500">Total Cash Out:</span>{" "}
+                <span className="font-semibold text-red-700">
+                  {inr(pendingLock.totalCashOut)}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500">Net Change:</span>{" "}
+                <span
+                  className="font-bold"
+                  style={{
+                    color:
+                      pendingLock.netChange >= 0
+                        ? "rgb(21,128,61)"
+                        : "rgb(185,28,28)",
+                  }}
+                >
+                  {pendingLock.netChange >= 0 ? "+" : "−"}
+                  {inr(Math.abs(pendingLock.netChange))}
+                </span>
+              </div>
+              <div className="mt-2 text-[11px] text-slate-500">
+                {pendingLock.entryCount} entries included.
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              onClick={() => {
+                if (!pendingLock) return;
+                const text = `Day Closed: ${prettyDate(
+                  pendingLock.dateIso,
+                )}. Total Cash In: ${inr(
+                  pendingLock.totalCashIn,
+                )}, Total Cash Out: ${inr(
+                  pendingLock.totalCashOut,
+                )}, Net Change: ${
+                  pendingLock.netChange >= 0 ? "+" : "−"
+                }${inr(Math.abs(pendingLock.netChange))}.`;
+                navigator.clipboard
+                  ?.writeText(text)
+                  .then(() => toast.success("Report copied to clipboard"))
+                  .catch(() => toast.error("Copy failed"));
+              }}
+            >
+              <Copy size={13} className="mr-1.5" />
+              Copy Report
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => {
+                  setLockDialogOpen(false);
+                  setPendingLock(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="text-xs font-semibold text-white"
+                style={{ backgroundColor: "var(--brand-primary)" }}
+                onClick={() => {
+                  if (!pendingLock) return;
+                  lockDay(pendingLock);
+                  toast.success("Day locked", {
+                    description: `Net change ${
+                      pendingLock.netChange >= 0 ? "+" : "−"
+                    }${inr(Math.abs(pendingLock.netChange))} frozen.`,
+                    icon: <CheckCircle2 size={16} />,
+                  });
+                  setLockDialogOpen(false);
+                  setPendingLock(null);
+                }}
+              >
+                <Lock size={13} className="mr-1.5" />
+                Confirm &amp; Lock
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unlock confirmation */}
+      <AlertDialog
+        open={unlockConfirmOpen}
+        onOpenChange={setUnlockConfirmOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unlock this day's Chitta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The frozen closure snapshot for {prettyDate(date)} will be
+              removed. Future entries can then be added to this date again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                unlockDay(date);
+                toast.success("Day unlocked");
+              }}
+            >
+              Unlock
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

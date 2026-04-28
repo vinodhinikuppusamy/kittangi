@@ -20,6 +20,7 @@ import Dashboard from "@/components/modules/Dashboard";
 import ReceiptsLedgerRouter from "@/components/modules/ReceiptsLedgerRouter";
 import ReportsRouter from "@/components/modules/ReportsRouter";
 import Deposits from "@/components/modules/Deposits";
+import Financials from "@/components/modules/Financials";
 
 function App() {
   return (
@@ -58,6 +59,7 @@ function App() {
           <Route path="/deposits" element={<Deposits />} />
 
           {/* Administration */}
+          <Route path="/financials" element={<Financials />} />
           <Route path="/settings" element={<Settings />} />
 
           <Route

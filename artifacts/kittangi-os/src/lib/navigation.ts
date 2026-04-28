@@ -10,6 +10,7 @@ import {
   Gem,
   HandCoins,
   PieChart,
+  LineChart,
   Settings as SettingsIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -48,6 +49,7 @@ export const CAPITAL_NAV: NavItem[] = [
 ];
 
 export const ADMIN_NAV: NavItem[] = [
+  { to: "/financials", label: "Financials (P&L)", icon: LineChart },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 

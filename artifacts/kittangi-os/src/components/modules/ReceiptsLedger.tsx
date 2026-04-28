@@ -49,6 +49,7 @@ import {
   type DaybookCategory,
   type DaybookEntry,
 } from "@/lib/stores/daybookStore";
+import { isDateLocked } from "@/lib/stores/dayLocksStore";
 
 type PaymentType = "INTEREST" | "PARTIAL" | "FULL";
 type PaymentMode = "CASH" | "UPI" | "BANK";
@@ -413,6 +414,17 @@ export default function ReceiptsLedger() {
       month: "short",
       year: "numeric",
     });
+
+    // Pre-check the day lock so a closed Chitta cannot accept new receipts.
+    // This must run before ANY persistence (Daybook splits a mixed payment
+    // into two entries; we cannot allow only the first to land).
+    if (isDateLocked(dateIso)) {
+      toast.error("Day is locked", {
+        description:
+          "Today's Chitta is closed. Unlock it from the Daybook page before generating receipts.",
+      });
+      return;
+    }
 
     const account = data.creditAccount as CreditAccount;
     const dbAccount = ACCOUNT_TO_DAYBOOK[account];
