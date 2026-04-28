@@ -428,7 +428,7 @@ function UserManagementTab() {
   };
 
   const handleAdminToggle = (next: boolean) => {
-    setUserRole(next ? "ADMIN" : "CASHIER");
+    setUserRole(next ? "ADMIN" : "STAFF");
     toast.success(
       next ? "Admin Mode enabled" : "Admin Mode disabled",
       {

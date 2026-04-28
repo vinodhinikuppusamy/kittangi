@@ -1,107 +1,63 @@
-# Workspace
+# Kittangi OS - Monorepo Workspace
 
 ## Overview
+Kittangi OS is a pnpm workspace monorepo designed as a multi-vertical financial management system. It primarily focuses on Pawn Broking and Vehicle Finance, aiming to provide a comprehensive solution for managing these financial services. The project's vision is to streamline operations, enhance financial tracking, and offer robust reporting capabilities for businesses in these sectors.
 
-pnpm workspace monorepo for **Kittangi OS** — a Multi-Vertical Financial Management System covering Pawn Broking and Vehicle Finance.
+## User Preferences
+I prefer clear and concise communication. When making changes, prioritize iterative development with small, reviewable commits. Ask for confirmation before implementing major architectural changes or introducing new external dependencies. I prefer detailed explanations for complex logic or significant feature implementations.
 
-## Stack
+## System Architecture
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **Frontend**: React 18 + Vite + TypeScript
-- **Styling**: Tailwind CSS v4, shadcn/ui-ready primitives
-- **Routing**: react-router-dom v6
-- **Icons**: lucide-react
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM (not yet used)
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+### Monorepo Structure
+The project is organized as a pnpm workspace monorepo. It includes the following key artifacts:
+- `artifacts/kittangi-os`: The main React + Vite frontend application.
+- `artifacts/api-server`: A shared Express API for backend services.
+- `artifacts/mockup-sandbox`: A design sandbox for UI component previews.
 
-## Artifacts
+### Frontend (Kittangi OS Frontend)
+- **Technology Stack**: React 18, Vite, TypeScript 5.9, Tailwind CSS v4, shadcn/ui.
+- **Styling**: Uses a consistent brand palette with CSS variables for main background (`--bg-main: #E9F4FB`), sidebar (`--sidebar-bg: #FFFFFF`), primary actions (`--brand-primary: #4A6FA5`), accents (`--brand-accent: #89CFF0`), hover states (`--brand-light: #BFDDF5`), and text colors.
+- **Layout**: Features a fixed 64px header and a 256px sidebar with an App Switcher. The `activeVertical` state dynamically controls sidebar content.
+- **Navigation**: Supports two main verticals: PAWN (Dashboard, Origination, Vault, Ledger, Reports) and VEHICLE (Dashboard, Origination, Repossession, Ledger, Reports), along with CAPITAL (Deposits) and ADMINISTRATION (Financials, Settings).
+- **Routing**: Implemented with `react-router-dom v6`, using `BrowserRouter` and `basename` from environment variables. All routes are wrapped in the main `Layout`.
+- **Local Persistence**: Utilizes `localStorage` for client-side data persistence through custom stores for customers, pledged items, vault configuration, branch profiles, daybook entries, accounts, loans, user roles, day locks, and investors. Data is JSON-serialized.
+- **Image Capture**: `PhotoCapture.tsx` and `ItemImageUploader.tsx` components handle single and multi-photo capture using file uploads and `getUserMedia` for camera access, storing images as base64 dataURLs.
+- **Print Pipeline**: Features a flexible print system using `@media print` blocks and `body[data-print-target]` attributes to selectively print thermal receipts (`ThermalReceipt.tsx`) or A4 statements. The CSS contract recognises only two values: `"thermal"` → `.print-area--thermal`, and `"statement"` → `.print-area--statement`. Any new printable surface MUST adopt one of these two classes; otherwise the global `body * { visibility: hidden }` rule will print a blank page.
+- **Shared Loan Document**: `src/components/shared/DocumentViewer.tsx` is the single source of truth for both A4 Pawn Tickets and Vehicle Loan Agreements. It branches on `loan.product` and renders branch header, KYC block (with photo or initials avatar), financial-terms grid, item card / vehicle card, T&Cs, and signature lines. Tagged `print-area print-area--statement` and consumed by `LoanLifecycle.tsx`.
+- **Loan Management & Lifecycle**: A centralized financial engine handles loan origination, status tracking, and repayment. Loan details are managed in `loansStore`, with integration into daybook entries and account balances.
+- **Reporting / Financials**: The `Financials` module provides an annual P&L statement and a live Business Health Snapshot, calculating assets, liabilities, and net worth based on loan book, investor capital, and operational expenses.
+- **CSV / Excel Export**: `src/lib/csv.ts` provides `buildCsv` + `downloadCsv(filename, columns, rows)` — emits UTF-8 text with a `\uFEFF` byte-order mark so Microsoft Excel honours non-ASCII characters, escapes commas/quotes/newlines, and triggers a `Blob` download via a synthetic anchor. Both `Reports.tsx` (Loan Register / Interest Collections / Maturity & Defaults) and `VehicleReports.tsx` (Disbursal Log / Collections / NPA) wire their "Export to Excel" button to this helper, tab-aware and date-range filtered, with a final TOTAL row appended. Filenames follow `kittangi-<report>-<from>_to_<to>.csv`.
+- **Daybook Manual Expense Entry**: `Daybook.tsx` exposes an admin-only "Add Expense" header button (hidden when the day is locked) that opens a dialog with category (Salary / Branch Expense / Utilities / Other Expense), source account, amount, and particulars. Submission posts a `DEBIT` entry via `addDaybookEntry` with `refId = EXP-<seq>`, which immediately mutates the bound account's balance through `accountsStore.useAccountBalance`.
+- **Atomic Vehicle Disbursement**: `VehicleOrigination.tsx` performs a full origination in one click — `addLoan({ product: VEHICLE, vehicleDetails, disbursedFromAccountId })` followed by a DEBIT `addDaybookEntry` for the net disbursement against the chosen source account. Day-locking is rechecked inside the handler and any `DayLockedError` triggers `deleteLoan(loanId)` rollback so the books can never end up with an orphaned loan.
+- **Vault Sync on Loan Close**: `LoanLifecycle.handleCloseLoan` now sets `vaultLoc: undefined` on the linked pledged item when flipping it to `RELEASED`, so the locker frees up across all surfaces (Pledged Items list, Vault Management). `handleMarkForAuction` deliberately retains `vaultLoc` because the item is still physically in the vault until claimed.
 
-- `artifacts/kittangi-os` — main React + Vite frontend, served at `/`.
-- `artifacts/api-server` — shared Express API, served at `/api`.
-- `artifacts/mockup-sandbox` — design sandbox (canvas previews).
+### Backend (API Server)
+- **Technology Stack**: Express 5.
+- **Database (Planned/Partially Integrated)**: PostgreSQL with Drizzle ORM (though not yet fully utilized according to the document).
+- **Validation**: Uses Zod for schema validation.
+- **API Code Generation**: Orval is used to generate API hooks and Zod schemas from OpenAPI specifications.
 
-## Kittangi OS Frontend
+### Core Features
+- **Customer Management**: Comprehensive customer profiles with KYC details and photo capture.
+- **Pawn & Vehicle Origination**: Workflows for creating new pawn and vehicle loans, linking to pledged items or vehicle details.
+- **Vault Management**: Visualizer for vault configuration and management of pledged item locations.
+- **Daybook & Ledger**: Detailed daybook for financial transactions, supporting various categories, accounts, and payment modes, with day locking mechanism.
+- **Account Management**: Unified accounts ledger with recomputed balances, supporting cash and bank accounts.
+- **Investor Management**: Tracking investor deposits, payouts, and monthly interest calculations.
+- **User Roles**: Basic role-based access control (Admin/Cashier) affecting UI visibility and critical actions.
 
-Brand palette (CSS variables in `artifacts/kittangi-os/src/index.css`):
-
-- `--bg-main: #E9F4FB` (Sky Mist) — main app background
-- `--sidebar-bg: #FFFFFF` — sidebar background
-- `--brand-primary: #4A6FA5` (Indigo) — active states, headers, primary buttons
-- `--brand-accent: #89CFF0` (Powder Blue) — highlights / secondary
-- `--brand-light: #BFDDF5` (Soft Azure) — hover states
-- `--text-main: #030213`
-- `--text-muted: #64748B`
-
-Layout:
-
-- `src/components/Layout.tsx` — fixed 64px header + 256px sidebar with App Switcher.
-- `activeVertical` is local React state in `Layout` (`'PAWN' | 'VEHICLE'`) controlling the dynamic sidebar.
-- Header has global search, bell with notification dot, and Admin User badge.
-
-Navigation (`src/lib/navigation.ts`):
-
-- PAWN: Dashboard, Global Customers, Pawn Origination, Pledged Items, Vault Management, Receipts & Ledger, Daybook (Chitta), Reports.
-- VEHICLE: Dashboard, Global Customers, Vehicle Origination, Repossession Yard, Receipts & Ledger, Daybook (Chitta), Reports.
-- CAPITAL: Deposits & Investors.
-- ADMINISTRATION: Financials (P&L), Settings.
-
-Routing:
-
-- `src/App.tsx` uses `BrowserRouter` with `basename` from `import.meta.env.BASE_URL`.
-- All routes wrapped in `Layout` and render a `PlaceholderPage` for now.
-- `/` redirects to `/dashboard`.
-
-Local persistence + capture (added in the Capture & Management upgrade):
-
-- `src/lib/stores/persistentStore.ts` — generic `createPersistentStore<T>(key, initial)` returning `{ get, set, subscribe }` and a `usePersistentStore` hook backed by `useSyncExternalStore`. JSON-serialized to `localStorage`, so any base64 image dataURL is preserved across full page reloads.
-- `src/lib/stores/customersStore.ts` — `Customer` type with `photoDataUrl`, `dob`, `aadhar`, `pan`, address fields, KYC status, etc. Exposes `addCustomer / updateCustomer / deleteCustomer / useCustomers`. Auto-incrementing `KTG-` IDs (max existing + module counter, so refresh + re-add never collides). Storage key `kittangi:customers:v1`.
-- `src/lib/stores/pledgedItemsStore.ts` — `PledgedItem` type with `photos: string[]`, status (`VAULTED | RELEASED | AUCTION`), gross/net weight, vault location, `originatedAt`. Exposes `addPledgedItem / updatePledgedItem / usePledgedItems`. Storage key `kittangi:pledged-items:v1`.
-- `src/lib/stores/vaultConfigStore.ts` — `Safe[]` config (id, name, location, lockerCount, lockerPrefix). Exposes `useVaultConfig / addSafe / updateSafe / removeSafe`. Storage key `kittangi:vault-config:v1`. Drives both `VaultManagement.tsx` (visualizer) and the Settings → Vault Configuration tab.
-- `src/lib/stores/branchProfileStore.ts` — branch identity (name, code, GSTIN, address, phone) used on every printed receipt and customer statement. Storage key `kittangi:branch-profile:v1`.
-- `src/lib/stores/daybookStore.ts` — persisted Chitta entries (`DaybookEntry` with side, category, account [string id, no longer a fixed enum], amount, refId, customerName, paymentMode?, outstandingAfter?, notes?). Source of truth for the Receipts & Ledger module's "Today's Receipts" table and Customer 360 lifetime totals. Mixed payments are split into two entries (Interest Income + Principal Recovery) so per-category reports stay accurate. Categories now include "Loan Disbursement" (DEBIT) and "Expense" (DEBIT). `addDaybookEntry` throws `DayLockedError` when posting to a locked date. `removeDaybookEntry(id)` and `removeDaybookEntriesByRefId(refId)` are admin reversal helpers — they delete entries so derived account balances and reports auto-reconcile. Storage key `kittangi:daybook:v1`. Backward-compatible: legacy seed entries with `account: "CASH" | "HDFC" | "SBI"` still load (those literals remain the seed account ids).
-- `src/lib/stores/accountsStore.ts` — unified Accounts ledger backbone. `Account = { id, name, type: "CASH"|"BANK", subtitle?, openingBalance, openedAtIso }`. Seeds: `CASH` ("Cash in Hand"), `HDFC` ("HDFC Bank"), `SBI` ("SBI Bank"). API: `useAccounts / getAccount / addAccount / updateAccount / deleteAccount / useAccountBalance / useAllAccountBalances / computeAccountBalance`. Balance derivation: `openingBalance + Σ(CREDIT entries) − Σ(DEBIT entries)` over the daybook — never stored, always recomputed, so any reversal automatically restores the correct balance. Storage key `kittangi:accounts:v1`.
-- `src/lib/stores/loansStore.ts` — single source of truth for all loans across verticals. `Loan = { id, product: "PAWN"|"VEHICLE", customer, customerCode, principal, ratePctPerAnnum, startedAtIso, maturityIso?, status: "ACTIVE"|"CLOSED"|"AUCTION"|"DEFAULT", disbursedFromAccountId?, pledgedItemId?, vehicleDetails?, accruedInterest? }`. API: `useLoans / getLoan / addLoan / updateLoan`. Seeds: PWN-204512, PWN-204519, PWN-204527, PWN-204540, VEH-30021. Storage key `kittangi:loans:v1`.
-- `src/lib/stores/userRoleStore.ts` — current user role. `useUserRole`, `setUserRole("ADMIN" | "CASHIER")`, `useIsAdmin`, `isAdmin`. Default ADMIN. Drives admin-only UI gating (delete receipt, close loan, mark for auction). Storage key `kittangi:user-role:v1`.
-- `src/lib/stores/dayLocksStore.ts` — persisted per-date "Day Lock" snapshots (`DayLock` with `dateIso`, `lockedAtIso`, `totalCashIn`, `totalCashOut`, `netChange`, `entryCount`). API: `useDayLocks / getDayLock / lockDay / unlockDay / isDateLocked`. Storage key `kittangi:day-locks:v1`. The Daybook page exposes a primary "Lock Day & Generate Report" button that opens a confirm dialog with a copyable closure report; once locked, a banner replaces the button with "Unlock Day" (gated by an AlertDialog). The lock is enforced in two layers: (a) the write path — `addDaybookEntry` rejects new entries for locked dates with `DayLockedError`; (b) consumer pre-checks — both `ReceiptsLedger` (receipt submission) and `Deposits.handleRecordPayout` call `isDateLocked` BEFORE any persistence so multi-write flows cannot half-commit. In `Deposits`, the Daybook entry is posted first and the investor payout is recorded only on success, ensuring the ledger and investor history never diverge.
-- `src/lib/stores/investorsStore.ts` — `Investor` records (principal, monthly rate, status, payouts[]) with `recordPayout`, `monthlyInterest` helper, `useInvestors`. Storage key `kittangi:investors:v1`.
-- `src/components/shared/PhotoCapture.tsx` — single-photo capture: file upload + `getUserMedia` (front camera) → JPEG dataURL via canvas. Stops media tracks on unmount/cancel.
-- `src/components/shared/ItemImageUploader.tsx` — multi-photo dropzone + camera (rear camera by default), max 6 photos / 5 MB each, with thumb tray and per-photo delete.
-- Wiring: `Customers.tsx` adds avatar + Edit/Delete columns and a mode-aware drawer (Add/Edit) with `PhotoCapture`. Rows are clickable (open `CustomerLedgerSheet` Customer 360); Edit/Delete buttons stopPropagation. `PawnOrigination.tsx` has an "Item Photographs" card and on submit calls `addPledgedItem({..., photos})` so the new pledge appears immediately in `PledgedItems.tsx`, whose `ManageItemDialog` exposes status/weight editing and a photo carousel + thumbnails.
-
-Print pipeline:
-
-- `src/index.css` defines an `@media print` block that scopes visibility by `body[data-print-target="thermal" | "statement"]`, so multiple `.print-area` subtrees can co-exist on the page (e.g. a thermal receipt dialog while a Customer 360 statement is mounted) and only the active target prints.
-- `ThermalReceipt.tsx` renders a 80mm receipt with `.print-area--thermal`; `CustomerLedgerSheet.tsx` renders a hidden A4 statement with `.print-area--statement`. Both wrap `window.print()` to set/restore the body attribute.
-- The Settings page (`Settings.tsx`) has 5 tabs: Branch Profile, User Management, Rates & Fees, Accounts, Vault Configuration. The Vault Configuration tab uses `SafeDrawer` (Add/Edit) and an AlertDialog for delete, all wired to `vaultConfigStore`. The Accounts tab uses `AccountsTab` + `AccountDrawer` (Add/Edit/Delete with opening balance) and shows derived current balances via `useAllAccountBalances`. The User Management tab now also has an "Admin Mode" Switch tied to `setUserRole`/`useUserRole`.
-
-Loan Management & Lifecycle (Centralized Financial Engine):
-
-- `src/components/modules/LoanManagement.tsx` (`/loans`) — unified list view of all loans across verticals with filters (All / PAWN / VEHICLE / status). Each row links to `/loans/:id`. Available in both PAWN_NAV and VEHICLE_NAV.
-- `src/components/modules/LoanLifecycle.tsx` (`/loans/:id`) — detail page that delegates the printable section to the shared `<DocumentViewer/>`, lists linked daybook entries (filtered by loanId / refId), and exposes admin-only "Close Loan" / "Mark for Auction" actions (each gated by `useIsAdmin` AND `isDateLocked` precheck, then a confirm `AlertDialog`). Closing a loan flips the linked pledged item to RELEASED **and clears its `vaultLoc` to `undefined`** so the Pledged Items table no longer shows a stale locker (the locker auto-returns to AVAILABLE in `VaultManagement`); marking for auction flips it to AUCTION but leaves the location intact since the item is still physically in the vault.
-- `src/components/shared/DocumentViewer.tsx` — reusable printable Pawn Ticket / Vehicle Agreement. Props: `{ loan, customer?, pledgedItem?, branch, sourceAccountName?, accruedInterest? }`. Renders branch header, loan id, customer KYC block (photo, DOB, Aadhaar/PAN, address), financial terms, pledged item card (with first photo) or vehicle details, T&Cs, and signature lines. Marked with `data-print-area="loan-ticket"` and `print-area print-area--statement` so the existing print pipeline picks it up. Used by `LoanLifecycle.tsx`.
-- `src/components/modules/PawnOrigination.tsx` — now requires a Source Account selector + Maturity Date and an interest rate. On submit (after `isDateLocked` precheck): creates Loan in `loansStore`, creates PledgedItem with `loanId`, posts a single DEBIT "Loan Disbursement" daybook entry to the chosen account with `refId = loan.id`. The disbursement is therefore tied to a real account and reversible.
-- `src/components/modules/ReceiptsLedger.tsx` — Active loan picker is now driven by `useLoans()` filtered to status="ACTIVE". Recording a payment requires selecting a credit account. Today's Receipts table groups by `refId` so split receipts (Interest + Principal) show as one row, with a "View" action that rebuilds the full `ThermalReceiptData` (reconstructing interest/principal split for Full Settlement using `loan.accruedInterest`) and re-opens the printable receipt dialog. An admin-only "Delete" column (gated by `useIsAdmin`) opens an AlertDialog → calls `removeDaybookEntriesByRefId(refId)` to fully reverse the receipt; the debited account balance auto-recomputes.
-- `src/components/modules/Daybook.tsx` — Account chip resolves a daybook entry's `account` id through `accountsStore` (fallback to raw id) so chips read "Cash in Hand" / "HDFC Bank" instead of raw IDs. Admin-only **"Add Expense"** dialog (hidden when `isLocked`) lets the operator post a manual DEBIT entry: category (Salary / Branch Expense / Utilities / Other Expense), source account from `useAccounts()`, amount, particulars, optional notes — `refId = EXP-<5digits>`, runs an `isDateLocked` precheck before persisting.
-- `src/components/modules/VehicleOrigination.tsx` — collects interest rate %, tenure (months), and payment source account; on submit (after `isDateLocked` precheck) creates a `VEHICLE` loan in `loansStore`, then posts a DEBIT "Loan Disbursement" entry against the chosen account with `refId = loan.id`. The two writes are atomic: if the daybook write throws, `deleteLoan(loanId)` rolls back so the books never carry an orphan disbursement.
-- `src/components/modules/Deposits.tsx` — Investor payout dialog now requires picking a source account from `useAccounts()` and posts the DEBIT entry to that account (replaces the prior hard-coded CASH posting).
-- `src/lib/csv.ts` — tiny `downloadCsv(filename, columns: { header, key, format? }[], rows)` helper. Escapes commas, quotes, and newlines; emits a UTF-8 BOM so Excel honors non-ASCII characters; triggers a Blob download. Wired into `Reports.tsx` (Loan Register / Interest Collections / Maturity & Defaults — tab-aware, date-range filtered) and `VehicleReports.tsx` (Disbursal Log filtered by date; Collections + NPA exported point-in-time since they don't carry per-row dates). Each export ends with a TOTAL row summarizing principal/interest/outstanding.
-
-Reporting / Financials:
-
-- `src/components/modules/Financials.tsx` (`/financials`, under ADMIN_NAV) — annual P&L statement and live Business Health Snapshot. FY dropdown follows the Indian Apr–Mar financial year and is built from the union of dated artefacts (daybook, investor deposits, payouts) plus the current FY. P&L = `Interest Earned (Pawn from "Interest Income" + Vehicle from "EMI Received") − Interest Paid (sum of investor payouts in FY) − Operating Expenses (Branch Expense + Salary + Utilities + Other Expense)`. Balance sheet snapshot = `Total Assets (outstanding loan-book principal: disbursements minus closed-loan disbursements minus principal recoveries against still-active disbursed loans) − Total Liabilities (sum of ACTIVE investor principals) → Net Worth/Deficit`. Recoveries with malformed/orphan refIds are explicitly skipped to avoid understating assets.
-
-## Key Commands
-
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
-
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+## External Dependencies
+- **Monorepo Tool**: pnpm workspaces
+- **Frontend Framework**: React 18
+- **Build Tool**: Vite
+- **Language**: TypeScript 5.9
+- **Styling Framework**: Tailwind CSS v4
+- **UI Component Library**: shadcn/ui (primitives)
+- **Routing Library**: react-router-dom v6
+- **Icon Library**: lucide-react
+- **Backend Framework**: Express 5
+- **Database**: PostgreSQL (planned/partially integrated)
+- **ORM**: Drizzle ORM (planned/partially integrated)
+- **Validation Library**: Zod (`zod/v4`), `drizzle-zod`
+- **API Code Generator**: Orval
+- **Bundler**: esbuild (for CJS bundle)

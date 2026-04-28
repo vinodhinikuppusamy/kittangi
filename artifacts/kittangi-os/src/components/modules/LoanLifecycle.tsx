@@ -284,7 +284,10 @@ export default function LoanLifecycle() {
             size="sm"
             className="h-9"
             onClick={() => {
-              document.body.setAttribute("data-print-target", "loan-ticket");
+              // The print stylesheet only recognises "statement" and "thermal"
+              // (see src/index.css). DocumentViewer is tagged
+              // `print-area--statement`, so we drive the body flag to match.
+              document.body.setAttribute("data-print-target", "statement");
               window.print();
               setTimeout(
                 () => document.body.removeAttribute("data-print-target"),

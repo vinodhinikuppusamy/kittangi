@@ -37,6 +37,7 @@ import {
 import ItemImageUploader from "@/components/shared/ItemImageUploader";
 import { addPledgedItem } from "@/lib/stores/pledgedItemsStore";
 import { addLoan } from "@/lib/stores/loansStore";
+import { useCustomers } from "@/lib/stores/customersStore";
 import {
   addDaybookEntry,
   DayLockedError,
@@ -105,13 +106,6 @@ function monthsBetween(startIso: string, endIso: string): number {
   return Math.max(0, months);
 }
 
-const VERIFIED_CUSTOMERS = [
-  { id: "KTG-10042", name: "Aanya Sharma", phone: "+91 98212 44510" },
-  { id: "KTG-10044", name: "Meera Iyer", phone: "+91 99450 11236" },
-  { id: "KTG-10047", name: "Kunal Mehta", phone: "+91 98990 23311" },
-  { id: "KTG-10051", name: "Rohan Verma", phone: "+91 98456 77810" },
-  { id: "KTG-10059", name: "Priya Menon", phone: "+91 99878 21006" },
-];
 
 const SAFES: { value: SafeNumber; label: string }[] = [
   { value: "SAFE_A", label: "Safe A — Main Vault" },
@@ -140,6 +134,16 @@ const inputBaseStyle: React.CSSProperties = {
 export default function PawnOrigination() {
   const navigate = useNavigate();
   const accounts = useAccounts();
+  const allCustomers = useCustomers();
+  // Origination is gated on completed KYC — only customers flagged
+  // `kycStatus === "Verified"` in the Global Customers store may pledge.
+  const verifiedCustomers = useMemo(
+    () =>
+      allCustomers
+        .filter((c) => c.kycStatus === "Verified")
+        .map((c) => ({ id: c.id, name: c.fullName, phone: c.phone })),
+    [allCustomers],
+  );
   const {
     register,
     handleSubmit,
@@ -179,8 +183,8 @@ export default function PawnOrigination() {
   const [itemPhotos, setItemPhotos] = useState<string[]>([]);
 
   const selectedCustomer = useMemo(
-    () => VERIFIED_CUSTOMERS.find((c) => c.id === values.customerId),
-    [values.customerId],
+    () => verifiedCustomers.find((c) => c.id === values.customerId),
+    [values.customerId, verifiedCustomers],
   );
 
   const lockersForSafe = values.safeNumber
@@ -411,15 +415,22 @@ export default function PawnOrigination() {
                 <Select
                   value={values.customerId || ""}
                   onValueChange={(v) => setValue("customerId", v)}
+                  disabled={verifiedCustomers.length === 0}
                 >
                   <SelectTrigger
                     className="h-10 w-full bg-white"
                     style={inputBaseStyle}
                   >
-                    <SelectValue placeholder="Select KYC-verified customer..." />
+                    <SelectValue
+                      placeholder={
+                        verifiedCustomers.length === 0
+                          ? "No verified customers found"
+                          : "Select KYC-verified customer..."
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {VERIFIED_CUSTOMERS.map((c) => (
+                    {verifiedCustomers.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         <div className="flex flex-col">
                           <span className="text-sm font-medium">{c.name}</span>
@@ -431,6 +442,30 @@ export default function PawnOrigination() {
                     ))}
                   </SelectContent>
                 </Select>
+                {verifiedCustomers.length === 0 && (
+                  <div
+                    className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2 text-xs"
+                    style={{
+                      borderColor: "rgba(234,179,8,0.45)",
+                      backgroundColor: "rgba(234,179,8,0.08)",
+                      color: "#92400E",
+                    }}
+                  >
+                    <span>
+                      No KYC-verified customers found. Verify a customer in
+                      Global Customers before disbursing a pawn loan.
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => navigate("/customers")}
+                    >
+                      Open KYC
+                    </Button>
+                  </div>
+                )}
                 {selectedCustomer && (
                   <div
                     className="mt-2 flex items-center justify-between rounded-lg border px-3 py-2"
