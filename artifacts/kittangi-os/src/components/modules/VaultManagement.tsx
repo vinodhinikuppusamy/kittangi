@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import {
+  ArrowLeftRight,
   Box,
   CheckCircle2,
   Key,
@@ -31,13 +34,24 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   generateLockerIds,
   normalizeSafeKey,
   parseVaultLoc,
   useVaultConfig,
   type SafeConfig,
 } from "@/lib/stores/vaultConfigStore";
-import { usePledgedItems } from "@/lib/stores/pledgedItemsStore";
+import {
+  transferPledgedItem,
+  usePledgedItems,
+} from "@/lib/stores/pledgedItemsStore";
+import { useIsAdmin } from "@/lib/stores/userRoleStore";
 
 type LockerStatus = "OCCUPIED" | "AVAILABLE";
 
@@ -49,6 +63,7 @@ type Locker = {
   customerName?: string;
   itemDescription?: string;
   dateStored?: string;
+  vaultLoc?: string;
 };
 
 type ResolvedSafe = {
@@ -113,9 +128,128 @@ function StatCard({ label, value, hint, icon: Icon, accent = "primary" }: StatCa
   );
 }
 
+/**
+ * Open a fresh browser window with a self-contained 2x2 inch printable label.
+ * The label embeds a QR code (encoding loanId + customerName) plus the locker
+ * number in large type. We render the QR via `qrcode.react` and serialise
+ * the resulting SVG to string so the new window has zero React/Vite deps.
+ *
+ * Falls back to a toast if the browser blocks the popup (privacy mode etc).
+ */
+function openLockerTagPrintWindow(args: {
+  lockerId: string;
+  loanId: string;
+  customerName: string;
+  safeName: string;
+  packageId: string;
+}) {
+  const { lockerId, loanId, customerName, safeName, packageId } = args;
+  const qrPayload = JSON.stringify({
+    loanId,
+    customer: customerName,
+    locker: lockerId,
+    safe: safeName,
+  });
+  const qrSvg = renderToStaticMarkup(
+    <QRCodeSVG value={qrPayload} size={120} level="M" includeMargin={false} />,
+  );
+  const safeText = (s: string) =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Locker Tag · ${safeText(lockerId)}</title>
+    <style>
+      @page { size: 2in 2in; margin: 0; }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        color: #000;
+        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+      }
+      .label {
+        width: 2in;
+        height: 2in;
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        border: 2px solid #000;
+      }
+      .locker-no {
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        line-height: 1;
+        text-align: center;
+      }
+      .safe-line {
+        font-size: 9px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        margin-top: 2px;
+        color: #111;
+      }
+      .qr { width: 1in; height: 1in; display: flex; align-items: center; justify-content: center; }
+      .qr svg { width: 100%; height: 100%; display: block; }
+      .footer {
+        text-align: center;
+        font-size: 8px;
+        font-weight: 600;
+        line-height: 1.15;
+        width: 100%;
+      }
+      .footer .pkg { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      @media screen {
+        body { padding: 12px; background: #f1f5f9; }
+        .label { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="label">
+      <div>
+        <div class="locker-no">${safeText(lockerId)}</div>
+        <div class="safe-line">${safeText(safeName)}</div>
+      </div>
+      <div class="qr">${qrSvg}</div>
+      <div class="footer">
+        <div>${safeText(customerName)}</div>
+        <div class="pkg">${safeText(loanId)} &middot; ${safeText(packageId)}</div>
+      </div>
+    </div>
+    <script>
+      window.addEventListener('load', function () {
+        setTimeout(function () { window.focus(); window.print(); }, 50);
+      });
+    </script>
+  </body>
+</html>`;
+
+  const w = window.open("", "_blank", "width=420,height=520");
+  if (!w) {
+    toast.error("Popup blocked — allow popups for this site to print labels.");
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
 export default function VaultManagement() {
   const safesConfig = useVaultConfig();
   const pledgedItems = usePledgedItems();
+  const isAdmin = useIsAdmin();
 
   // Build an occupancy map keyed by `<normalizedSafeName>::<lockerId>` so we
   // can join pledged items to their configured locker even if the admin has
@@ -134,6 +268,7 @@ export default function VaultManagement() {
         customerName: item.customer,
         itemDescription: `${item.title} • ${item.netWeightG}g net`,
         dateStored: formatStoredDate(item.originatedAt),
+        vaultLoc: item.vaultLoc,
       });
     }
 
@@ -151,6 +286,11 @@ export default function VaultManagement() {
   const [activeSafeId, setActiveSafeId] = useState<string>("");
   const [selectedLocker, setSelectedLocker] = useState<Locker | null>(null);
   const [activeSafeName, setActiveSafeName] = useState<string>("");
+
+  // Transfer dialog state
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferTargetSafeId, setTransferTargetSafeId] = useState<string>("");
+  const [transferTargetLockerId, setTransferTargetLockerId] = useState<string>("");
 
   // Keep the active tab in range as safes are added/removed in Settings.
   useEffect(() => {
@@ -187,10 +327,58 @@ export default function VaultManagement() {
 
   const handlePrintTag = () => {
     if (!selectedLocker) return;
-    toast.success("Locker tag sent to printer", {
-      description: `${selectedLocker.id} • ${selectedLocker.packageId} • ${selectedLocker.loanId}`,
-      icon: <CheckCircle2 size={18} />,
+    openLockerTagPrintWindow({
+      lockerId: selectedLocker.id,
+      loanId: selectedLocker.loanId ?? "—",
+      customerName: selectedLocker.customerName ?? "—",
+      safeName: activeSafeName,
+      packageId: selectedLocker.packageId ?? "—",
     });
+  };
+
+  // Targets available for transfer — every AVAILABLE locker across all safes,
+  // grouped by safe so the cashier can see the destination context.
+  const transferTargetSafe = useMemo(
+    () => resolvedSafes.find((s) => s.config.id === transferTargetSafeId),
+    [resolvedSafes, transferTargetSafeId],
+  );
+  const transferAvailableLockers = useMemo(() => {
+    if (!transferTargetSafe) return [] as string[];
+    return transferTargetSafe.lockers
+      .filter((l) => l.status === "AVAILABLE")
+      .map((l) => l.id);
+  }, [transferTargetSafe]);
+
+  const openTransferDialog = () => {
+    if (!selectedLocker?.packageId) return;
+    setTransferTargetSafeId(activeSafeId);
+    setTransferTargetLockerId("");
+    setTransferOpen(true);
+  };
+
+  const handleConfirmTransfer = () => {
+    if (!selectedLocker?.packageId) return;
+    if (!transferTargetSafe || !transferTargetLockerId) {
+      toast.error("Pick a target safe and locker.");
+      return;
+    }
+    const newVaultLoc = `${transferTargetSafe.config.name} · ${transferTargetLockerId}`;
+    if (newVaultLoc === selectedLocker.vaultLoc) {
+      toast.error("Target locker is the same as the current location.");
+      return;
+    }
+    try {
+      transferPledgedItem(selectedLocker.packageId, newVaultLoc);
+      toast.success("Item transferred", {
+        description: `${selectedLocker.packageId} moved from ${selectedLocker.vaultLoc} → ${newVaultLoc}.`,
+        icon: <ArrowLeftRight size={16} />,
+      });
+      setTransferOpen(false);
+      setSelectedLocker(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Transfer failed.";
+      toast.error(msg);
+    }
   };
 
   return (
@@ -213,6 +401,8 @@ export default function VaultManagement() {
             </h1>
             <p className="text-sm" style={{ color: "var(--text-muted)" }}>
               Live view of pledged inventory across safes &amp; lockers.
+              Locker status is bound to the linked Loan — a locker only
+              becomes Empty when the loan is Closed.
             </p>
           </div>
         </div>
@@ -294,7 +484,7 @@ export default function VaultManagement() {
                   Safe Visualizer
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Click an occupied locker to inspect its contents.
+                  Click an occupied locker to inspect or transfer its contents.
                 </CardDescription>
               </div>
             </div>
@@ -547,6 +737,12 @@ export default function VaultManagement() {
             </div>
           )}
 
+          <p className="text-[11px] text-slate-500">
+            <Lock size={11} className="-mt-0.5 mr-1 inline" />
+            This locker can only become Empty when the linked loan is Closed
+            from Loan Management.
+          </p>
+
           <DialogFooter className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
@@ -555,14 +751,147 @@ export default function VaultManagement() {
             >
               Close
             </Button>
+            {isAdmin && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={openTransferDialog}
+                data-testid="button-transfer-locker"
+                style={{
+                  borderColor: "rgba(74,111,165,0.40)",
+                  color: "var(--brand-primary)",
+                }}
+              >
+                <ArrowLeftRight size={16} className="mr-2" />
+                Transfer
+              </Button>
+            )}
             <Button
               type="button"
               onClick={handlePrintTag}
+              data-testid="button-print-locker-tag"
               className="text-white shadow-sm"
               style={{ backgroundColor: "var(--brand-primary)" }}
             >
               <Printer size={16} className="mr-2" />
               Print Locker Tag
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Internal Transfer dialog */}
+      <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle
+              className="flex items-center gap-2 text-base font-semibold"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              <ArrowLeftRight size={16} />
+              Transfer Pledged Item
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Move <span className="font-mono">{selectedLocker?.packageId}</span>{" "}
+              to a different locker without touching the linked loan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div
+              className="rounded-md border bg-white px-3 py-2 text-xs"
+              style={{ borderColor: "rgba(74,111,165,0.18)" }}
+            >
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Current Location
+              </div>
+              <div className="mt-0.5 font-mono text-sm text-slate-800">
+                {selectedLocker?.vaultLoc ?? "—"}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Target Safe
+                </div>
+                <Select
+                  value={transferTargetSafeId}
+                  onValueChange={(v) => {
+                    setTransferTargetSafeId(v);
+                    setTransferTargetLockerId("");
+                  }}
+                >
+                  <SelectTrigger
+                    className="h-10 bg-white"
+                    data-testid="select-transfer-target-safe"
+                  >
+                    <SelectValue placeholder="Pick safe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {resolvedSafes.map((s) => (
+                      <SelectItem key={s.config.id} value={s.config.id}>
+                        {s.config.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Target Locker
+                </div>
+                <Select
+                  value={transferTargetLockerId}
+                  onValueChange={setTransferTargetLockerId}
+                  disabled={!transferTargetSafe}
+                >
+                  <SelectTrigger
+                    className="h-10 bg-white"
+                    data-testid="select-transfer-target-locker"
+                  >
+                    <SelectValue
+                      placeholder={
+                        transferAvailableLockers.length === 0
+                          ? "No empty lockers"
+                          : "Pick locker"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {transferAvailableLockers.map((id) => (
+                      <SelectItem key={id} value={id}>
+                        {id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Only Available (Empty) lockers can be picked. The pledged item
+              keeps its loan link; only the physical location changes.
+            </p>
+          </div>
+          <DialogFooter className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTransferOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmTransfer}
+              data-testid="button-confirm-transfer"
+              disabled={!transferTargetLockerId}
+              className="text-white"
+              style={{ backgroundColor: "var(--brand-primary)" }}
+            >
+              <ArrowLeftRight size={16} className="mr-2" />
+              Confirm Transfer
             </Button>
           </DialogFooter>
         </DialogContent>

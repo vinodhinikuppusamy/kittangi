@@ -76,6 +76,7 @@ import {
   type DayLock,
 } from "@/lib/stores/dayLocksStore";
 import { useAccounts, type Account } from "@/lib/stores/accountsStore";
+import { useBranchProfile } from "@/lib/stores/branchProfileStore";
 import { useIsAdmin } from "@/lib/stores/userRoleStore";
 
 const EXPENSE_CATEGORIES: DaybookCategory[] = [
@@ -115,6 +116,365 @@ const inr = (n: number) =>
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(Number.isFinite(n) ? n : 0);
+
+/**
+ * Print Chitta — open a brand-new browser window with a fully self-contained
+ * B/W A4 layout and auto-trigger the print dialog. Sections, in order:
+ *
+ *   1. Header — Branch name + date + "Daily Cash & Bank Summary".
+ *   2. Inflows table — every CREDIT entry on the picked date.
+ *   3. Outflows table — every DEBIT entry on the picked date.
+ *   4. Closing Balance per Account — Opening + Credits − Debits, per account.
+ *      Cash uses the seeded `OPENING_BALANCE`; bank/other accounts open at 0
+ *      since the demo doesn't track per-bank carry-forward yet (a known
+ *      limitation that matches what's shown in the on-screen Daybook).
+ *   5. Signature block.
+ *
+ * The new window has zero React/Vite dependencies so the print preview is
+ * deterministic regardless of what's mounted in the host page.
+ */
+function openChittaPrintWindow(args: {
+  date: string;
+  branchName: string;
+  openingBalance: number;
+  inflows: DaybookEntry[];
+  outflows: DaybookEntry[];
+  accounts: Account[];
+}): void {
+  const { date, branchName, openingBalance, inflows, outflows, accounts } =
+    args;
+
+  const safeText = (s: string) =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const fmtINR = (n: number) =>
+    new Intl.NumberFormat("en-IN", {
+      maximumFractionDigits: 0,
+    }).format(Math.round(Number.isFinite(n) ? n : 0));
+
+  const prettyDate = (() => {
+    const d = new Date(date + "T00:00:00");
+    if (Number.isNaN(d.getTime())) return date;
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  })();
+
+  const accountName = (id: string) =>
+    accounts.find((a) => a.id === id)?.name ?? id;
+
+  const totalIn = inflows.reduce((s, e) => s + e.amount, 0);
+  const totalOut = outflows.reduce((s, e) => s + e.amount, 0);
+  const netChange = totalIn - totalOut;
+
+  // Per-account closing — opening is only seeded for the CASH account.
+  // Bank/other accounts do not yet have per-day carry-forward in this build,
+  // so we mark them as "N/A" rather than printing a misleading ₹0 opening
+  // and an "as-if-zero-opening" closing balance. The day's net movement
+  // (credits − debits) is still reported in those columns.
+  const cashAccount = accounts.find((a) => a.type === "CASH");
+  const accountRows = accounts.map((acc) => {
+    const isCash = acc.id === cashAccount?.id;
+    const credits = inflows
+      .filter((e) => e.account === acc.id)
+      .reduce((s, e) => s + e.amount, 0);
+    const debits = outflows
+      .filter((e) => e.account === acc.id)
+      .reduce((s, e) => s + e.amount, 0);
+    return {
+      name: acc.name,
+      type: acc.type,
+      isCash,
+      opening: isCash ? openingBalance : null,
+      credits,
+      debits,
+      closing: isCash ? openingBalance + credits - debits : null,
+      net: credits - debits,
+    };
+  });
+
+  const renderRows = (rows: DaybookEntry[]): string => {
+    if (rows.length === 0) {
+      return `<tr><td colspan="5" class="empty">No entries for this day.</td></tr>`;
+    }
+    return rows
+      .map(
+        (e, i) => `
+        <tr>
+          <td class="num">${i + 1}</td>
+          <td>${safeText(e.time)}</td>
+          <td>${safeText(e.particulars)}${
+            e.refId ? `<div class="ref">${safeText(e.refId)}</div>` : ""
+          }</td>
+          <td>${safeText(accountName(e.account))}</td>
+          <td class="amt">₹ ${fmtINR(e.amount)}</td>
+        </tr>`,
+      )
+      .join("");
+  };
+
+  const accountRowsHtml = accountRows
+    .map((r) => {
+      const openingCell =
+        r.opening === null ? `<span class="na">N/A</span>` : `₹ ${fmtINR(r.opening)}`;
+      const closingCell =
+        r.closing === null
+          ? `<span class="na">N/A · net ${r.net >= 0 ? "+" : "−"} ₹ ${fmtINR(Math.abs(r.net))}</span>`
+          : `₹ ${fmtINR(r.closing)}`;
+      return `
+      <tr>
+        <td>${safeText(r.name)} <span class="acc-type">(${safeText(r.type)})</span></td>
+        <td class="amt">${openingCell}</td>
+        <td class="amt credit">+ ₹ ${fmtINR(r.credits)}</td>
+        <td class="amt debit">− ₹ ${fmtINR(r.debits)}</td>
+        <td class="amt closing">${closingCell}</td>
+      </tr>`;
+    })
+    .join("");
+
+  const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Daily Chitta · ${safeText(prettyDate)} · ${safeText(branchName)}</title>
+    <style>
+      @page { size: A4 portrait; margin: 12mm; }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        color: #000;
+        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        font-size: 11pt;
+        line-height: 1.35;
+      }
+      .sheet { padding: 4mm 0; }
+      .banner {
+        border-bottom: 2px solid #000;
+        padding-bottom: 6mm;
+        margin-bottom: 6mm;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+      }
+      .banner h1 {
+        margin: 0;
+        font-size: 16pt;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+      }
+      .banner .sub {
+        margin-top: 2mm;
+        font-size: 11pt;
+        font-weight: 600;
+      }
+      .banner .meta {
+        text-align: right;
+        font-size: 10pt;
+      }
+      .banner .meta .label {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 8pt;
+        color: #333;
+      }
+      h2.section {
+        font-size: 12pt;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        margin: 8mm 0 3mm;
+        padding-bottom: 1.5mm;
+        border-bottom: 1px solid #000;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 2mm;
+      }
+      th, td {
+        border: 1px solid #000;
+        padding: 1.5mm 2mm;
+        font-size: 10pt;
+        vertical-align: top;
+        color: #000;
+      }
+      th {
+        background: #eaeaea;
+        text-align: left;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        font-size: 9pt;
+      }
+      td.num { width: 7mm; text-align: center; font-variant-numeric: tabular-nums; }
+      td.amt, th.amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      td.empty { text-align: center; font-style: italic; color: #555; padding: 6mm 2mm; }
+      .ref { font-size: 8pt; color: #444; margin-top: 0.6mm; }
+      tfoot td { background: #f5f5f5; font-weight: 700; }
+      .totals-bar {
+        margin-top: 4mm;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 4mm;
+      }
+      .totals-bar .cell {
+        border: 1px solid #000;
+        padding: 3mm;
+      }
+      .totals-bar .cell .label {
+        font-size: 8pt;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+      }
+      .totals-bar .cell .value {
+        margin-top: 1.5mm;
+        font-size: 13pt;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+      .closing-tbl td.closing { font-weight: 700; }
+      .na { font-style: italic; color: #555; font-weight: 600; font-size: 9pt; }
+      .acc-type {
+        font-size: 8pt;
+        font-weight: 600;
+        color: #444;
+        text-transform: uppercase;
+        margin-left: 1mm;
+      }
+      .signature {
+        margin-top: 14mm;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16mm;
+        page-break-inside: avoid;
+      }
+      .sig-line {
+        border-top: 1px solid #000;
+        padding-top: 1.5mm;
+        text-align: center;
+        font-size: 9pt;
+        color: #000;
+      }
+      @media screen {
+        body { background: #f1f5f9; padding: 8mm; }
+        .sheet { background: #fff; padding: 14mm; max-width: 210mm; margin: 0 auto; box-shadow: 0 6px 18px rgba(0,0,0,0.15); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <div class="banner">
+        <div>
+          <h1>${safeText(branchName)}</h1>
+          <div class="sub">Daily Cash &amp; Bank Summary</div>
+        </div>
+        <div class="meta">
+          <div class="label">Chitta Date</div>
+          <div>${safeText(prettyDate)}</div>
+        </div>
+      </div>
+
+      <h2 class="section">Inflows (Credit)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Time</th>
+            <th>Particulars</th>
+            <th>Account</th>
+            <th class="amt">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${renderRows(inflows)}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4">Total Inflows</td>
+            <td class="amt">₹ ${fmtINR(totalIn)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <h2 class="section">Outflows (Debit)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Time</th>
+            <th>Particulars</th>
+            <th>Account</th>
+            <th class="amt">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${renderRows(outflows)}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4">Total Outflows</td>
+            <td class="amt">₹ ${fmtINR(totalOut)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="totals-bar">
+        <div class="cell">
+          <div class="label">Total Inflows</div>
+          <div class="value">₹ ${fmtINR(totalIn)}</div>
+        </div>
+        <div class="cell">
+          <div class="label">Total Outflows</div>
+          <div class="value">₹ ${fmtINR(totalOut)}</div>
+        </div>
+        <div class="cell">
+          <div class="label">Net Change</div>
+          <div class="value">${netChange >= 0 ? "+" : "−"} ₹ ${fmtINR(Math.abs(netChange))}</div>
+        </div>
+      </div>
+
+      <h2 class="section">Closing Balance — Per Account</h2>
+      <table class="closing-tbl">
+        <thead>
+          <tr>
+            <th>Account</th>
+            <th class="amt">Opening</th>
+            <th class="amt">Credits</th>
+            <th class="amt">Debits</th>
+            <th class="amt">Closing</th>
+          </tr>
+        </thead>
+        <tbody>${accountRowsHtml || `<tr><td colspan="5" class="empty">No accounts configured.</td></tr>`}</tbody>
+      </table>
+
+      <div class="signature">
+        <div class="sig-line">Cashier Signature</div>
+        <div class="sig-line">Branch Manager Signature</div>
+      </div>
+    </div>
+    <script>
+      window.addEventListener('load', function () {
+        setTimeout(function () { window.focus(); window.print(); }, 80);
+      });
+    </script>
+  </body>
+</html>`;
+
+  const w = window.open("", "_blank", "width=900,height=1100");
+  if (!w) {
+    // Fall back silently — dev console will surface the popup-block warning.
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
 
 function todayIso() {
   const d = new Date();
@@ -215,6 +575,7 @@ export default function Daybook() {
   const allEntries = useDaybook();
   const dayLocks = useDayLocks();
   const accounts = useAccounts();
+  const branch = useBranchProfile();
 
   // Default to the most recent date that actually has entries so the page
   // never opens to an empty Chitta even after several demo days have passed.
@@ -383,19 +744,18 @@ export default function Daybook() {
               color: "var(--brand-primary)",
             }}
             onClick={() => {
-              // Aim the @media print rules in index.css at the chitta print
-              // region (the wrapper below has class `print-area--chitta`),
-              // print the page, then clear the attribute so a subsequent
-              // browser print (Ctrl+P) doesn't accidentally reuse this
-              // target after the user has navigated elsewhere.
-              const prev = document.body.dataset.printTarget;
-              document.body.dataset.printTarget = "chitta";
-              try {
-                window.print();
-              } finally {
-                if (prev) document.body.dataset.printTarget = prev;
-                else delete document.body.dataset.printTarget;
-              }
+              // Open a brand-new window with a self-contained, B/W A4-friendly
+              // chitta. This bypasses the in-page print stylesheet (which can
+              // be polluted by other components on the screen) and gives the
+              // operator a deterministic preview-then-print flow.
+              openChittaPrintWindow({
+                date,
+                branchName: branch.branchName,
+                openingBalance: OPENING_BALANCE,
+                inflows,
+                outflows,
+                accounts,
+              });
             }}
           >
             <Printer size={14} className="mr-1.5" />

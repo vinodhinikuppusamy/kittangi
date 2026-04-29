@@ -12,12 +12,10 @@ import {
   Lock,
   Printer,
   ReceiptText,
-  RefreshCw,
   ShieldAlert,
   Vault,
   Wallet,
 } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,28 +62,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  addLoan,
   closeLoanWithSettlement,
-  deleteLoan,
   markLoanForAuction,
-  updateLoan,
   useLoans,
   type Loan,
 } from "@/lib/stores/loansStore";
 import {
   addDaybookEntry,
-  removeDaybookEntry,
   DayLockedError,
   useDaybook,
   type DaybookEntry,
 } from "@/lib/stores/daybookStore";
-import {
-  addPledgedItem,
-  deletePledgedItem,
-  updatePledgedItem,
-  usePledgedItems,
-} from "@/lib/stores/pledgedItemsStore";
-import { useSettings, splitInterest } from "@/lib/stores/settingsStore";
+import { usePledgedItems } from "@/lib/stores/pledgedItemsStore";
 import { useAccounts } from "@/lib/stores/accountsStore";
 import { useCustomers } from "@/lib/stores/customersStore";
 import { isDateLocked } from "@/lib/stores/dayLocksStore";
@@ -130,21 +118,11 @@ export default function LoanLifecycle() {
   const customers = useCustomers();
   const branch = useBranchProfile();
   const isAdmin = useIsAdmin();
-  const settings = useSettings();
 
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [auctionDialogOpen, setAuctionDialogOpen] = useState(false);
   const [settlementAmountStr, setSettlementAmountStr] = useState("");
   const [settlementAccountId, setSettlementAccountId] = useState("");
-
-  // Part Release / Renew dialog state. Carrying the pledge means a brand-new
-  // loan inherits the same locker; releasing it leaves the vault empty after
-  // close. New principal defaults to the current outstanding so the cashier
-  // can dial it down to give partial cash back to the customer.
-  const [renewOpen, setRenewOpen] = useState(false);
-  const [renewCarryItem, setRenewCarryItem] = useState(true);
-  const [renewPrincipalStr, setRenewPrincipalStr] = useState("");
-  const [renewAccountId, setRenewAccountId] = useState("");
 
   const loan = useMemo<Loan | undefined>(
     () => loans.find((l) => l.id === id),
@@ -370,245 +348,6 @@ export default function LoanLifecycle() {
     setAuctionDialogOpen(false);
   };
 
-  // Open the renewal dialog with sensible defaults: carry the pledge by
-  // default and seed the new principal at the current outstanding so the
-  // cashier only has to type a delta when partially releasing value.
-  const openRenewDialog = () => {
-    if (!loan) return;
-    setRenewCarryItem(true);
-    setRenewPrincipalStr(String(outstandingBalance || loan.principal));
-    setRenewAccountId(loan.disbursedFromAccountId ?? accounts[0]?.id ?? "");
-    setRenewOpen(true);
-  };
-
-  const handlePartReleaseRenew = () => {
-    if (!loan) return;
-    if (!isAdmin) {
-      toast.error("Admin access required to renew a loan.");
-      return;
-    }
-    if (loan.product !== "PAWN") {
-      toast.error("Part Release / Renew is only available for pawn loans.");
-      return;
-    }
-    if (isDateLocked(todayIso())) {
-      toast.error(
-        "Today's Daybook is locked — unlock it before renewing the loan.",
-      );
-      return;
-    }
-
-    const newPrincipal = parseInt(renewPrincipalStr || "0", 10);
-    if (!Number.isFinite(newPrincipal) || newPrincipal <= 0) {
-      toast.error("Enter a valid principal for the new loan.");
-      return;
-    }
-    const disbursalAccount = accounts.find((a) => a.id === renewAccountId);
-    if (!disbursalAccount) {
-      toast.error("Pick an account to disburse the new loan from.");
-      return;
-    }
-
-    const today = todayIso();
-    const time = new Date().toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    // 1) Snapshot the current vault location BEFORE close — closeLoanWithSettlement
-    //    will null it out as part of the atomic release.
-    const carriedVaultLoc = pledgedItem?.vaultLoc;
-
-    // 2) Settle the existing loan on today's daybook so the receipts ledger
-    //    shows a clean close-out for the original principal+accrued interest.
-    //
-    // The whole renew sequence is wrapped in a try/catch with compensating
-    // actions. We track each side-effect in `compensations` (LIFO) so a
-    // mid-flight failure can roll back to a clean state — no orphaned
-    // loans, pledged items, or daybook entries. This is the closest we
-    // can get to a transaction across multiple persisted stores.
-    const closingReceiptId = `RCP-${Math.floor(
-      100000 + Math.random() * 899999,
-    )}`;
-    const compensations: Array<() => void> = [];
-    let newLoanId: string | undefined;
-
-    try {
-      // Step A — Post the closing CREDIT for the existing loan's outstanding.
-      // Split the accrued-interest portion of the lump close into legal vs
-      // company so the entry shows up in Reports → Interest Collections
-      // alongside ReceiptsLedger-posted receipts.
-      const closingInterestPortion = Math.max(
-        0,
-        outstandingBalance - loan.principal,
-      );
-      const closingSplit = splitInterest({
-        totalInterest: closingInterestPortion,
-        loanAnnualRatePct: loan.ratePctPerAnnum,
-        legalRatePctPerAnnum:
-          loan.legalInterestPct ?? settings.globalLegalInterestRatePct,
-      });
-      let closingEntry: DaybookEntry;
-      try {
-        closingEntry = addDaybookEntry({
-          dateIso: today,
-          time,
-          side: "CREDIT",
-          category: "Full Settlement",
-          particulars: `Renewal close — ${loan.customer}`,
-          refId: `${closingReceiptId} • ${loan.id}`,
-          account: disbursalAccount.id,
-          amount: outstandingBalance,
-          customerName: loan.customer,
-          paymentMode: disbursalAccount.type === "CASH" ? "CASH" : "BANK",
-          outstandingAfter: 0,
-          legalInterestPortion: closingSplit.legal,
-          companyInterestPortion: closingSplit.company,
-        });
-      } catch (err) {
-        if (err instanceof DayLockedError) {
-          toast.error(
-            "Today's Daybook is locked — unlock it before posting the renewal.",
-          );
-          return;
-        }
-        throw err;
-      }
-      compensations.push(() => removeDaybookEntry(closingEntry.id));
-
-      // Step B — Atomically close the existing loan + release its pledged item.
-      // closeLoanWithSettlement only flips status (does NOT delete) — so the
-      // true inverse is `updateLoan(prior.id, { status: prior.status })` and
-      // `updatePledgedItem(prior.id, { status, vaultLoc })`. Re-adding via
-      // addLoan/addPledgedItem would create duplicate IDs, so the rollback
-      // path stays on the same record by id.
-      const priorLoanStatus = loan.status;
-      const priorPledgedSnapshot = pledgedItem
-        ? {
-            id: pledgedItem.id,
-            status: pledgedItem.status,
-            vaultLoc: pledgedItem.vaultLoc,
-          }
-        : null;
-      closeLoanWithSettlement(loan.id);
-      compensations.push(() => {
-        updateLoan(loan.id, { status: priorLoanStatus });
-        if (priorPledgedSnapshot) {
-          updatePledgedItem(priorPledgedSnapshot.id, {
-            status: priorPledgedSnapshot.status,
-            vaultLoc: priorPledgedSnapshot.vaultLoc,
-          });
-        }
-      });
-
-      // Step C — If carrying the pledge, clone it back into the same locker
-      // and originate a new PAWN loan that references it.
-      if (renewCarryItem && pledgedItem) {
-        const newPledged = addPledgedItem({
-          title: pledgedItem.title,
-          category: pledgedItem.category,
-          grossWeightG: pledgedItem.grossWeightG,
-          netWeightG: pledgedItem.netWeightG,
-          pledgedValue: pledgedItem.pledgedValue,
-          loanId: "", // patched below once we know the new loan id
-          customer: pledgedItem.customer,
-          status: "VAULTED",
-          vaultLoc: carriedVaultLoc,
-          photos: pledgedItem.photos,
-          originatedAt: today,
-        });
-        compensations.push(() => deletePledgedItem(newPledged.id));
-
-        newLoanId = `PWN-${Math.floor(100000 + Math.random() * 899999)}`;
-        addLoan({
-          id: newLoanId,
-          product: "PAWN",
-          customer: loan.customer,
-          customerCode: loan.customerCode,
-          principal: newPrincipal,
-          ratePctPerAnnum: loan.ratePctPerAnnum,
-          startedAtIso: today,
-          durationLabel: loan.durationLabel,
-          maturityIso: loan.maturityIso,
-          status: "ACTIVE",
-          disbursedFromAccountId: disbursalAccount.id,
-          pledgedItemId: newPledged.id,
-          accruedInterest: 0,
-          legalInterestPct:
-            loan.legalInterestPct ?? settings.globalLegalInterestRatePct,
-          renewedFromLoanId: loan.id,
-          notes: `Renewed from ${loan.id} via Part Release.`,
-        });
-        const createdNewLoanId = newLoanId;
-        compensations.push(() => deleteLoan(createdNewLoanId));
-
-        updatePledgedItem(newPledged.id, { loanId: newLoanId });
-
-        // Step D — Processing fee on the new loan, posted as a CREDIT.
-        // A day-lock failure here is non-fatal — the loan exists, we just
-        // surface a warning and skip the fee rather than rolling back the
-        // whole renewal.
-        const fee = settings.processingFeeFlat;
-        if (fee > 0) {
-          try {
-            const feeEntry = addDaybookEntry({
-              dateIso: today,
-              time,
-              side: "CREDIT",
-              category: "Other Income",
-              particulars: `Processing fee — ${loan.customer} (${newLoanId})`,
-              refId: `FEE • ${newLoanId}`,
-              account: disbursalAccount.id,
-              amount: fee,
-              customerName: loan.customer,
-              paymentMode: disbursalAccount.type === "CASH" ? "CASH" : "BANK",
-            });
-            compensations.push(() => removeDaybookEntry(feeEntry.id));
-          } catch (err) {
-            if (err instanceof DayLockedError) {
-              toast.warning(
-                "Renewal posted but processing fee blocked by daybook lock.",
-              );
-            } else {
-              throw err;
-            }
-          }
-        }
-      }
-
-      // All steps succeeded — discard the compensation list.
-      compensations.length = 0;
-    } catch (err) {
-      // Run compensations LIFO so later side-effects unwind first.
-      for (let i = compensations.length - 1; i >= 0; i--) {
-        try {
-          compensations[i]();
-        } catch {
-          // Swallow rollback failures — the user already got an error toast,
-          // surfacing a second one would only confuse them.
-        }
-      }
-      const msg = err instanceof Error ? err.message : "Renewal failed.";
-      toast.error("Renewal rolled back", { description: msg });
-      return;
-    }
-
-    setRenewOpen(false);
-    if (renewCarryItem && newLoanId) {
-      toast.success("Loan renewed", {
-        description: `${loan.id} closed → ${newLoanId} opened with the same pledged item.`,
-        icon: <RefreshCw size={16} />,
-      });
-      navigate(`/loans/${newLoanId}`);
-    } else {
-      toast.success("Loan released", {
-        description: `${loan.id} closed and pledged item released from vault.`,
-        icon: <CheckCircle2 size={16} />,
-      });
-      navigate("/loans");
-    }
-  };
-
   const isPawn = loan.product === "PAWN";
 
   return (
@@ -676,22 +415,6 @@ export default function LoanLifecycle() {
                 <CheckCircle2 size={14} className="mr-1.5" />
                 Close Loan
               </Button>
-              {isPawn && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-9"
-                  data-testid="button-part-release"
-                  style={{
-                    color: "var(--brand-primary)",
-                    borderColor: "rgba(74,111,165,0.40)",
-                  }}
-                  onClick={openRenewDialog}
-                >
-                  <RefreshCw size={14} className="mr-1.5" />
-                  Part Release / Renew
-                </Button>
-              )}
               {isPawn && (
                 <Button
                   size="sm"
@@ -1087,135 +810,6 @@ export default function LoanLifecycle() {
         </DialogContent>
       </Dialog>
 
-      {/* Part Release / Renew dialog */}
-      <Dialog open={renewOpen} onOpenChange={setRenewOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Part Release / Renew</DialogTitle>
-            <DialogDescription>
-              Closes <span className="font-mono">{loan.id}</span> for{" "}
-              {inr(outstandingBalance)} and originates a fresh pawn loan
-              against the same pledged item.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {pledgedItem ? (
-              <div
-                className="rounded-md border p-3 text-sm"
-                style={{
-                  borderColor: "rgba(74,111,165,0.20)",
-                  background: "rgba(191,221,245,0.18)",
-                }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-semibold text-slate-900">
-                      {pledgedItem.title}
-                    </div>
-                    <div className="text-xs text-slate-600">
-                      {pledgedItem.category} · Net {pledgedItem.netWeightG}g ·
-                      Pledged {inr(pledgedItem.pledgedValue)}
-                    </div>
-                    <div className="mt-1 text-[11px] font-mono text-slate-500">
-                      Vault {pledgedItem.vaultLoc ?? "—"} · {pledgedItem.id}
-                    </div>
-                  </div>
-                  <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
-                    <Checkbox
-                      checked={renewCarryItem}
-                      onCheckedChange={(v) => setRenewCarryItem(v === true)}
-                      data-testid="checkbox-carry-item"
-                    />
-                    Carry to new loan
-                  </label>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
-                No pledged item linked to this loan. Renewal will only close
-                the existing loan.
-              </div>
-            )}
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="renew-principal">New principal (₹)</Label>
-                <Input
-                  id="renew-principal"
-                  type="number"
-                  inputMode="numeric"
-                  value={renewPrincipalStr}
-                  onChange={(e) => setRenewPrincipalStr(e.target.value)}
-                  placeholder="e.g. 150000"
-                  data-testid="input-renew-principal"
-                  disabled={!renewCarryItem}
-                />
-                <p className="text-[11px] text-slate-500">
-                  Defaults to current outstanding ({inr(outstandingBalance)}).
-                  Lower it to give cash back to the customer.
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="renew-account">Disbursal Account</Label>
-                <Select
-                  value={renewAccountId}
-                  onValueChange={setRenewAccountId}
-                >
-                  <SelectTrigger
-                    id="renew-account"
-                    data-testid="select-renew-account"
-                  >
-                    <SelectValue placeholder="Pick account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-slate-500">
-                  Used for both the closing settlement and the new
-                  disbursement.
-                </p>
-              </div>
-            </div>
-
-            {renewCarryItem && (
-              <div className="rounded-md bg-slate-50 p-3 text-[11px] text-slate-600">
-                <div className="font-semibold text-slate-700">
-                  Posting summary
-                </div>
-                <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                  <li>
-                    Close {loan.id} (Full Settlement{" "}
-                    {inr(outstandingBalance)})
-                  </li>
-                  <li>Open new pawn loan ({inr(parseInt(renewPrincipalStr || "0", 10))})</li>
-                  <li>
-                    Processing fee {inr(settings.processingFeeFlat)} (CREDIT)
-                  </li>
-                  <li>Pledged item stays in vault {pledgedItem?.vaultLoc ?? "—"}</li>
-                </ul>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRenewOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handlePartReleaseRenew}
-              data-testid="button-confirm-renew"
-              style={{ backgroundColor: "var(--brand-primary)", color: "white" }}
-            >
-              <RefreshCw size={14} className="mr-1.5" />
-              {renewCarryItem ? "Renew Loan" : "Close & Release"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Mark for Auction dialog */}
       <AlertDialog

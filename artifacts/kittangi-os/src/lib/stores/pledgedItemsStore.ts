@@ -214,6 +214,52 @@ export function deletePledgedItem(id: string): void {
   pledgedItemsStore.set((prev) => prev.filter((i) => i.id !== id));
 }
 
+/**
+ * Move a vaulted pledged item from its current locker to a new one without
+ * touching the linked loan. Used by Vault Management → Transfer to reflect
+ * physical relocation of the asset (e.g. moving a packet from Safe A · L-101
+ * to Safe B · L-205) while the underlying loan stays ACTIVE.
+ *
+ * Throws if:
+ *   - the item is missing,
+ *   - the item is not currently VAULTED (transferring a RELEASED/AUCTION
+ *     item would silently re-occupy a locker),
+ *   - the target locker string is empty/whitespace, OR
+ *   - another VAULTED item already occupies the target locker — this is the
+ *     critical invariant: the Vault Management UI keys occupancy by
+ *     `safe::locker`, so two items at the same address would silently hide
+ *     one of them in the visualizer (and corrupt audits).
+ */
+export function transferPledgedItem(id: string, newVaultLoc: string): void {
+  const all = pledgedItemsStore.get();
+  const item = all.find((i) => i.id === id);
+  if (!item) throw new Error(`Pledged item ${id} not found.`);
+  if (item.status !== "VAULTED") {
+    throw new Error(
+      `Cannot transfer ${id} — only VAULTED items can be moved between lockers.`,
+    );
+  }
+  const target = newVaultLoc.trim();
+  if (!target) {
+    throw new Error("Target locker is required for transfer.");
+  }
+  // Reject if any *other* VAULTED item is already at the destination.
+  // Comparison is whitespace-insensitive on the canonical "Safe · Locker"
+  // string used everywhere in the app.
+  const norm = (s: string | undefined) => (s ?? "").replace(/\s+/g, " ").trim();
+  const targetNorm = norm(target);
+  const conflict = all.find(
+    (i) =>
+      i.id !== id && i.status === "VAULTED" && norm(i.vaultLoc) === targetNorm,
+  );
+  if (conflict) {
+    throw new Error(
+      `Locker ${target} is already occupied by ${conflict.id} (${conflict.loanId}). Pick a different locker.`,
+    );
+  }
+  updatePledgedItem(id, { vaultLoc: target });
+}
+
 export function resetPledgedItems(): void {
   pledgedItemsStore.set(SEED_ITEMS);
 }

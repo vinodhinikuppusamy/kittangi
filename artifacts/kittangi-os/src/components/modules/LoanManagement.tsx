@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { useLoans, type Loan, type LoanStatus } from "@/lib/stores/loansStore";
 import { useAccounts } from "@/lib/stores/accountsStore";
+import { useSettings } from "@/lib/stores/settingsStore";
 import DocumentLoanDialog from "./DocumentLoanDialog";
 
 const inr = (n: number) =>
@@ -122,10 +123,26 @@ function productBadge(product: Loan["product"]) {
 type ProductFilter = "ALL" | "PAWN" | "VEHICLE" | "DOCUMENT";
 type StatusFilter = "ALL" | LoanStatus;
 
+/**
+ * Render the per-loan interest rate as either a plain "13% p.a." string or a
+ * "13% (5L+8C)" split when the loan exposes a Legal Interest Component
+ * (per-loan override or the global setting). The Legal slice is capped at the
+ * loan's total rate, so a misconfigured 20% global on a 13% loan still shows
+ * "13% (13L+0C)" instead of negative company interest.
+ */
+function rateLabel(total: number, legal: number): string {
+  if (!Number.isFinite(total) || total <= 0) return `${total}% p.a.`;
+  const legalCapped = Math.max(0, Math.min(legal, total));
+  const company = +(total - legalCapped).toFixed(2);
+  const legalRound = +legalCapped.toFixed(2);
+  return `${total}% (${legalRound}L+${company}C)`;
+}
+
 export default function LoanManagement() {
   const navigate = useNavigate();
   const loans = useLoans();
   const accounts = useAccounts();
+  const settings = useSettings();
 
   const [query, setQuery] = useState("");
   const [productFilter, setProductFilter] = useState<ProductFilter>("ALL");
@@ -369,7 +386,10 @@ export default function LoanManagement() {
                         {inr(l.principal)}
                       </TableCell>
                       <TableCell className="text-xs text-slate-600">
-                        {l.ratePctPerAnnum}% p.a.
+                        {rateLabel(
+                          l.ratePctPerAnnum,
+                          l.legalInterestPct ?? settings.globalLegalInterestRatePct,
+                        )}
                       </TableCell>
                       <TableCell className="text-xs text-slate-600">
                         {accountName(l.disbursedFromAccountId)}

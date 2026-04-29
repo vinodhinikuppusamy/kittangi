@@ -56,6 +56,13 @@ The project is organized as a pnpm workspace monorepo. It includes the following
 - **Account Management**: Unified accounts ledger with recomputed balances, supporting cash and bank accounts.
 - **Investor Management**: Tracking investor deposits, payouts, and monthly interest calculations.
 - **User Roles**: Basic role-based access control (Admin/Cashier) affecting UI visibility and critical actions.
+- **Final Logic Hardening (Apr 2026)**:
+  - Vault: internal **Transfer** action between AVAILABLE lockers (admin only) via `transferPledgedItem(id, newVaultLoc)` in `pledgedItemsStore`. Helper rejects when destination locker is already occupied by another VAULTED item (whitespace-insensitive match) so the visualizer can never silently lose a packet. Manual release/status toggles removed.
+  - Vault: **Print Locker Tag** opens a 2×2 inch popup with a `qrcode.react` SVG QR encoding `{loanId, customerName}` and auto-prints.
+  - Loan list rate column renders split format `Total% (LegalL+CompanyC)` when a loan has `legalInterestPct`, else falls back to plain rate.
+  - Part-Release / Renew flow removed from Loan Lifecycle — operators now Close the loan and start a new origination.
+  - Repossession Yard "View Legal Docs" sources file rows from the linked loan's `legalDocs` data URLs (uploaded at vehicle origination).
+  - Daybook **Print Chitta** opens a self-contained B/W A4 popup window (Inflows table, Outflows table, totals bar, per-account closing balance, signature block) with auto-print — bypasses in-page print stylesheet for deterministic output.
 
 ## External Dependencies
 - **Monorepo Tool**: pnpm workspaces
