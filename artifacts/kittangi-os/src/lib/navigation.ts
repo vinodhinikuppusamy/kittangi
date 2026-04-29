@@ -22,6 +22,12 @@ export type NavItem = {
   to: string;
   label: string;
   icon: LucideIcon;
+  /**
+   * When true the link is hidden from STAFF users in the sidebar and the
+   * underlying route is gated behind `<RequireAuth requireAdmin />`. Used to
+   * keep cashiers out of Financials, Deposits, and the Settings hub.
+   */
+  adminOnly?: boolean;
 };
 
 export const PAWN_NAV: NavItem[] = [
@@ -48,12 +54,12 @@ export const VEHICLE_NAV: NavItem[] = [
 ];
 
 export const CAPITAL_NAV: NavItem[] = [
-  { to: "/deposits", label: "Deposits & Investors", icon: HandCoins },
+  { to: "/deposits", label: "Deposits & Investors", icon: HandCoins, adminOnly: true },
 ];
 
 export const ADMIN_NAV: NavItem[] = [
-  { to: "/financials", label: "Financials (P&L)", icon: LineChart },
-  { to: "/settings", label: "Settings", icon: SettingsIcon },
+  { to: "/financials", label: "Financials (P&L)", icon: LineChart, adminOnly: true },
+  { to: "/settings", label: "Settings", icon: SettingsIcon, adminOnly: true },
 ];
 
 export function getNavForVertical(vertical: Vertical): NavItem[] {

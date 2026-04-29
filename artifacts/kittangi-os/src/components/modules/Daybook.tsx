@@ -740,6 +740,18 @@ export default function Daybook() {
                         <TableCell>{accountChip(row.account, accounts)}</TableCell>
                         <TableCell className="text-right text-sm font-semibold text-emerald-700">
                           + {inr(row.amount)}
+                          {isAdmin &&
+                            (row.legalInterestPortion ?? 0) +
+                              (row.companyInterestPortion ?? 0) >
+                              0 && (
+                              <div
+                                className="mt-0.5 text-[10px] font-medium text-slate-500"
+                                data-testid={`split-credit-${row.id}`}
+                              >
+                                Legal {inr(row.legalInterestPortion ?? 0)} ·
+                                Co. {inr(row.companyInterestPortion ?? 0)}
+                              </div>
+                            )}
                         </TableCell>
                       </TableRow>
                     ))
@@ -856,6 +868,18 @@ export default function Daybook() {
                         <TableCell>{accountChip(row.account, accounts)}</TableCell>
                         <TableCell className="text-right text-sm font-semibold text-red-700">
                           − {inr(row.amount)}
+                          {isAdmin &&
+                            (row.legalInterestPortion ?? 0) +
+                              (row.companyInterestPortion ?? 0) >
+                              0 && (
+                              <div
+                                className="mt-0.5 text-[10px] font-medium text-slate-500"
+                                data-testid={`split-debit-${row.id}`}
+                              >
+                                Legal {inr(row.legalInterestPortion ?? 0)} ·
+                                Co. {inr(row.companyInterestPortion ?? 0)}
+                              </div>
+                            )}
                         </TableCell>
                       </TableRow>
                     ))

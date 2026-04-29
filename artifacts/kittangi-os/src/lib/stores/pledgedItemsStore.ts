@@ -217,3 +217,7 @@ export function deletePledgedItem(id: string): void {
 export function resetPledgedItems(): void {
   pledgedItemsStore.set(SEED_ITEMS);
 }
+
+export function wipePledgedItems(): void {
+  pledgedItemsStore.set([]);
+}

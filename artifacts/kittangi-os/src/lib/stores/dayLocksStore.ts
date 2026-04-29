@@ -50,6 +50,15 @@ export function unlockDay(dateIso: string): void {
 }
 
 /**
+ * Wipe every persisted day-lock. Used by the admin "System Reset" action so
+ * a freshly-reset demo can post into the new (empty) Daybook without
+ * tripping the lock on what used to be "today".
+ */
+export function resetDayLocks(): void {
+  dayLocksStore.set([]);
+}
+
+/**
  * Non-reactive helper to check if a date is currently locked. Used by the
  * write paths in `daybookStore` (and any other module that posts to the
  * Chitta) so that locked dates are protected from new entries.

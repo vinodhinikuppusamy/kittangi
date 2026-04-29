@@ -71,6 +71,20 @@ export type Loan = {
   accruedInterest?: number;
   /** Scanned legal documents (vehicle loans). */
   legalDocs?: LegalDoc[];
+  /**
+   * Per-loan override for the Legal Interest Component (% per annum). When
+   * an interest receipt posts against this loan the cashier will see the
+   * total broken into a "Legal" portion (allocated up to this rate) and a
+   * "Company" portion (the remainder). Defaults to the global
+   * `globalLegalInterestRatePct` if absent.
+   */
+  legalInterestPct?: number;
+  /**
+   * Set when the loan was created via the Part Release / Renew workflow.
+   * Stores the originating loan id so audit trails can trace the renewal
+   * chain backwards.
+   */
+  renewedFromLoanId?: string;
 };
 
 const STORAGE_KEY = "kittangi:loans:v1";
@@ -223,6 +237,10 @@ export function deleteLoan(id: string): void {
 
 export function resetLoans(): void {
   loansStore.set(SEED_LOANS);
+}
+
+export function wipeLoans(): void {
+  loansStore.set([]);
 }
 
 // ---------------------------------------------------------------------------

@@ -65,6 +65,7 @@ import { isDateLocked } from "@/lib/stores/dayLocksStore";
 import { useAccounts, getAccount } from "@/lib/stores/accountsStore";
 import { useLoans } from "@/lib/stores/loansStore";
 import { useIsAdmin } from "@/lib/stores/userRoleStore";
+import { splitInterest, useSettings } from "@/lib/stores/settingsStore";
 
 type PaymentType = "INTEREST" | "PARTIAL" | "FULL";
 type PaymentMode = "CASH" | "UPI" | "BANK";
@@ -218,6 +219,7 @@ function accountBadge(accountId: string) {
 export default function ReceiptsLedger() {
   const allEntries = useDaybook();
   const accounts = useAccounts();
+  const settings = useSettings();
   const allLoans = useLoans();
   const isAdmin = useIsAdmin();
   const [loanQuery, setLoanQuery] = useState("");
@@ -496,6 +498,21 @@ export default function ReceiptsLedger() {
     const noteText = data.notes?.trim() || undefined;
 
     // ------------------------------------------------------------
+    // Interest split — break the interest portion into the legal-rate
+    // ledger vs the company ledger so admin Reports can show both.
+    // The per-loan `legalInterestPct` overrides the global setting.
+    // For Full Settlement we split only the interest share, never the
+    // principal part of the lump payment.
+    // ------------------------------------------------------------
+    const legalRate =
+      selectedLoan.legalInterestPct ?? settings.globalLegalInterestRatePct;
+    const split = splitInterest({
+      totalInterest: interestPortion,
+      loanAnnualRatePct: selectedLoan.ratePctPerAnnum,
+      legalRatePctPerAnnum: legalRate,
+    });
+
+    // ------------------------------------------------------------
     // Post to the persisted Daybook. We split mixed payments into two
     // line items (interest + principal) so per-category reports and the
     // Customer 360 lifetime totals stay accurate. Full Settlement is
@@ -520,6 +537,10 @@ export default function ReceiptsLedger() {
         paymentMode,
         outstandingAfter: outstandingBalance,
         notes: noteText,
+        // Even on a single-line Full Settlement we attach the split so
+        // Reports/Customer 360 can show legal vs company breakdowns.
+        legalInterestPortion: split.legal,
+        companyInterestPortion: split.company,
       });
     } else {
       if (interestPortion > 0) {
@@ -538,6 +559,8 @@ export default function ReceiptsLedger() {
           paymentMode,
           outstandingAfter: outstandingBalance,
           notes: noteText,
+          legalInterestPortion: split.legal,
+          companyInterestPortion: split.company,
         });
       }
       if (principalPortion > 0) {

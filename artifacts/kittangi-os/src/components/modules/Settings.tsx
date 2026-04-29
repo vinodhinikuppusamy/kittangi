@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   Banknote,
   Building2,
   CheckCircle2,
@@ -12,6 +13,7 @@ import {
   Percent,
   Plus,
   Settings as SettingsIcon,
+  ShieldAlert,
   ShieldCheck,
   Trash2,
   Users as UsersIcon,
@@ -85,8 +87,22 @@ import {
   type Account,
   type AccountType,
 } from "@/lib/stores/accountsStore";
-import { setUserRole, useUserRole } from "@/lib/stores/userRoleStore";
+import { useUserRole } from "@/lib/stores/userRoleStore";
 import { Switch } from "@/components/ui/switch";
+import {
+  getSettings,
+  setSettings,
+  useSettings,
+} from "@/lib/stores/settingsStore";
+import {
+  addUser,
+  updateUser,
+  useUsers,
+  type User,
+  type UserRole,
+} from "@/lib/stores/usersStore";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { performSystemReset } from "@/lib/systemReset";
 
 const inputBaseStyle: React.CSSProperties = {
   borderColor: "rgba(74,111,165,0.20)",
@@ -98,41 +114,33 @@ type RatesForm = {
   vehicleRate: string;
   penaltyRate: string;
   processingFee: string;
+  /** % per annum that lands in the legal-rate ledger on every interest receipt. */
+  legalInterestRate: string;
 };
 
-type Role = "ADMIN" | "CASHIER" | "APPRAISER";
-type StaffStatus = "ACTIVE" | "INACTIVE";
-
-type StaffUser = {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  status: StaffStatus;
-};
-
-const ROLE_META: Record<Role, { label: string; bg: string; fg: string; border: string }> = {
+// Visual chip metadata for the User Management table. Roles in the
+// authoritative store are just ADMIN | STAFF (per `usersStore.ts`); the
+// extra colours are kept so future role types can plug in here without
+// touching the table renderer.
+const ROLE_META: Record<UserRole, { label: string; bg: string; fg: string; border: string }> = {
   ADMIN: {
     label: "Admin",
     bg: "rgba(74,111,165,0.14)",
     fg: "#1d4ed8",
     border: "rgba(74,111,165,0.35)",
   },
-  CASHIER: {
-    label: "Cashier",
+  STAFF: {
+    label: "Staff",
     bg: "rgba(16,185,129,0.12)",
     fg: "#047857",
     border: "rgba(16,185,129,0.35)",
   },
-  APPRAISER: {
-    label: "Appraiser",
-    bg: "rgba(234,179,8,0.16)",
-    fg: "#a16207",
-    border: "rgba(234,179,8,0.40)",
-  },
 };
 
-const STATUS_META: Record<StaffStatus, { label: string; bg: string; fg: string; dot: string }> = {
+const STATUS_META: Record<
+  "ACTIVE" | "INACTIVE",
+  { label: string; bg: string; fg: string; dot: string }
+> = {
   ACTIVE: {
     label: "Active",
     bg: "rgba(16,185,129,0.12)",
@@ -146,51 +154,6 @@ const STATUS_META: Record<StaffStatus, { label: string; bg: string; fg: string; 
     dot: "#94a3b8",
   },
 };
-
-const STAFF: StaffUser[] = [
-  {
-    id: "U-01",
-    name: "Anita Krishnan",
-    email: "anita.k@kittangi.in",
-    role: "ADMIN",
-    status: "ACTIVE",
-  },
-  {
-    id: "U-02",
-    name: "Rahul Subramaniam",
-    email: "rahul.s@kittangi.in",
-    role: "CASHIER",
-    status: "ACTIVE",
-  },
-  {
-    id: "U-03",
-    name: "Priya Devarajan",
-    email: "priya.d@kittangi.in",
-    role: "APPRAISER",
-    status: "ACTIVE",
-  },
-  {
-    id: "U-04",
-    name: "Vikram Hegde",
-    email: "vikram.h@kittangi.in",
-    role: "CASHIER",
-    status: "ACTIVE",
-  },
-  {
-    id: "U-05",
-    name: "Sneha Bhat",
-    email: "sneha.b@kittangi.in",
-    role: "APPRAISER",
-    status: "INACTIVE",
-  },
-  {
-    id: "U-06",
-    name: "Manoj Pillai",
-    email: "manoj.p@kittangi.in",
-    role: "CASHIER",
-    status: "ACTIVE",
-  },
-];
 
 export default function Settings() {
   return (
@@ -259,6 +222,14 @@ export default function Settings() {
             <Vault className="h-4 w-4" />
             Vault Configuration
           </TabsTrigger>
+          <TabsTrigger
+            value="danger"
+            data-testid="tab-danger-zone"
+            className="data-[state=active]:bg-rose-50 data-[state=active]:text-rose-700 data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium text-rose-600"
+          >
+            <ShieldAlert className="h-4 w-4" />
+            Danger Zone
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="branch" className="m-0">
@@ -279,6 +250,10 @@ export default function Settings() {
 
         <TabsContent value="vault" className="m-0">
           <VaultConfigurationTab />
+        </TabsContent>
+
+        <TabsContent value="danger" className="m-0">
+          <DangerZoneTab />
         </TabsContent>
       </Tabs>
     </div>
@@ -415,92 +390,35 @@ function BranchProfileTab() {
 
 /* -------------------- Tab 2: User Management -------------------- */
 
+type NewUserForm = {
+  name: string;
+  username: string;
+  email: string;
+  role: UserRole;
+};
+
 function UserManagementTab() {
-  const [users, setUsers] = useState<StaffUser[]>(STAFF);
+  const users = useUsers();
   const role = useUserRole();
+  const { user: currentUser } = useAuth();
   const isAdmin = role === "ADMIN";
-
-  const handleAdd = () => {
-    toast.success("Add new user", {
-      icon: <Plus className="h-4 w-4" />,
-      description: "Stub: invite/onboard flow will open here.",
-    });
-  };
-
-  const handleAdminToggle = (next: boolean) => {
-    setUserRole(next ? "ADMIN" : "STAFF");
-    toast.success(
-      next ? "Admin Mode enabled" : "Admin Mode disabled",
-      {
-        icon: <KeyRound className="h-4 w-4" />,
-        description: next
-          ? "Destructive actions (delete receipts, close loans) are now available."
-          : "Reverted to Cashier role. Destructive actions are hidden.",
-      },
-    );
-  };
+  const [addOpen, setAddOpen] = useState(false);
 
   const toggleStatus = (id: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === id
-          ? { ...u, status: u.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }
-          : u,
-      ),
-    );
+    const u = users.find((x) => x.id === id);
+    if (!u) return;
+    if (currentUser && currentUser.id === id) {
+      toast.error("You can't deactivate your own account.");
+      return;
+    }
+    updateUser(id, { status: u.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" });
+    toast.success(u.status === "ACTIVE" ? "User deactivated" : "User reactivated", {
+      description: `${u.name} is now ${u.status === "ACTIVE" ? "INACTIVE" : "ACTIVE"}.`,
+    });
   };
 
   return (
     <div className="space-y-5">
-      {/* Admin Mode toggle — controls visibility of destructive actions across
-          the app (e.g. Delete Receipt, Close Loan, Mark for Auction). Persisted
-          via userRoleStore so the choice survives a refresh. */}
-      <Card
-        className="border bg-white"
-        style={{ borderColor: "rgba(74,111,165,0.12)" }}
-      >
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
-          <div className="flex items-start gap-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-lg"
-              style={{ background: "var(--brand-light)" }}
-            >
-              <KeyRound
-                className="h-5 w-5"
-                style={{ color: "var(--brand-primary)" }}
-              />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-slate-900">
-                Admin Mode
-              </div>
-              <p className="text-xs text-slate-500">
-                Unlocks destructive actions like deleting receipts and closing
-                loans. Disable when handing the till to a cashier.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Badge
-              className="px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
-              style={{
-                background: isAdmin
-                  ? "rgba(34,197,94,0.14)"
-                  : "rgba(100,116,139,0.12)",
-                color: isAdmin ? "rgb(21,128,61)" : "#475569",
-                border: "1px solid",
-                borderColor: isAdmin
-                  ? "rgba(34,197,94,0.30)"
-                  : "rgba(100,116,139,0.20)",
-              }}
-            >
-              {isAdmin ? "Admin" : "Cashier"}
-            </Badge>
-            <Switch checked={isAdmin} onCheckedChange={handleAdminToggle} />
-          </div>
-        </CardContent>
-      </Card>
-
       <Card
         className="border bg-white"
         style={{ borderColor: "rgba(74,111,165,0.12)" }}
@@ -526,8 +444,10 @@ function UserManagementTab() {
 
             <Button
               type="button"
-              onClick={handleAdd}
-              className="h-10 font-semibold text-white shadow-sm"
+              onClick={() => setAddOpen(true)}
+              disabled={!isAdmin}
+              data-testid="button-add-user"
+              className="h-10 font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
               style={{ background: "var(--brand-primary)" }}
             >
               <Plus className="mr-1 h-4 w-4" />
@@ -598,16 +518,21 @@ function UserManagementTab() {
                       </span>
                     </TableCell>
                     <TableCell className="py-3 text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleStatus(u.id)}
-                        className="h-8 px-3 text-xs font-semibold"
-                        style={{ color: "var(--brand-primary)" }}
-                      >
-                        {u.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-                      </Button>
+                      {isAdmin ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleStatus(u.id)}
+                          data-testid={`button-toggle-status-${u.id}`}
+                          className="h-8 px-3 text-xs font-semibold"
+                          style={{ color: "var(--brand-primary)" }}
+                        >
+                          {u.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -617,7 +542,298 @@ function UserManagementTab() {
         </div>
       </CardContent>
     </Card>
+
+    <AddUserDialog open={addOpen} onClose={() => setAddOpen(false)} />
     </div>
+  );
+}
+
+/* -------------------- Add User Dialog (admin only) -------------------- */
+
+function AddUserDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<NewUserForm>({
+    defaultValues: { name: "", username: "", email: "", role: "STAFF" },
+  });
+
+  useEffect(() => {
+    if (!open) reset({ name: "", username: "", email: "", role: "STAFF" });
+  }, [open, reset]);
+
+  const onSubmit = async (data: NewUserForm) => {
+    try {
+      // Default password "kittangi123" hashed with a fresh per-user salt,
+      // matching the salted scheme in usersStore (SHA-256 over salt+password).
+      const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+      const passwordSalt = Array.from(saltBytes)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      const enc = new TextEncoder().encode(passwordSalt + "kittangi123");
+      const buf = await crypto.subtle.digest("SHA-256", enc);
+      const passwordHash = Array.from(new Uint8Array(buf))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+
+      addUser({
+        name: data.name.trim(),
+        username: data.username.trim().toLowerCase(),
+        email: data.email.trim().toLowerCase(),
+        role: data.role,
+        status: "ACTIVE",
+        passwordSalt,
+        passwordHash,
+      });
+      toast.success("User created", {
+        icon: <CheckCircle2 className="h-4 w-4" />,
+        description: `${data.name} can sign in with default password "kittangi123" — ask them to change it from Profile.`,
+      });
+      onClose();
+    } catch (err) {
+      toast.error("Failed to create user", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add New User</DialogTitle>
+          <DialogDescription>
+            Creates a new staff or admin account with default password
+            “kittangi123”. They should change it on first sign-in.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="new-user-name">Full Name</Label>
+            <Input
+              id="new-user-name"
+              data-testid="input-new-user-name"
+              placeholder="e.g. Anita Krishnan"
+              {...register("name", { required: "Required" })}
+            />
+            {errors.name && (
+              <p className="text-xs text-rose-600">{errors.name.message}</p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="new-user-username">Username</Label>
+            <Input
+              id="new-user-username"
+              data-testid="input-new-user-username"
+              placeholder="e.g. anita"
+              {...register("username", {
+                required: "Required",
+                pattern: {
+                  value: /^[a-z0-9._-]{3,}$/i,
+                  message: "3+ chars, letters/numbers/._-",
+                },
+              })}
+            />
+            {errors.username && (
+              <p className="text-xs text-rose-600">{errors.username.message}</p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="new-user-email">Email</Label>
+            <Input
+              id="new-user-email"
+              type="email"
+              data-testid="input-new-user-email"
+              placeholder="e.g. anita@kittangi.in"
+              {...register("email", {
+                required: "Required",
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: "Enter a valid email",
+                },
+              })}
+            />
+            {errors.email && (
+              <p className="text-xs text-rose-600">{errors.email.message}</p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="new-user-role">Role</Label>
+            <select
+              id="new-user-role"
+              data-testid="select-new-user-role"
+              className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-light)]"
+              {...register("role", { required: true })}
+            >
+              <option value="STAFF">Staff (Cashier/Appraiser)</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              data-testid="button-submit-new-user"
+              className="font-semibold text-white"
+              style={{ background: "var(--brand-primary)" }}
+            >
+              <Plus className="mr-1 h-4 w-4" /> Create User
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* -------------------- Tab: Danger Zone (admin only) -------------------- */
+
+function DangerZoneTab() {
+  const role = useUserRole();
+  const isAdmin = role === "ADMIN";
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  const handleReset = async () => {
+    setResetting(true);
+    try {
+      const result = performSystemReset();
+      toast.success("System Reset complete", {
+        icon: <CheckCircle2 className="h-4 w-4" />,
+        description: `Wiped: ${result.wiped.join(", ")}. Preserved: ${result.preserved.join(", ")}.`,
+      });
+      setConfirmOpen(false);
+      setConfirmText("");
+    } catch (err) {
+      toast.error("System Reset failed", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  if (!isAdmin) {
+    return (
+      <Card className="border bg-white" style={{ borderColor: "rgba(74,111,165,0.12)" }}>
+        <CardContent className="p-8 text-center text-sm text-slate-500">
+          <ShieldAlert className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+          The Danger Zone is restricted to administrators.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card
+      className="border bg-white"
+      style={{ borderColor: "rgba(244,63,94,0.30)" }}
+    >
+      <CardHeader>
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-50">
+            <ShieldAlert className="h-5 w-5 text-rose-600" />
+          </div>
+          <div>
+            <CardTitle className="text-base font-semibold text-rose-700">
+              Danger Zone
+            </CardTitle>
+            <CardDescription className="text-sm text-slate-500">
+              Irreversible operations. Use these tools only after backing up
+              your branch data.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div
+          className="flex flex-wrap items-start justify-between gap-4 rounded-lg border p-4"
+          style={{ borderColor: "rgba(244,63,94,0.30)", background: "rgba(254,242,242,0.50)" }}
+        >
+          <div className="max-w-xl space-y-1">
+            <div className="flex items-center gap-2 text-sm font-semibold text-rose-700">
+              <AlertTriangle className="h-4 w-4" /> System Reset
+            </div>
+            <p className="text-xs text-slate-600">
+              Permanently deletes <strong>all daybook entries, loans,
+              pledged items, day locks and receipts</strong>. Your users,
+              global settings, branch profile, vault layout and customer
+              records are preserved. This cannot be undone.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={() => setConfirmOpen(true)}
+            data-testid="button-system-reset"
+            className="h-10 bg-rose-600 font-semibold text-white hover:bg-rose-700"
+          >
+            <Trash2 className="mr-1 h-4 w-4" />
+            Run System Reset
+          </Button>
+        </div>
+      </CardContent>
+
+      <Dialog open={confirmOpen} onOpenChange={(v) => !v && setConfirmOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-rose-700">
+              Confirm System Reset
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently delete all transactional data. Type{" "}
+              <strong>RESET</strong> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="Type RESET to confirm"
+              data-testid="input-system-reset-confirm"
+            />
+            <div className="rounded-md bg-rose-50 p-3 text-xs text-rose-700">
+              <p className="font-semibold">Will be wiped:</p>
+              <p>Daybook entries · Loans · Pledged items · Day locks · Receipts</p>
+              <p className="mt-2 font-semibold">Will be preserved:</p>
+              <p>Users · Settings · Branch profile · Vault config · Customers</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setConfirmOpen(false);
+                setConfirmText("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleReset}
+              disabled={confirmText !== "RESET" || resetting}
+              data-testid="button-confirm-system-reset"
+              className="bg-rose-600 font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+            >
+              {resetting ? "Resetting..." : "Yes, Reset Everything"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 }
 
@@ -1117,23 +1333,47 @@ function AccountDrawer({
 /* -------------------- Tab 3: Rates & Fees -------------------- */
 
 function RatesAndFeesTab() {
+  const settings = useSettings();
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<RatesForm>({
     defaultValues: {
-      pawnRate: "1.50",
-      vehicleRate: "1.20",
-      penaltyRate: "2.00",
-      processingFee: "500",
+      pawnRate: settings.pawnRatePctPerMonth.toFixed(2),
+      vehicleRate: settings.vehicleRatePctPerAnnum.toFixed(2),
+      penaltyRate: settings.penaltyRatePctPerMonth.toFixed(2),
+      processingFee: String(settings.processingFeeFlat),
+      legalInterestRate: settings.globalLegalInterestRatePct.toFixed(2),
     },
   });
 
+  // Re-hydrate the form whenever the persisted settings change. This keeps
+  // the inputs in sync if a System Reset (or some other surface) writes to
+  // the store while this tab is mounted.
+  useEffect(() => {
+    reset({
+      pawnRate: settings.pawnRatePctPerMonth.toFixed(2),
+      vehicleRate: settings.vehicleRatePctPerAnnum.toFixed(2),
+      penaltyRate: settings.penaltyRatePctPerMonth.toFixed(2),
+      processingFee: String(settings.processingFeeFlat),
+      legalInterestRate: settings.globalLegalInterestRatePct.toFixed(2),
+    });
+  }, [settings, reset]);
+
   const onSubmit = (data: RatesForm) => {
+    setSettings({
+      pawnRatePctPerMonth: parseFloat(data.pawnRate || "0") || 0,
+      vehicleRatePctPerAnnum: parseFloat(data.vehicleRate || "0") || 0,
+      penaltyRatePctPerMonth: parseFloat(data.penaltyRate || "0") || 0,
+      processingFeeFlat: parseInt(data.processingFee || "0", 10) || 0,
+      globalLegalInterestRatePct:
+        parseFloat(data.legalInterestRate || "0") || 0,
+    });
     toast.success("Global rates updated", {
       icon: <CheckCircle2 className="h-4 w-4" />,
-      description: `Pawn ${data.pawnRate}% · Vehicle ${data.vehicleRate}% · Penalty ${data.penaltyRate}% · Fee ₹${data.processingFee}`,
+      description: `Pawn ${data.pawnRate}% · Vehicle ${data.vehicleRate}% · Legal ${data.legalInterestRate}% · Fee ₹${data.processingFee}`,
     });
   };
 
@@ -1226,6 +1466,29 @@ function RatesAndFeesTab() {
                   pattern: { value: /^\d+$/, message: "Enter a whole rupee amount" },
                 })}
               />
+            </FieldGroup>
+
+            <FieldGroup
+              label="Default Legal Interest Component (% p.a.)"
+              htmlFor="legalInterestRate"
+              error={errors.legalInterestRate?.message}
+            >
+              <RateInput
+                id="legalInterestRate"
+                suffix="%"
+                placeholder="12.00"
+                {...register("legalInterestRate", {
+                  required: "Required",
+                  pattern: {
+                    value: /^\d+(\.\d{1,2})?$/,
+                    message: "Enter a valid % (max 2 decimals)",
+                  },
+                })}
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                Portion of every interest receipt that is booked to the
+                legal-rate ledger. Per-loan overrides set at origination win.
+              </p>
             </FieldGroup>
           </div>
 

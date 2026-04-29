@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 
 import { downloadCsv, type CsvColumn } from "@/lib/csv";
+import { useSettings, splitInterest } from "@/lib/stores/settingsStore";
+import { useIsAdmin } from "@/lib/stores/userRoleStore";
+import { useDaybook } from "@/lib/stores/daybookStore";
+import { useLoans } from "@/lib/stores/loansStore";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +59,17 @@ type CollectionRow = {
   customer: string;
   mode: PaymentMode;
   interest: number;
+  /**
+   * Pre-computed split portions taken from the persisted Daybook entry
+   * (set by ReceiptsLedger at receipt time). Optional so synthetic / legacy
+   * rows without provenance can fall back to settings-based computation.
+   */
+  legalPortion?: number;
+  companyPortion?: number;
+  /** Per-loan annual rate used at receipt time, for accurate fallback split. */
+  loanAnnualRatePct?: number;
+  /** Per-loan legal % override, for accurate fallback split. */
+  legalRatePctPerAnnumOverride?: number;
 };
 
 type DefaultRow = {
@@ -162,13 +177,83 @@ export default function Reports() {
 
   const inRange = (iso: string) => iso >= from && iso <= to;
 
+  // ----- Real ledger data: derive Interest Collections from the Daybook -----
+  // Source of truth = persisted Daybook entries posted by ReceiptsLedger
+  // (Interest Income / EMI Received / Full Settlement). For Full Settlement
+  // we count only the interest slice of the lump payment, which equals
+  // legalInterestPortion + companyInterestPortion when the entry was posted
+  // by ReceiptsLedger. Seed/legacy rows without those portions fall through
+  // to a settings-based recomputation in CollectionsTab.
+  const daybook = useDaybook();
+  const loans = useLoans();
+  const loanRateLookup = useMemo(() => {
+    const map = new Map<string, { ratePctPerAnnum: number; legalPct?: number }>();
+    for (const l of loans) {
+      map.set(l.id, {
+        ratePctPerAnnum: l.ratePctPerAnnum,
+        legalPct: l.legalInterestPct,
+      });
+    }
+    return map;
+  }, [loans]);
+
+  const realCollections = useMemo<CollectionRow[]>(() => {
+    const isInterestCategory = (c: string) =>
+      c === "Interest Income" ||
+      c === "EMI Received" ||
+      c === "Full Settlement";
+
+    const rows: CollectionRow[] = [];
+    for (const e of daybook) {
+      if (e.side !== "CREDIT") continue;
+      if (!isInterestCategory(e.category)) continue;
+
+      // Derive loanId from refId (`RCP-xxxx • LOAN-xxxx`) when possible.
+      const tail = (e.refId ?? "").split("•").pop()?.trim() ?? "";
+      const head = (e.refId ?? "").split("•")[0]?.trim() ?? e.id;
+      const loanId = tail || "—";
+      const receiptId = head || e.id;
+
+      // Interest amount: settlement lines carry principal+interest in
+      // `amount`; the interest slice is the sum of the split portions
+      // (set when posted by ReceiptsLedger). Non-settlement interest lines
+      // already represent pure interest, so `amount` is fine.
+      let interest: number;
+      if (e.category === "Full Settlement") {
+        const split =
+          (e.legalInterestPortion ?? 0) + (e.companyInterestPortion ?? 0);
+        interest = split > 0 ? split : 0;
+        if (interest === 0) continue; // no interest portion — skip from collections
+      } else {
+        interest = e.amount;
+      }
+
+      const loanMeta = loanRateLookup.get(loanId);
+      rows.push({
+        date: e.dateIso,
+        receiptId,
+        loanId,
+        customer: e.customerName ?? "—",
+        mode: e.paymentMode === "BANK" || e.paymentMode === "UPI" ? "BANK" : "CASH",
+        interest,
+        legalPortion: e.legalInterestPortion,
+        companyPortion: e.companyInterestPortion,
+        loanAnnualRatePct: loanMeta?.ratePctPerAnnum,
+        legalRatePctPerAnnumOverride: loanMeta?.legalPct,
+      });
+    }
+    // Newest first (matches existing UX where today's receipts top the list).
+    rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    return rows;
+  }, [daybook, loanRateLookup]);
+
   const filteredRegister = useMemo(
     () => LOAN_REGISTER.filter((r) => inRange(r.date)),
     [from, to],
   );
   const filteredCollections = useMemo(
-    () => COLLECTIONS.filter((r) => inRange(r.date)),
-    [from, to],
+    () => realCollections.filter((r) => inRange(r.date)),
+    [from, to, realCollections],
   );
   // The defaults list is point-in-time, not date-ranged — show it as-is.
   const filteredDefaults = DEFAULTS;
@@ -487,7 +572,44 @@ function LoanRegisterTab({ rows }: { rows: LoanRow[] }) {
 /* -------------------- Tab 2: Interest Collections -------------------- */
 
 function CollectionsTab({ rows }: { rows: CollectionRow[] }) {
-  const totalInterest = rows.reduce((s, r) => s + r.interest, 0);
+  const settings = useSettings();
+  const isAdmin = useIsAdmin();
+
+  // Derive a Legal/Company split for every row. Prefer the portions that
+  // were stamped on the source Daybook entry at receipt time (so the report
+  // reflects the per-loan override that was in effect at posting). Fall
+  // back to recomputing from the loan's rate + global setting for legacy /
+  // seed entries that have no provenance.
+  const enrichedRows = useMemo(
+    () =>
+      rows.map((r) => {
+        const hasProvenance =
+          typeof r.legalPortion === "number" &&
+          typeof r.companyPortion === "number";
+        if (hasProvenance) {
+          return {
+            ...r,
+            legal: r.legalPortion ?? 0,
+            company: r.companyPortion ?? 0,
+          };
+        }
+        const fallbackAnnualRate =
+          r.loanAnnualRatePct ?? settings.pawnRatePctPerMonth * 12;
+        const fallbackLegalRate =
+          r.legalRatePctPerAnnumOverride ?? settings.globalLegalInterestRatePct;
+        const split = splitInterest({
+          totalInterest: r.interest,
+          loanAnnualRatePct: fallbackAnnualRate,
+          legalRatePctPerAnnum: fallbackLegalRate,
+        });
+        return { ...r, legal: split.legal, company: split.company };
+      }),
+    [rows, settings.pawnRatePctPerMonth, settings.globalLegalInterestRatePct],
+  );
+
+  const totalInterest = enrichedRows.reduce((s, r) => s + r.interest, 0);
+  const totalLegal = enrichedRows.reduce((s, r) => s + r.legal, 0);
+  const totalCompany = enrichedRows.reduce((s, r) => s + r.company, 0);
   const cashCount = rows.filter((r) => r.mode === "CASH").length;
   const bankCount = rows.length - cashCount;
 
@@ -537,10 +659,20 @@ function CollectionsTab({ rows }: { rows: CollectionRow[] }) {
                 <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Customer Name</TableHead>
                 <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Payment Mode</TableHead>
                 <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">Interest Collected</TableHead>
+                {isAdmin && (
+                  <>
+                    <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      Legal
+                    </TableHead>
+                    <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      Company
+                    </TableHead>
+                  </>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((r) => {
+              {enrichedRows.map((r) => {
                 const mode = MODE_META[r.mode];
                 return (
                   <TableRow key={r.receiptId} className="hover:bg-slate-50/60">
@@ -575,6 +707,22 @@ function CollectionsTab({ rows }: { rows: CollectionRow[] }) {
                     <TableCell className="py-3 text-right font-semibold text-emerald-700">
                       {inr(r.interest)}
                     </TableCell>
+                    {isAdmin && (
+                      <>
+                        <TableCell
+                          className="py-3 text-right text-sm font-medium text-slate-700"
+                          data-testid={`legal-${r.receiptId}`}
+                        >
+                          {inr(r.legal)}
+                        </TableCell>
+                        <TableCell
+                          className="py-3 text-right text-sm font-medium text-slate-700"
+                          data-testid={`company-${r.receiptId}`}
+                        >
+                          {inr(r.company)}
+                        </TableCell>
+                      </>
+                    )}
                   </TableRow>
                 );
               })}
@@ -585,6 +733,16 @@ function CollectionsTab({ rows }: { rows: CollectionRow[] }) {
                 <TableCell className="py-3 text-right text-base font-bold text-emerald-700">
                   {inr(totalInterest)}
                 </TableCell>
+                {isAdmin && (
+                  <>
+                    <TableCell className="py-3 text-right text-sm font-bold text-slate-800">
+                      {inr(totalLegal)}
+                    </TableCell>
+                    <TableCell className="py-3 text-right text-sm font-bold text-slate-800">
+                      {inr(totalCompany)}
+                    </TableCell>
+                  </>
+                )}
               </TableRow>
             </TableBody>
           </Table>

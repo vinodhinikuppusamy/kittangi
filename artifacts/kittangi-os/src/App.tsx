@@ -23,71 +23,86 @@ import Deposits from "@/components/modules/Deposits";
 import Financials from "@/components/modules/Financials";
 import LoanManagement from "@/components/modules/LoanManagement";
 import LoanLifecycle from "@/components/modules/LoanLifecycle";
+import Login from "@/components/modules/Login";
+import Profile from "@/components/modules/Profile";
+import { AuthProvider } from "@/lib/auth/AuthContext";
+import RequireAuth from "@/lib/auth/RequireAuth";
 
 function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
+      <AuthProvider>
+        <Routes>
+          {/* Unauthenticated entry point. Sits OUTSIDE the Layout so the
+              sidebar/header chrome doesn't flash on the sign-in screen. */}
+          <Route path="/login" element={<Login />} />
 
-          {/* Shared */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/customers" element={<Customers />} />
-          <Route path="/receipts-ledger" element={<ReceiptsLedgerRouter />} />
-          <Route path="/daybook" element={<Daybook />} />
-          <Route path="/loans" element={<LoanManagement />} />
-          <Route path="/loans/:id" element={<LoanLifecycle />} />
-          <Route path="/reports" element={<ReportsRouter />} />
+          {/* Everything below requires a signed-in user. */}
+          <Route element={<RequireAuth />}>
+            <Route element={<Layout />}>
+              <Route index element={<Navigate to="/dashboard" replace />} />
 
-          {/* Pawn vertical */}
-          <Route path="/pawn-origination" element={<PawnOrigination />} />
-          <Route path="/pledged-items" element={<PledgedItems />} />
-          <Route path="/vault-management" element={<VaultManagement />} />
+              {/* Shared */}
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/customers" element={<Customers />} />
+              <Route path="/receipts-ledger" element={<ReceiptsLedgerRouter />} />
+              <Route path="/daybook" element={<Daybook />} />
+              <Route path="/loans" element={<LoanManagement />} />
+              <Route path="/loans/:id" element={<LoanLifecycle />} />
+              <Route path="/reports" element={<ReportsRouter />} />
+              <Route path="/profile" element={<Profile />} />
 
-          {/* Vehicle vertical */}
-          <Route path="/vehicle-origination" element={<VehicleOrigination />} />
-          <Route
-            path="/auto-loans"
-            element={
-              <PlaceholderPage
-                title="Auto Loans"
-                description="Originate, service, and monitor vehicle loans."
-                icon={Car}
+              {/* Pawn vertical */}
+              <Route path="/pawn-origination" element={<PawnOrigination />} />
+              <Route path="/pledged-items" element={<PledgedItems />} />
+              <Route path="/vault-management" element={<VaultManagement />} />
+
+              {/* Vehicle vertical */}
+              <Route path="/vehicle-origination" element={<VehicleOrigination />} />
+              <Route
+                path="/auto-loans"
+                element={
+                  <PlaceholderPage
+                    title="Auto Loans"
+                    description="Originate, service, and monitor vehicle loans."
+                    icon={Car}
+                  />
+                }
               />
-            }
-          />
-          <Route path="/repossession-yard" element={<RepossessionYard />} />
+              <Route path="/repossession-yard" element={<RepossessionYard />} />
 
-          {/* Capital */}
-          <Route path="/deposits" element={<Deposits />} />
+              {/* Admin-only — gated again at the route level so a bookmarked
+                  /financials URL also redirects a STAFF user away. */}
+              <Route element={<RequireAuth requireAdmin />}>
+                <Route path="/deposits" element={<Deposits />} />
+                <Route path="/financials" element={<Financials />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
 
-          {/* Administration */}
-          <Route path="/financials" element={<Financials />} />
-          <Route path="/settings" element={<Settings />} />
-
-          <Route
-            path="*"
-            element={
-              <PlaceholderPage
-                title="Not Found"
-                description="The page you’re looking for does not exist."
-                icon={LayoutDashboard}
+              <Route
+                path="*"
+                element={
+                  <PlaceholderPage
+                    title="Not Found"
+                    description="The page you’re looking for does not exist."
+                    icon={LayoutDashboard}
+                  />
+                }
               />
-            }
-          />
-        </Route>
-      </Routes>
-      <Toaster
-        position="top-right"
-        richColors
-        toastOptions={{
-          style: {
-            border: "1px solid rgba(74,111,165,0.18)",
-            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
-          },
-        }}
-      />
+            </Route>
+          </Route>
+        </Routes>
+        <Toaster
+          position="top-right"
+          richColors
+          toastOptions={{
+            style: {
+              border: "1px solid rgba(74,111,165,0.18)",
+              boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+            },
+          }}
+        />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

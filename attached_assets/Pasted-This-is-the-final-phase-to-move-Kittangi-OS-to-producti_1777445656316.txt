@@ -1,0 +1,45 @@
+This is the final phase to move Kittangi OS to production. Please implement these specific business logic and security requirements:
+
+Step 1: Manual Interest Split (Legal vs. Company)
+
+In Settings (Admin), add a default 'Global Legal Interest Rate %'.
+
+In Pawn & Vehicle Origination, add a specific input field for 'Legal Interest Component (%)'. This should pre-fill from the Global setting but allow the user to change it for that specific loan.
+
+Accounting Logic: When an interest payment is recorded, the system must take the 'Total Interest' and allocate the 'Legal' portion based on this stored rate, putting the remainder into 'Company Interest'.
+
+Reporting: Update the 'Interest Collection Report' and 'Daybook' to show separate columns for Legal Interest and Company Interest.
+
+Step 2: Part-Release via 'Re-Origination'
+
+In Loan Management, create a 'Part Release / Renew' workflow.
+
+This must:
+
+Trigger a full settlement of the current loan (Principal + Interest).
+
+Immediately open a 'New Loan' form pre-filled with the remaining items and updated principal.
+
+Apply the 'Processing Fee' to this new loan automatically.
+
+Step 3: Secure Login & Profile Hub
+
+Create a Login Page (/login) with Username/Password fields.
+
+Protect all routes so only authenticated users can enter.
+
+Fix the 'Add User' button in Settings to save users to localStorage.
+
+Create a Profile Page for users to see their role and update their password.
+
+Step 4: Role-Based Access Control (Final Lock)
+
+Ensure 'Staff' users cannot see 'Financials (P&L)', 'Deposits & Investors', or the 'Legal vs Company' split in reports (they only see the Total).
+
+Only 'Admin' has access to delete transactions or view the split interest breakdown.
+
+Step 5: System Clean Slate & Final Sync
+
+Add an Admin-only 'System Reset' button to wipe test transactions while preserving settings (Users, Vaults).
+
+Vault Sync: Verify that every loan closure/re-origination immediately updates the Vault Management locker status to 'Empty' and the item to 'Released'.

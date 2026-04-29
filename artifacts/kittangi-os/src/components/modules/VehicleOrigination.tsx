@@ -53,6 +53,7 @@ import {
 } from "@/lib/stores/daybookStore";
 import { isDateLocked } from "@/lib/stores/dayLocksStore";
 import { useAccounts } from "@/lib/stores/accountsStore";
+import { useSettings } from "@/lib/stores/settingsStore";
 
 type VehicleType = "TWO_WHEELER" | "FOUR_WHEELER" | "COMMERCIAL";
 
@@ -69,6 +70,7 @@ type VehicleForm = {
   rtoFee: string;
   docCharges: string;
   ratePctPerAnnum: string;
+  legalInterestPct: string;
   tenureMonths: string;
   paymentSource: string;
   hypothecation: boolean;
@@ -156,6 +158,7 @@ const inputBaseStyle: React.CSSProperties = {
 } as React.CSSProperties;
 
 export default function VehicleOrigination() {
+  const settings = useSettings();
   const {
     register,
     handleSubmit,
@@ -176,7 +179,8 @@ export default function VehicleOrigination() {
       loanAmount: "",
       rtoFee: "",
       docCharges: "",
-      ratePctPerAnnum: "13",
+      ratePctPerAnnum: String(settings.vehicleRatePctPerAnnum),
+      legalInterestPct: String(settings.globalLegalInterestRatePct),
       tenureMonths: "36",
       paymentSource: "",
       hypothecation: false,
@@ -352,6 +356,7 @@ export default function VehicleOrigination() {
       maturityIso,
       status: "ACTIVE",
       disbursedFromAccountId: data.paymentSource,
+      legalInterestPct: parseFloat(data.legalInterestPct || "0") || undefined,
       vehicleDetails: {
         makeModel: data.makeModel || vehicleTypeLabel,
         regNo: data.rcNumber,
@@ -867,6 +872,27 @@ export default function VehicleOrigination() {
                   placeholder="13"
                   style={inputBaseStyle}
                   {...register("ratePctPerAnnum")}
+                />
+              </div>
+            </Field>
+            <Field
+              label="Legal Interest Component (%)"
+              htmlFor="legalInterestPct"
+            >
+              <div className="relative">
+                <Percent
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                />
+                <Input
+                  id="legalInterestPct"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="60"
+                  className="h-11 pl-9 text-base"
+                  placeholder="12"
+                  style={inputBaseStyle}
+                  {...register("legalInterestPct")}
                 />
               </div>
             </Field>

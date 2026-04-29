@@ -82,6 +82,17 @@ export type DaybookEntry = {
   outstandingAfter?: number;
   /** Cashier-entered note attached to the receipt. */
   notes?: string;
+  /**
+   * Legal Interest split — populated by ReceiptsLedger when an interest
+   * receipt (Interest Income, EMI Received, or the interest share of a
+   * Full Settlement) is posted. The two values always satisfy
+   * `legalInterestPortion + companyInterestPortion === <interest amount>`.
+   * They drive the per-row split in the Daybook UI and the dedicated
+   * Legal vs Company columns in the Interest Collections report. Hidden
+   * from STAFF users via RBAC.
+   */
+  legalInterestPortion?: number;
+  companyInterestPortion?: number;
 };
 
 const STORAGE_KEY = "kittangi:daybook:v1";
@@ -501,6 +512,10 @@ export function removeDaybookEntriesByRefId(refId: string): DaybookEntry[] {
 
 export function resetDaybook(): void {
   daybookStore.set(SEED);
+}
+
+export function wipeDaybook(): void {
+  daybookStore.set([]);
 }
 
 /** Format an ISO date (YYYY-MM-DD) for display in passbook tables. */

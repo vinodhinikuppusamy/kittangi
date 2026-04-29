@@ -47,6 +47,7 @@ import {
 import ItemImageUploader from "@/components/shared/ItemImageUploader";
 import { addPledgedItem } from "@/lib/stores/pledgedItemsStore";
 import { addLoan } from "@/lib/stores/loansStore";
+import { useSettings } from "@/lib/stores/settingsStore";
 import { useCustomers } from "@/lib/stores/customersStore";
 import {
   addDaybookEntry,
@@ -73,6 +74,7 @@ type PawnFormValues = {
   paymentSource: string;
   /** Annual interest rate captured at origination. */
   interestRatePct: string;
+  legalInterestPct: string;
   /** ISO date the loan principal becomes due. */
   maturityDate: string;
 };
@@ -154,6 +156,7 @@ export default function PawnOrigination() {
         .map((c) => ({ id: c.id, name: c.fullName, phone: c.phone })),
     [allCustomers],
   );
+  const settings = useSettings();
   const {
     register,
     handleSubmit,
@@ -174,7 +177,10 @@ export default function PawnOrigination() {
       requestedLoanAmount: "",
       chitExpense: "250",
       paymentSource: "",
-      interestRatePct: "13",
+      // Pulled from the Global Settings store so a Settings → Rates change
+      // flows directly into new originations without per-form drift.
+      interestRatePct: String(settings.pawnRatePctPerMonth * 12),
+      legalInterestPct: String(settings.globalLegalInterestRatePct),
       maturityDate: addMonthsIso(todayIso(), DEFAULT_TENOR_MONTHS),
     },
   });
@@ -357,6 +363,10 @@ export default function PawnOrigination() {
       status: "ACTIVE",
       disbursedFromAccountId: data.paymentSource,
       pledgedItemId: pledged?.id,
+      // Per-loan override of the global Legal Interest %. The receipt-time
+      // splitInterest() helper reads this first, then falls back to the
+      // settings store value.
+      legalInterestPct: parseFloat(data.legalInterestPct || "0") || undefined,
     });
 
     setSuccessTicket({
@@ -894,8 +904,8 @@ export default function PawnOrigination() {
                   </div>
                 </div>
 
-                {/* Loan Terms — interest rate & maturity */}
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {/* Loan Terms — interest rate, legal split & maturity */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs text-slate-600">
                       Interest Rate (% p.a.)
@@ -918,6 +928,30 @@ export default function PawnOrigination() {
                     </div>
                     <p className="text-[11px] text-slate-500">
                       Annual rate quoted to the customer.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-600">
+                      Legal Interest Component (%)
+                    </Label>
+                    <div className="relative">
+                      <Percent
+                        size={14}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="36"
+                        placeholder="12"
+                        className="h-10 bg-white pl-8"
+                        style={inputBaseStyle}
+                        {...register("legalInterestPct")}
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Portion booked to the legal-rate ledger.
                     </p>
                   </div>
                   <div className="space-y-1.5">
