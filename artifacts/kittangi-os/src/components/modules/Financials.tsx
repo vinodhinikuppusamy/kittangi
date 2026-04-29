@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   Banknote,
   Building2,
+  Download,
   HandCoins,
   LineChart,
   Minus,
@@ -13,6 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -20,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { exportXlsx, num, fmtDate as fmtDateXlsx } from "@/lib/xlsx";
 import {
   Select,
   SelectContent,
@@ -266,6 +270,8 @@ export default function Financials() {
         interestEarnedPawn: 0,
         interestEarnedVehicle: 0,
         interestEarned: 0,
+        otherIncome: 0,
+        totalIncome: 0,
         interestPaid: 0,
         opExpensesByCategory: [] as Array<{ category: string; amount: number }>,
         opExpenses: 0,
@@ -275,10 +281,21 @@ export default function Financials() {
 
     let interestEarnedPawn = 0;
     let interestEarnedVehicle = 0;
+    let otherIncome = 0;
     const expenseBuckets: Record<string, number> = {};
 
     for (const e of allEntries) {
       if (!isWithinFY(e.dateIso, fy)) continue;
+
+      // ---- Internal Transfer (contra) is excluded from BOTH sides ----
+      // These pair a Debit + Credit on the same date with a shared pairId so
+      // the cash position stays accurate without double-counting income or
+      // expense. We exclude on BOTH the explicit category and the presence
+      // of a `pairId` (which only contra entries carry) so any future contra
+      // category — and any orphaned half of a pair from a partial migration
+      // — is still kept out of the P&L.
+      if (e.category === "Internal Transfer") continue;
+      if (e.pairId) continue;
 
       // ---- Income side ------------------------------------------------
       // Pawn interest receipts and Vehicle EMI receipts both contribute to
@@ -289,6 +306,7 @@ export default function Financials() {
         if (e.category === "Interest Income") interestEarnedPawn += e.amount;
         else if (e.category === "EMI Received")
           interestEarnedVehicle += e.amount;
+        else if (e.category === "Other Income") otherIncome += e.amount;
       }
 
       // ---- Expense side ----------------------------------------------
@@ -319,6 +337,7 @@ export default function Financials() {
     }
 
     const interestEarned = interestEarnedPawn + interestEarnedVehicle;
+    const totalIncome = interestEarned + otherIncome;
     const opExpensesByCategory = Object.entries(expenseBuckets)
       .map(([category, amount]) => ({ category, amount }))
       .sort((a, b) => b.amount - a.amount);
@@ -326,12 +345,14 @@ export default function Financials() {
       (s, b) => s + b.amount,
       0,
     );
-    const netProfit = interestEarned - interestPaid - opExpenses;
+    const netProfit = totalIncome - interestPaid - opExpenses;
 
     return {
       interestEarnedPawn,
       interestEarnedVehicle,
       interestEarned,
+      otherIncome,
+      totalIncome,
       interestPaid,
       opExpensesByCategory,
       opExpenses,
@@ -620,9 +641,16 @@ export default function Financials() {
                       amount={pnl.interestEarnedVehicle}
                       tone="positive"
                     />
+                    <PnlRow
+                      sign="+"
+                      label="Other Income"
+                      detail="Doc fees, scrap sales, miscellaneous receipts"
+                      amount={pnl.otherIncome}
+                      tone="positive"
+                    />
                     <SubtotalRow
-                      label="Total Interest Earned"
-                      amount={pnl.interestEarned}
+                      label="Total Income"
+                      amount={pnl.totalIncome}
                       tone="positive"
                     />
 
@@ -676,8 +704,8 @@ export default function Financials() {
                 value={`${pnl.netProfit >= 0 ? "+" : "−"}${inr(
                   Math.abs(pnl.netProfit),
                 )}`}
-                hint={`Interest Earned ${inr(
-                  pnl.interestEarned,
+                hint={`Total Income ${inr(
+                  pnl.totalIncome,
                 )} − Interest Paid ${inr(
                   pnl.interestPaid,
                 )} − Operating Expenses ${inr(pnl.opExpenses)}`}
@@ -738,6 +766,56 @@ export default function Financials() {
                         ),
                       )}`}
                 </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="ml-2 h-8 gap-1.5 px-3 text-xs font-semibold"
+                  style={{
+                    borderColor: "var(--brand-primary)",
+                    color: "var(--brand-primary)",
+                    background: "white",
+                  }}
+                  onClick={() => {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const headers = [
+                      "Category",
+                      "Debit (INR)",
+                      "Credit (INR)",
+                    ];
+                    const dataRows = trialBalance.rows.map((r) => [
+                      r.category,
+                      num(r.debit),
+                      num(r.credit),
+                    ]);
+                    const totalRow = [
+                      "TOTAL",
+                      num(trialBalance.totalDebit),
+                      num(trialBalance.totalCredit),
+                    ];
+                    exportXlsx(`kittangi-trial-balance-${today}.xlsx`, [
+                      {
+                        name: "Trial Balance",
+                        rows: [
+                          [`Kittangi OS — Trial Balance`],
+                          [`Generated ${fmtDateXlsx(today)}`],
+                          [],
+                          headers,
+                          ...dataRows,
+                          totalRow,
+                        ],
+                        colWidths: [32, 20, 20],
+                      },
+                    ]);
+                    toast.success("Trial Balance exported", {
+                      description: "Excel workbook downloaded.",
+                    });
+                  }}
+                  data-testid="button-export-trial-balance-xlsx"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export XLSX
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -858,6 +936,89 @@ export default function Financials() {
                     ? "Balanced"
                     : `Out by ${inr(Math.abs(balanceSheet.tieOut))}`}
                 </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="ml-2 h-8 gap-1.5 px-3 text-xs font-semibold"
+                  style={{
+                    borderColor: "var(--brand-primary)",
+                    color: "var(--brand-primary)",
+                    background: "white",
+                  }}
+                  onClick={() => {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const assetsRows: Array<Array<string | number>> = [
+                      ["Cash in Hand", num(balanceSheet.cashOnHand)],
+                      ["Bank Balances", num(balanceSheet.bankBalances)],
+                      ["Loans Outstanding", num(balanceSheet.activePrincipal)],
+                      [
+                        "Accrued Interest Receivable",
+                        num(balanceSheet.accruedInterest),
+                      ],
+                      ["TOTAL ASSETS", num(balanceSheet.totalAssets)],
+                    ];
+                    const liabRows: Array<Array<string | number>> = [
+                      ["Investor Deposits", num(balanceSheet.investorDeposits)],
+                      [
+                        "TOTAL LIABILITIES",
+                        num(balanceSheet.totalLiabilities),
+                      ],
+                    ];
+                    const equityRows: Array<Array<string | number>> = [
+                      [
+                        "Owner's Capital (opening)",
+                        num(balanceSheet.startingCapital),
+                      ],
+                      [
+                        balanceSheet.retainedEarnings >= 0
+                          ? "Retained Earnings"
+                          : "Accumulated Loss",
+                        num(balanceSheet.retainedEarnings),
+                      ],
+                      ["TOTAL EQUITY", num(balanceSheet.totalEquity)],
+                    ];
+                    exportXlsx(
+                      `kittangi-balance-sheet-${fy?.label ?? today}.xlsx`,
+                      [
+                        {
+                          name: "Balance Sheet",
+                          rows: [
+                            [
+                              `Kittangi OS — Balance Sheet (FY ${fy?.label ?? "—"})`,
+                            ],
+                            [`Generated ${fmtDateXlsx(today)}`],
+                            [],
+                            ["ASSETS", "Amount (INR)"],
+                            ...assetsRows,
+                            [],
+                            ["LIABILITIES", "Amount (INR)"],
+                            ...liabRows,
+                            [],
+                            ["EQUITY", "Amount (INR)"],
+                            ...equityRows,
+                            [],
+                            [
+                              "Liabilities + Equity",
+                              num(
+                                balanceSheet.totalLiabilities +
+                                  balanceSheet.totalEquity,
+                              ),
+                            ],
+                          ],
+                          colWidths: [36, 22],
+                        },
+                      ],
+                    );
+                    toast.success("Balance Sheet exported", {
+                      description: "Excel workbook downloaded.",
+                    });
+                  }}
+                  data-testid="button-export-balance-sheet-xlsx"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export XLSX
+                </Button>
               </div>
             </CardHeader>
             <CardContent>

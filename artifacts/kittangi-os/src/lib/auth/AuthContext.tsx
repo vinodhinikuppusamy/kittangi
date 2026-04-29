@@ -18,6 +18,7 @@ import {
   type UserRole,
 } from "@/lib/stores/usersStore";
 import { setUserRole } from "@/lib/stores/userRoleStore";
+import { logActivity } from "@/lib/stores/activityLogStore";
 
 /**
  * AuthContext — single source of truth for "who is currently signed in".
@@ -130,6 +131,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ok: false, reason: "Incorrect password." };
       setCurrentUserId(candidate.id);
       persistStoredUserId(candidate.id);
+      try {
+        logActivity({
+          actor: candidate.username,
+          kind: "AUTH",
+          summary: `${candidate.name ?? candidate.username} signed in`,
+        });
+      } catch {
+        /* logging is best-effort */
+      }
       return { ok: true };
     },
     [],

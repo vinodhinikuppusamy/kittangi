@@ -9,9 +9,12 @@ import {
   ImageOff,
   PackageSearch,
   Pencil,
+  Printer,
   Search,
   ShieldCheck,
 } from "lucide-react";
+
+import { openLockerTagPrintWindow } from "@/lib/printLockerTag";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -403,6 +406,35 @@ function ItemCard({
             <Pencil size={11} />
             Click to manage
           </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1 px-2 text-[11px] font-semibold"
+            style={{
+              borderColor: "var(--brand-primary)",
+              color: "var(--brand-primary)",
+              background: "white",
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              const parts = (item.vaultLoc ?? "").split("·").map((s) => s.trim());
+              const safeName = parts[0] || "—";
+              const lockerId = parts[1] || item.id;
+              openLockerTagPrintWindow({
+                packageId: item.id,
+                loanId: item.loanId,
+                customerName: item.customer,
+                safeName,
+                lockerId,
+              });
+            }}
+            data-testid={`button-print-tag-${item.id}`}
+            aria-label={`Print tag for ${item.id}`}
+          >
+            <Printer size={11} />
+            Print Tag
+          </Button>
         </div>
       </CardContent>
     </Card>

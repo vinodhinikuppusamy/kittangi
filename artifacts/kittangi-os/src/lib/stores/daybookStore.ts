@@ -45,6 +45,7 @@ export type DaybookCategory =
   | "EMI Received"
   | "Loan Disbursement"
   | "Cash Movement"
+  | "Internal Transfer"
   | "Branch Expense"
   | "Salary"
   | "Utilities"
@@ -93,6 +94,13 @@ export type DaybookEntry = {
    */
   legalInterestPortion?: number;
   companyInterestPortion?: number;
+  /**
+   * Contra-pair id (e.g. `XFR-7`) shared by the matching Debit and Credit
+   * legs of an Internal Transfer. Used by the P&L computation to exclude
+   * both legs from Income and Expense (a contra entry is a movement of
+   * funds, not a revenue/cost event).
+   */
+  pairId?: string;
 };
 
 const STORAGE_KEY = "kittangi:daybook:v1";
@@ -508,6 +516,84 @@ export function removeDaybookEntriesByRefId(refId: string): DaybookEntry[] {
   const ids = new Set(targets.map((t) => t.id));
   daybookStore.set((prev) => prev.filter((e) => !ids.has(e.id)));
   return targets;
+}
+
+/**
+ * Internal Transfer (contra entry) — moves funds between two of the
+ * branch's own accounts (e.g. HDFC Bank → Cash in Hand). Posts two paired
+ * Daybook entries that share a `pairId`:
+ *
+ *   - Debit leg on `fromAccount`  (decreases that account's balance)
+ *   - Credit leg on `toAccount`   (increases that account's balance)
+ *
+ * Both legs use category "Internal Transfer", which the Financials P&L
+ * computation explicitly excludes from Income and Expense. This is the
+ * canonical book-keeping treatment of contra entries.
+ *
+ * Throws on day-lock, missing accounts, identical from/to, or non-positive
+ * amounts. Returns both created entries.
+ */
+export function addInternalTransfer(args: {
+  dateIso: string;
+  time?: string;
+  fromAccount: DaybookAccount;
+  toAccount: DaybookAccount;
+  amount: number;
+  particulars: string;
+  notes?: string;
+}): { debit: DaybookEntry; credit: DaybookEntry } {
+  const { dateIso, fromAccount, toAccount, amount, particulars, notes } = args;
+  if (isDateLocked(dateIso)) throw new DayLockedError(dateIso);
+  if (fromAccount === toAccount) {
+    throw new Error("Source and destination accounts must be different.");
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Transfer amount must be a positive number.");
+  }
+  if (!particulars.trim()) {
+    throw new Error("Transfer particulars are required.");
+  }
+  // Generate a fresh contra-pair id from the current store. Format: XFR-N.
+  const all = daybookStore.get();
+  const maxXfr = all.reduce((m, e) => {
+    const match = /^XFR-(\d+)$/.exec(e.pairId ?? "");
+    if (!match) return m;
+    const n = Number(match[1]);
+    return Number.isFinite(n) && n > m ? n : m;
+  }, 0);
+  const pairId = `XFR-${maxXfr + 1}`;
+  const time =
+    args.time ??
+    new Date().toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  const debit = addDaybookEntry({
+    dateIso,
+    time,
+    side: "DEBIT",
+    category: "Internal Transfer",
+    particulars: `Transfer to ${toAccount} — ${particulars.trim()}`,
+    refId: pairId,
+    pairId,
+    account: fromAccount,
+    amount,
+    notes: notes?.trim() || undefined,
+  });
+  const credit = addDaybookEntry({
+    dateIso,
+    time,
+    side: "CREDIT",
+    category: "Internal Transfer",
+    particulars: `Transfer from ${fromAccount} — ${particulars.trim()}`,
+    refId: pairId,
+    pairId,
+    account: toAccount,
+    amount,
+    notes: notes?.trim() || undefined,
+  });
+  return { debit, credit };
 }
 
 export function resetDaybook(): void {

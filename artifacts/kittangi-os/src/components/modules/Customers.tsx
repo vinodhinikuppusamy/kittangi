@@ -60,6 +60,10 @@ import {
   type Customer,
   type KycStatus,
 } from "@/lib/stores/customersStore";
+import {
+  getCurrentActor,
+  logActivity,
+} from "@/lib/stores/activityLogStore";
 
 type KycFilter = "ALL" | KycStatus;
 
@@ -392,6 +396,16 @@ function CustomerDrawer({
         pan: data.pan,
         address,
       });
+      try {
+        logActivity({
+          actor: getCurrentActor(),
+          kind: "CUSTOMER",
+          summary: `Customer ${created.fullName} added (${created.id})`,
+          link: `/customers/${created.id}`,
+        });
+      } catch {
+        /* best effort */
+      }
       toast.success("Customer saved", {
         description: `${created.fullName} added · ID ${created.id}`,
       });

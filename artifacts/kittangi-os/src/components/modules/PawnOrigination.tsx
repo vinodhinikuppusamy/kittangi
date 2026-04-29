@@ -47,6 +47,10 @@ import {
 import ItemImageUploader from "@/components/shared/ItemImageUploader";
 import { addPledgedItem } from "@/lib/stores/pledgedItemsStore";
 import { addLoan } from "@/lib/stores/loansStore";
+import {
+  getCurrentActor,
+  logActivity,
+} from "@/lib/stores/activityLogStore";
 import { useSettings } from "@/lib/stores/settingsStore";
 import { useCustomers } from "@/lib/stores/customersStore";
 import {
@@ -380,6 +384,16 @@ export default function PawnOrigination() {
       sourceAccount: sourceAccount?.name ?? data.paymentSource,
       itemTitle,
     });
+    try {
+      logActivity({
+        actor: getCurrentActor(),
+        kind: "LOAN",
+        summary: `Pawn loan ${ticketNo} disbursed — ${selectedCustomer?.name ?? data.customerId} · ₹${requested.toLocaleString("en-IN")}`,
+        link: `/loans/${ticketNo}`,
+      });
+    } catch {
+      /* best effort */
+    }
     reset();
     setItemPhotos([]);
   };

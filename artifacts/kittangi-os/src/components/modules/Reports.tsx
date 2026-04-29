@@ -6,15 +6,19 @@ import {
   CheckCircle2,
   Coins,
   Download,
+  FileSpreadsheet,
   Landmark,
   PieChart,
+  TrendingUp,
 } from "lucide-react";
 
 import { downloadCsv, type CsvColumn } from "@/lib/csv";
+import { exportXlsx, num, fmtDate as fmtDateXlsx } from "@/lib/xlsx";
 import { useSettings, splitInterest } from "@/lib/stores/settingsStore";
 import { useIsAdmin } from "@/lib/stores/userRoleStore";
 import { useDaybook } from "@/lib/stores/daybookStore";
 import { useLoans } from "@/lib/stores/loansStore";
+import { useCustomers } from "@/lib/stores/customersStore";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -168,12 +172,31 @@ function thirtyDaysAgoIso() {
   return `${y}-${m}-${day}`;
 }
 
-type ReportTab = "register" | "collections" | "defaults";
+type ReportTab = "register" | "collections" | "defaults" | "weekly";
+
+/* Returns Sunday 00:00 of the current week and Saturday 23:59 (ISO yyyy-mm-dd). */
+function currentWeekRange(): { startIso: string; endIso: string } {
+  const now = new Date();
+  const dow = now.getDay(); // 0 = Sun
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(now.getDate() - dow);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const fmt = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+  return { startIso: fmt(start), endIso: fmt(end) };
+}
 
 export default function Reports() {
   const [from, setFrom] = useState(thirtyDaysAgoIso());
   const [to, setTo] = useState(todayIso());
   const [activeTab, setActiveTab] = useState<ReportTab>("register");
+  const customers = useCustomers();
 
   const inRange = (iso: string) => iso >= from && iso <= to;
 
@@ -286,27 +309,74 @@ export default function Reports() {
       ];
       downloadCsv(`kittangi-loan-register-${range}.csv`, cols, rows);
     } else if (activeTab === "collections") {
-      const cols: CsvColumn<CollectionRow>[] = [
-        { header: "Date", key: "date" },
-        { header: "Receipt ID", key: "receiptId" },
-        { header: "Loan ID", key: "loanId" },
-        { header: "Customer", key: "customer" },
-        { header: "Mode", key: "mode" },
-        { header: "Interest (INR)", key: "interest" },
-      ];
+      // High-fidelity Interest Ledger as multi-sheet XLSX. Sheet 1 = ledger,
+      // Sheet 2 = per-day rollup so cashiers can verify against the bank
+      // deposit slip without filtering Excel manually.
       const total = filteredCollections.reduce((s, r) => s + r.interest, 0);
-      const rows: CollectionRow[] = [
-        ...filteredCollections,
-        {
-          date: "",
-          receiptId: "",
-          loanId: "",
-          customer: `TOTAL (${filteredCollections.length} receipts)`,
-          mode: "CASH",
-          interest: total,
-        },
+      const cashTotal = filteredCollections
+        .filter((r) => r.mode === "CASH")
+        .reduce((s, r) => s + r.interest, 0);
+      const bankTotal = total - cashTotal;
+
+      const ledgerRows: Array<Array<string | number>> = [
+        [
+          "Date",
+          "Receipt ID",
+          "Loan ID",
+          "Customer",
+          "Mode",
+          "Interest (INR)",
+          "Legal Portion (INR)",
+          "Company Portion (INR)",
+        ],
+        ...filteredCollections.map((r) => [
+          fmtDateXlsx(r.date),
+          r.receiptId,
+          r.loanId,
+          r.customer,
+          r.mode,
+          num(r.interest),
+          num(r.legalPortion ?? 0),
+          num(r.companyPortion ?? 0),
+        ]),
+        ["", "", "", "", "TOTAL", num(total), "", ""],
+        ["", "", "", "", "CASH", num(cashTotal), "", ""],
+        ["", "", "", "", "BANK", num(bankTotal), "", ""],
       ];
-      downloadCsv(`kittangi-interest-collections-${range}.csv`, cols, rows);
+
+      // Per-day rollup
+      const byDay = new Map<string, { count: number; interest: number }>();
+      for (const r of filteredCollections) {
+        const cur = byDay.get(r.date) ?? { count: 0, interest: 0 };
+        cur.count += 1;
+        cur.interest += r.interest;
+        byDay.set(r.date, cur);
+      }
+      const dayRows: Array<Array<string | number>> = [
+        ["Date", "Receipts", "Interest (INR)"],
+        ...[...byDay.entries()]
+          .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+          .map(([date, v]) => [fmtDateXlsx(date), v.count, num(v.interest)]),
+      ];
+
+      exportXlsx(`kittangi-interest-ledger-${range}.xlsx`, [
+        {
+          name: "Interest Ledger",
+          rows: ledgerRows,
+          colWidths: [14, 14, 14, 26, 8, 14, 14, 14],
+        },
+        { name: "Daily Rollup", rows: dayRows, colWidths: [14, 10, 16] },
+      ]);
+      toast.success("Downloaded", {
+        icon: <CheckCircle2 className="h-4 w-4" />,
+        description: `Interest Ledger XLSX for ${fmtDate(from)} → ${fmtDate(to)}.`,
+      });
+      return;
+    } else if (activeTab === "weekly") {
+      // Weekly summary export — handled by its own button inside the tab.
+      // This keeps the top-bar export button focused on the date-range tabs.
+      toast.message("Use the download button on the Weekly Performance card.");
+      return;
     } else {
       const cols: CsvColumn<DefaultRow>[] = [
         { header: "Loan ID", key: "loanId" },
@@ -333,11 +403,7 @@ export default function Reports() {
     toast.success("Downloaded", {
       icon: <CheckCircle2 className="h-4 w-4" />,
       description: `${
-        activeTab === "register"
-          ? "Loan Register"
-          : activeTab === "collections"
-            ? "Interest Collections"
-            : "Maturity & Defaults"
+        activeTab === "register" ? "Loan Register" : "Maturity & Defaults"
       } CSV for ${fmtDate(from)} → ${fmtDate(to)}.`,
     });
   };
@@ -442,6 +508,14 @@ export default function Reports() {
             <AlertTriangle className="h-4 w-4" />
             Maturity &amp; Defaults
           </TabsTrigger>
+          <TabsTrigger
+            value="weekly"
+            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            data-testid="tab-weekly"
+          >
+            <TrendingUp className="h-4 w-4" />
+            Weekly Performance
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="register" className="m-0">
@@ -454,6 +528,14 @@ export default function Reports() {
 
         <TabsContent value="defaults" className="m-0">
           <DefaultsTab rows={filteredDefaults} />
+        </TabsContent>
+
+        <TabsContent value="weekly" className="m-0">
+          <WeeklyTab
+            loans={loans}
+            collections={realCollections}
+            customers={customers}
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -845,6 +927,315 @@ function DefaultsTab({ rows }: { rows: DefaultRow[] }) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/* -------------------- Tab 4: Weekly Performance -------------------- */
+
+function WeeklyTab({
+  loans,
+  collections,
+  customers,
+}: {
+  loans: import("@/lib/stores/loansStore").Loan[];
+  collections: CollectionRow[];
+  customers: import("@/lib/stores/customersStore").Customer[];
+}) {
+  const { startIso, endIso } = useMemo(currentWeekRange, []);
+
+  const inWeek = (iso: string) => iso >= startIso && iso <= endIso;
+
+  const loansThisWeek = useMemo(
+    () => loans.filter((l) => inWeek(l.startedAtIso)),
+    [loans, startIso, endIso],
+  );
+  const principalDisbursed = loansThisWeek.reduce(
+    (s, l) => s + (l.principal ?? 0),
+    0,
+  );
+  const collectionsThisWeek = useMemo(
+    () => collections.filter((r) => inWeek(r.date)),
+    [collections, startIso, endIso],
+  );
+  const interestCollected = collectionsThisWeek.reduce(
+    (s, r) => s + r.interest,
+    0,
+  );
+  // Customers added this week ≈ distinct customer codes that received their
+  // first loan within the window. We don't persist a `createdIso` on Customer,
+  // so this is the most honest derivation from real data.
+  const newCustomerCodes = useMemo(() => {
+    const earliest = new Map<string, string>();
+    for (const l of loans) {
+      const cur = earliest.get(l.customerCode);
+      if (!cur || l.startedAtIso < cur) earliest.set(l.customerCode, l.startedAtIso);
+    }
+    const codes = new Set<string>();
+    for (const [code, iso] of earliest) if (inWeek(iso)) codes.add(code);
+    return codes;
+  }, [loans, startIso, endIso]);
+
+  const customersAdded = newCustomerCodes.size;
+
+  // Top 5 loans this week (by principal)
+  const top5Loans = useMemo(
+    () =>
+      [...loansThisWeek]
+        .sort((a, b) => b.principal - a.principal)
+        .slice(0, 5),
+    [loansThisWeek],
+  );
+
+  const handleDownload = () => {
+    const range = `${startIso}_to_${endIso}`;
+    const summarySheet: Array<Array<string | number>> = [
+      ["Kittangi Weekly Performance Summary"],
+      [`Period`, `${fmtDate(startIso)} → ${fmtDate(endIso)}`],
+      [],
+      ["Metric", "Value"],
+      ["Loans Originated", num(loansThisWeek.length)],
+      ["Principal Disbursed (INR)", num(principalDisbursed)],
+      ["Interest Collected (INR)", num(interestCollected)],
+      ["Customers Added (first loan this week)", num(customersAdded)],
+      ["Total Customers (cumulative)", num(customers.length)],
+    ];
+
+    const loansSheet: Array<Array<string | number>> = [
+      ["Loan ID", "Customer", "Product", "Principal (INR)", "Started"],
+      ...loansThisWeek.map((l) => [
+        l.id,
+        l.customer,
+        l.product,
+        num(l.principal),
+        fmtDateXlsx(l.startedAtIso),
+      ]),
+    ];
+
+    const top5Sheet: Array<Array<string | number>> = [
+      ["Rank", "Loan ID", "Customer", "Product", "Principal (INR)"],
+      ...top5Loans.map((l, i) => [
+        i + 1,
+        l.id,
+        l.customer,
+        l.product,
+        num(l.principal),
+      ]),
+    ];
+
+    const interestSheet: Array<Array<string | number>> = [
+      ["Date", "Receipt ID", "Loan ID", "Customer", "Mode", "Interest (INR)"],
+      ...collectionsThisWeek.map((r) => [
+        fmtDateXlsx(r.date),
+        r.receiptId,
+        r.loanId,
+        r.customer,
+        r.mode,
+        num(r.interest),
+      ]),
+    ];
+
+    exportXlsx(`kittangi-weekly-summary-${range}.xlsx`, [
+      { name: "Summary", rows: summarySheet, colWidths: [40, 22] },
+      { name: "Loans This Week", rows: loansSheet, colWidths: [16, 26, 10, 18, 14] },
+      { name: "Top 5 Loans", rows: top5Sheet, colWidths: [6, 16, 26, 10, 18] },
+      { name: "Interest This Week", rows: interestSheet, colWidths: [14, 14, 16, 26, 8, 16] },
+    ]);
+
+    toast.success("Downloaded", {
+      icon: <CheckCircle2 className="h-4 w-4" />,
+      description: `Weekly Summary XLSX for ${fmtDate(startIso)} → ${fmtDate(endIso)}.`,
+    });
+  };
+
+  return (
+    <Card className="border bg-white" style={{ borderColor: "rgba(74,111,165,0.12)" }}>
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-lg"
+              style={{ background: "var(--brand-light)" }}
+            >
+              <TrendingUp
+                className="h-5 w-5"
+                style={{ color: "var(--brand-primary)" }}
+              />
+            </div>
+            <div>
+              <CardTitle className="text-base font-semibold text-slate-900">
+                Weekly Performance Summary
+              </CardTitle>
+              <CardDescription className="text-sm text-slate-500">
+                Sunday {fmtDate(startIso)} → Saturday {fmtDate(endIso)}
+              </CardDescription>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleDownload}
+            className="h-10 gap-2 px-4 text-sm font-semibold text-white"
+            style={{ background: "var(--brand-primary)" }}
+            data-testid="button-download-weekly"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Download Weekly Summary (XLSX)
+          </Button>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <WeeklyMetricCard
+            label="Loans Originated"
+            value={String(loansThisWeek.length)}
+            tone="brand"
+          />
+          <WeeklyMetricCard
+            label="Principal Disbursed"
+            value={inr(principalDisbursed)}
+            tone="brand"
+          />
+          <WeeklyMetricCard
+            label="Interest Collected"
+            value={inr(interestCollected)}
+            tone="emerald"
+          />
+          <WeeklyMetricCard
+            label="Customers Added"
+            value={String(customersAdded)}
+            tone="amber"
+          />
+        </div>
+
+        <div
+          className="overflow-hidden rounded-lg border"
+          style={{ borderColor: "rgba(74,111,165,0.12)" }}
+        >
+          <div
+            className="flex items-center justify-between border-b px-4 py-3"
+            style={{
+              borderColor: "rgba(74,111,165,0.12)",
+              background: "rgba(191,221,245,0.18)",
+            }}
+          >
+            <h3 className="text-sm font-semibold text-slate-800">
+              Top 5 Loans This Week
+            </h3>
+            <span className="text-xs text-slate-500">By principal</span>
+          </div>
+          {top5Loans.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-slate-500">
+              No loans originated this week yet.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow style={{ background: "rgba(191,221,245,0.10)" }}>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Rank
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Loan ID
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Customer
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Product
+                  </TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Principal
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {top5Loans.map((l, i) => (
+                  <TableRow key={l.id} className="hover:bg-slate-50/60">
+                    <TableCell className="py-3 text-sm font-semibold text-slate-700">
+                      #{i + 1}
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <span
+                        className="rounded-md px-2 py-0.5 font-mono text-xs font-semibold"
+                        style={{
+                          background: "rgba(191,221,245,0.35)",
+                          color: "var(--brand-primary)",
+                        }}
+                      >
+                        {l.id}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3 font-medium text-slate-900">
+                      {l.customer}
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <Badge
+                        className="border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                        style={
+                          l.product === "PAWN"
+                            ? {
+                                background: "rgba(245,158,11,0.12)",
+                                color: "#b45309",
+                                borderColor: "rgba(245,158,11,0.35)",
+                              }
+                            : {
+                                background: "rgba(74,111,165,0.12)",
+                                color: "#1d4ed8",
+                                borderColor: "rgba(74,111,165,0.35)",
+                              }
+                        }
+                      >
+                        {l.product}
+                      </Badge>
+                    </TableCell>
+                    <TableCell
+                      className="py-3 text-right font-semibold"
+                      style={{ color: "var(--brand-primary)" }}
+                    >
+                      {inr(l.principal)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function WeeklyMetricCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "brand" | "emerald" | "amber";
+}) {
+  const colors =
+    tone === "emerald"
+      ? { bg: "rgba(16,185,129,0.08)", fg: "#047857", border: "rgba(16,185,129,0.25)" }
+      : tone === "amber"
+        ? { bg: "rgba(245,158,11,0.08)", fg: "#b45309", border: "rgba(245,158,11,0.25)" }
+        : { bg: "var(--brand-light)", fg: "var(--brand-primary)", border: "rgba(74,111,165,0.18)" };
+  return (
+    <div
+      className="rounded-xl border p-4"
+      style={{ background: colors.bg, borderColor: colors.border }}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+        {label}
+      </p>
+      <p
+        className="mt-1.5 text-2xl font-bold"
+        style={{ color: colors.fg }}
+      >
+        {value}
+      </p>
+    </div>
   );
 }
 

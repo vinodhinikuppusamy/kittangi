@@ -15,6 +15,8 @@ import {
   IndianRupee,
   Paperclip,
   Percent,
+  Printer,
+  QrCode,
   ShieldCheck,
   Truck,
   UploadCloud,
@@ -22,8 +24,22 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { openLockerTagPrintWindow } from "@/lib/printLockerTag";
+import {
+  getCurrentActor,
+  logActivity,
+} from "@/lib/stores/activityLogStore";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -200,6 +216,22 @@ export default function VehicleOrigination() {
   const [legalDocs, setLegalDocs] = useState<
     Partial<Record<LegalDocType, LegalDoc>>
   >({});
+
+  /**
+   * Success ticket — when populated, opens a modal showing the new vehicle
+   * loan summary plus a QR code (loanId + customer + product) the operator
+   * can stick on the physical file or share with the customer. Cleared by
+   * the dialog close action.
+   */
+  const [successTicket, setSuccessTicket] = useState<{
+    loanId: string;
+    customer: string;
+    customerCode: string;
+    netDisbursement: number;
+    sourceAccount: string;
+    vehicleSummary: string;
+    rcNumber: string;
+  } | null>(null);
 
   const handleDocUpload = async (
     type: LegalDocType,
@@ -397,15 +429,29 @@ export default function VehicleOrigination() {
       throw err;
     }
 
-    toast.success("Vehicle loan disbursed", {
-      icon: <CheckCircle2 className="h-4 w-4" />,
-      description: `${loanId} · ${selectedCustomer?.name ?? ""} · ${inr(netDisbursement)} debited from ${
-        accounts.find((a) => a.id === data.paymentSource)?.name ?? data.paymentSource
+    try {
+      logActivity({
+        actor: getCurrentActor(),
+        kind: "LOAN",
+        summary: `Vehicle loan ${loanId} disbursed — ${selectedCustomer?.name ?? "Customer"} · ₹${loanAmount.toLocaleString("en-IN")}`,
+        link: `/loans/${loanId}`,
+      });
+    } catch {
+      /* best effort */
+    }
+
+    setSuccessTicket({
+      loanId,
+      customer: selectedCustomer?.name ?? "Customer",
+      customerCode: data.customerId,
+      netDisbursement,
+      sourceAccount:
+        accounts.find((a) => a.id === data.paymentSource)?.name ??
+        data.paymentSource,
+      vehicleSummary: `${data.makeModel || vehicleTypeLabel}${
+        data.year ? ` · ${data.year}` : ""
       }`,
-      action: {
-        label: "View Loan",
-        onClick: () => navigate(`/loans/${loanId}`),
-      },
+      rcNumber: data.rcNumber,
     });
     reset();
     setLegalDocs({});
@@ -1110,6 +1156,118 @@ export default function VehicleOrigination() {
           </CardContent>
         </Card>
       </form>
+
+      {/* Success dialog with QR + Print Tag */}
+      <Dialog
+        open={successTicket !== null}
+        onOpenChange={(open) => {
+          if (!open) setSuccessTicket(null);
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-md"
+          data-testid="dialog-vehicle-success"
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2
+                className="h-5 w-5"
+                style={{ color: "#047857" }}
+              />
+              Vehicle loan disbursed
+            </DialogTitle>
+            <DialogDescription>
+              Scan the QR for the loan reference, or print the tag for the
+              physical file jacket.
+            </DialogDescription>
+          </DialogHeader>
+
+          {successTicket && (
+            <div className="grid gap-4 py-2 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div className="space-y-1.5 text-sm">
+                <p className="font-mono text-base font-bold" style={{ color: "var(--brand-primary)" }}>
+                  {successTicket.loanId}
+                </p>
+                <p className="text-slate-700">{successTicket.customer}</p>
+                <p className="text-xs text-slate-500">
+                  {successTicket.vehicleSummary}
+                  {successTicket.rcNumber ? ` · ${successTicket.rcNumber}` : ""}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Disbursed{" "}
+                  <span className="font-semibold text-slate-800">
+                    {inr(successTicket.netDisbursement)}
+                  </span>{" "}
+                  from {successTicket.sourceAccount}
+                </p>
+              </div>
+              <div
+                className="flex flex-col items-center gap-1 rounded-lg border bg-white p-3"
+                style={{ borderColor: "rgba(74,111,165,0.18)" }}
+              >
+                <QRCodeSVG
+                  value={JSON.stringify({
+                    type: "kittangi.vehicle.loan",
+                    loanId: successTicket.loanId,
+                    customer: successTicket.customer,
+                    rc: successTicket.rcNumber,
+                  })}
+                  size={108}
+                  level="M"
+                  includeMargin={false}
+                />
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  <QrCode className="mr-1 inline h-3 w-3" />
+                  Loan QR
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (!successTicket) return;
+                openLockerTagPrintWindow({
+                  packageId: successTicket.loanId,
+                  loanId: successTicket.loanId,
+                  customerName: successTicket.customer,
+                  safeName: "Vehicle File",
+                  lockerId: successTicket.rcNumber || successTicket.loanId,
+                });
+              }}
+              className="gap-2"
+              data-testid="button-vehicle-print-tag"
+            >
+              <Printer className="h-4 w-4" />
+              Print Tag
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setSuccessTicket(null)}
+              >
+                Close
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (!successTicket) return;
+                  const id = successTicket.loanId;
+                  setSuccessTicket(null);
+                  navigate(`/loans/${id}`);
+                }}
+                style={{ background: "var(--brand-primary)", color: "#fff" }}
+              >
+                View Loan
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

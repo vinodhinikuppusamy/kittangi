@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   ArrowDownLeft,
+  ArrowLeftRight,
   ArrowUpRight,
   BookOpen,
   Calendar,
@@ -9,6 +10,7 @@ import {
   Lock,
   LockOpen,
   Plus,
+  PlusCircle,
   Printer,
   Scale,
   TrendingDown,
@@ -63,6 +65,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   addDaybookEntry,
+  addInternalTransfer,
   DayLockedError,
   useDaybook,
   type DaybookAccount,
@@ -76,6 +79,10 @@ import {
   type DayLock,
 } from "@/lib/stores/dayLocksStore";
 import { useAccounts, type Account } from "@/lib/stores/accountsStore";
+import {
+  getCurrentActor,
+  logActivity,
+} from "@/lib/stores/activityLogStore";
 import { useBranchProfile } from "@/lib/stores/branchProfileStore";
 import { useIsAdmin } from "@/lib/stores/userRoleStore";
 
@@ -606,6 +613,152 @@ export default function Daybook() {
     (expenseAmount || "").toString().replace(/[^0-9.]/g, ""),
   );
 
+  // ===== Internal Transfer (contra) =====
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [xfrFrom, setXfrFrom] = useState<string>("");
+  const [xfrTo, setXfrTo] = useState<string>("");
+  const [xfrAmount, setXfrAmount] = useState<string>("");
+  const [xfrParticulars, setXfrParticulars] = useState<string>("");
+  const [xfrNotes, setXfrNotes] = useState<string>("");
+  const xfrAmountNum = Number(
+    (xfrAmount || "").toString().replace(/[^0-9.]/g, ""),
+  );
+  const resetTransferForm = () => {
+    setXfrFrom("");
+    setXfrTo("");
+    setXfrAmount("");
+    setXfrParticulars("");
+    setXfrNotes("");
+  };
+  const handlePostTransfer = () => {
+    if (!xfrFrom || !xfrTo) {
+      toast.error("Pick both a source and a destination account.");
+      return;
+    }
+    if (xfrFrom === xfrTo) {
+      toast.error("Source and destination must be different accounts.");
+      return;
+    }
+    if (!Number.isFinite(xfrAmountNum) || xfrAmountNum <= 0) {
+      toast.error("Transfer amount must be greater than zero.");
+      return;
+    }
+    if (!xfrParticulars.trim()) {
+      toast.error("Please describe the transfer.");
+      return;
+    }
+    try {
+      addInternalTransfer({
+        dateIso: date,
+        fromAccount: xfrFrom,
+        toAccount: xfrTo,
+        amount: xfrAmountNum,
+        particulars: xfrParticulars.trim(),
+        notes: xfrNotes.trim() || undefined,
+      });
+      const fromName =
+        accounts.find((a) => a.id === xfrFrom)?.name ?? xfrFrom;
+      const toName = accounts.find((a) => a.id === xfrTo)?.name ?? xfrTo;
+      try {
+        logActivity({
+          actor: getCurrentActor(),
+          kind: "DAYBOOK",
+          summary: `Internal Transfer ${inr(xfrAmountNum)} · ${fromName} → ${toName}`,
+        });
+      } catch {
+        /* best effort */
+      }
+      toast.success("Internal transfer posted", {
+        icon: <ArrowLeftRight size={16} />,
+        description: `${inr(xfrAmountNum)} · ${fromName} → ${toName}`,
+      });
+      resetTransferForm();
+      setTransferOpen(false);
+    } catch (err) {
+      if (err instanceof DayLockedError) {
+        toast.error(
+          `${prettyDate(date)} is locked — unlock the day before posting transfers.`,
+        );
+        return;
+      }
+      const msg = err instanceof Error ? err.message : "Transfer failed.";
+      toast.error(msg);
+    }
+  };
+
+  // ===== Add Other Income =====
+  const [incomeOpen, setIncomeOpen] = useState(false);
+  const [incomeAccount, setIncomeAccount] = useState<string>("");
+  const [incomeAmount, setIncomeAmount] = useState<string>("");
+  const [incomeParticulars, setIncomeParticulars] = useState<string>("");
+  const [incomeNotes, setIncomeNotes] = useState<string>("");
+  const incomeAmountNum = Number(
+    (incomeAmount || "").toString().replace(/[^0-9.]/g, ""),
+  );
+  const resetIncomeForm = () => {
+    setIncomeAccount("");
+    setIncomeAmount("");
+    setIncomeParticulars("");
+    setIncomeNotes("");
+  };
+  const handlePostIncome = () => {
+    if (!incomeAccount) {
+      toast.error("Please choose the destination account.");
+      return;
+    }
+    if (!Number.isFinite(incomeAmountNum) || incomeAmountNum <= 0) {
+      toast.error("Amount must be greater than zero.");
+      return;
+    }
+    if (!incomeParticulars.trim()) {
+      toast.error("Please describe the income (e.g. scrap sale, doc fee).");
+      return;
+    }
+    try {
+      const refSeq = Math.floor(10000 + Math.random() * 89999);
+      addDaybookEntry({
+        dateIso: date,
+        time: timeNow(),
+        side: "CREDIT",
+        category: "Other Income",
+        particulars: incomeParticulars.trim(),
+        refId: `OIN-${refSeq}`,
+        account: incomeAccount,
+        amount: incomeAmountNum,
+        notes: incomeNotes.trim() || undefined,
+      });
+      try {
+        logActivity({
+          actor: getCurrentActor(),
+          kind: "DAYBOOK",
+          summary: `Other Income ${inr(incomeAmountNum)} — ${incomeParticulars.trim()}`,
+        });
+      } catch {
+        /* best effort */
+      }
+      toast.success("Other income recorded", {
+        icon: <CheckCircle2 size={16} />,
+        description: `${inr(incomeAmountNum)} into ${
+          accounts.find((a) => a.id === incomeAccount)?.name ?? incomeAccount
+        }`,
+      });
+      resetIncomeForm();
+      setIncomeOpen(false);
+    } catch (err) {
+      if (err instanceof DayLockedError) {
+        toast.error(
+          `${prettyDate(date)} is locked — unlock the day before posting income.`,
+        );
+        return;
+      }
+      // Surface unexpected errors as a toast instead of crashing the dialog
+      // tree. The expense / transfer handlers follow the same convention.
+      const message =
+        err instanceof Error ? err.message : "Could not record income.";
+      toast.error(message);
+    }
+  };
+
   const resetExpenseForm = () => {
     setExpenseCategory("Branch Expense");
     setExpenseAccount("");
@@ -640,6 +793,17 @@ export default function Daybook() {
         amount: expenseAmountNum,
         notes: expenseNotes.trim() || undefined,
       });
+      try {
+        logActivity({
+          actor: getCurrentActor(),
+          kind: "DAYBOOK",
+          summary: `Expense ₹${expenseAmountNum.toLocaleString("en-IN")} — ${expenseCategory} (${
+            accounts.find((a) => a.id === expenseAccount)?.name ?? expenseAccount
+          })`,
+        });
+      } catch {
+        /* best effort */
+      }
       toast.success("Expense recorded", {
         icon: <CheckCircle2 size={16} />,
         description: `${expenseCategory} · ${inr(expenseAmountNum)} from ${
@@ -762,22 +926,58 @@ export default function Daybook() {
             Print Chitta
           </Button>
           {!isLocked && isAdmin && (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-9 px-3 text-xs"
-              style={{
-                borderColor: "rgba(74,111,165,0.25)",
-                color: "var(--brand-primary)",
-              }}
-              onClick={() => {
-                resetExpenseForm();
-                setExpenseDialogOpen(true);
-              }}
-            >
-              <Plus size={14} className="mr-1.5" />
-              Add Expense
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 px-3 text-xs"
+                style={{
+                  borderColor: "rgba(74,111,165,0.25)",
+                  color: "var(--brand-primary)",
+                }}
+                onClick={() => {
+                  resetTransferForm();
+                  setTransferOpen(true);
+                }}
+                data-testid="button-internal-transfer"
+              >
+                <ArrowLeftRight size={14} className="mr-1.5" />
+                Internal Transfer
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 px-3 text-xs"
+                style={{
+                  borderColor: "rgba(74,111,165,0.25)",
+                  color: "var(--brand-primary)",
+                }}
+                onClick={() => {
+                  resetIncomeForm();
+                  setIncomeOpen(true);
+                }}
+                data-testid="button-add-other-income"
+              >
+                <PlusCircle size={14} className="mr-1.5" />
+                Add Other Income
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 px-3 text-xs"
+                style={{
+                  borderColor: "rgba(74,111,165,0.25)",
+                  color: "var(--brand-primary)",
+                }}
+                onClick={() => {
+                  resetExpenseForm();
+                  setExpenseDialogOpen(true);
+                }}
+              >
+                <Plus size={14} className="mr-1.5" />
+                Add Expense
+              </Button>
+            </>
           )}
           {isLocked ? (
             <Button
@@ -1416,6 +1616,286 @@ export default function Daybook() {
                 Confirm &amp; Lock
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Internal Transfer — contra entry between two accounts */}
+      <Dialog
+        open={transferOpen}
+        onOpenChange={(o) => {
+          if (!o) resetTransferForm();
+          setTransferOpen(o);
+        }}
+      >
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Internal Transfer (Contra)</DialogTitle>
+            <DialogDescription>
+              Moves funds between two of your accounts. Posts a Debit on the
+              source and a Credit on the destination — never counted as Income
+              or Expense in the P&amp;L.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  From Account
+                </Label>
+                <Select value={xfrFrom} onValueChange={setXfrFrom}>
+                  <SelectTrigger
+                    className="h-10 w-full bg-white"
+                    aria-label="From Account"
+                    data-testid="select-xfr-from"
+                  >
+                    <SelectValue placeholder="Select source..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{a.name}</span>
+                          {a.subtitle ? (
+                            <span className="text-xs text-slate-500">
+                              {a.subtitle}
+                            </span>
+                          ) : null}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  To Account
+                </Label>
+                <Select value={xfrTo} onValueChange={setXfrTo}>
+                  <SelectTrigger
+                    className="h-10 w-full bg-white"
+                    aria-label="To Account"
+                    data-testid="select-xfr-to"
+                  >
+                    <SelectValue placeholder="Select destination..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts
+                      .filter((a) => a.id !== xfrFrom)
+                      .map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">
+                              {a.name}
+                            </span>
+                            {a.subtitle ? (
+                              <span className="text-xs text-slate-500">
+                                {a.subtitle}
+                              </span>
+                            ) : null}
+                          </div>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="xfrAmount"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Amount (₹)
+              </Label>
+              <Input
+                id="xfrAmount"
+                type="number"
+                inputMode="numeric"
+                placeholder="e.g., 50,000"
+                value={xfrAmount}
+                onChange={(e) => setXfrAmount(e.target.value)}
+                className="h-10"
+                data-testid="input-xfr-amount"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="xfrParticulars"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Particulars
+              </Label>
+              <Input
+                id="xfrParticulars"
+                placeholder="e.g., Cash deposit to HDFC current A/c"
+                value={xfrParticulars}
+                onChange={(e) => setXfrParticulars(e.target.value)}
+                className="h-10"
+                data-testid="input-xfr-particulars"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="xfrNotes"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Notes (optional)
+              </Label>
+              <Textarea
+                id="xfrNotes"
+                placeholder="Cheque no., reference, etc."
+                value={xfrNotes}
+                onChange={(e) => setXfrNotes(e.target.value)}
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                resetTransferForm();
+                setTransferOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="font-semibold text-white"
+              style={{ backgroundColor: "var(--brand-primary)" }}
+              onClick={handlePostTransfer}
+              data-testid="button-post-transfer"
+            >
+              Post Transfer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Other Income — manual inflow (scrap, doc fee, etc.) */}
+      <Dialog
+        open={incomeOpen}
+        onOpenChange={(o) => {
+          if (!o) resetIncomeForm();
+          setIncomeOpen(o);
+        }}
+      >
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Add Other Income</DialogTitle>
+            <DialogDescription>
+              Records a CREDIT against the chosen account under the “Other
+              Income” head. Use this for scrap sales, document fees, or any
+              non-loan revenue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Destination Account
+              </Label>
+              <Select value={incomeAccount} onValueChange={setIncomeAccount}>
+                <SelectTrigger
+                  className="h-10 w-full bg-white"
+                  aria-label="Destination Account"
+                  data-testid="select-income-account"
+                >
+                  <SelectValue placeholder="Select account..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{a.name}</span>
+                        {a.subtitle ? (
+                          <span className="text-xs text-slate-500">
+                            {a.subtitle}
+                          </span>
+                        ) : null}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="incomeAmount"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Amount (₹)
+              </Label>
+              <Input
+                id="incomeAmount"
+                type="number"
+                inputMode="numeric"
+                placeholder="e.g., 4,500"
+                value={incomeAmount}
+                onChange={(e) => setIncomeAmount(e.target.value)}
+                className="h-10"
+                data-testid="input-income-amount"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="incomeParticulars"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Particulars
+              </Label>
+              <Input
+                id="incomeParticulars"
+                placeholder="e.g., Scrap silver sale, Doc fee — PWN-204410"
+                value={incomeParticulars}
+                onChange={(e) => setIncomeParticulars(e.target.value)}
+                className="h-10"
+                data-testid="input-income-particulars"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="incomeNotes"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Notes (optional)
+              </Label>
+              <Textarea
+                id="incomeNotes"
+                placeholder="Buyer name, invoice number, etc."
+                value={incomeNotes}
+                onChange={(e) => setIncomeNotes(e.target.value)}
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                resetIncomeForm();
+                setIncomeOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="font-semibold text-white"
+              style={{ backgroundColor: "var(--brand-primary)" }}
+              onClick={handlePostIncome}
+              data-testid="button-post-income"
+            >
+              Post Income
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
