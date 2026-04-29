@@ -5,7 +5,7 @@ import {
   Routes,
 } from "react-router-dom";
 import { Toaster } from "sonner";
-import { Car, LayoutDashboard } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 import Layout from "@/components/Layout";
 import PlaceholderPage from "@/pages/PlaceholderPage";
 import Customers from "@/components/modules/Customers";
@@ -59,16 +59,6 @@ function App() {
 
               {/* Vehicle vertical */}
               <Route path="/vehicle-origination" element={<VehicleOrigination />} />
-              <Route
-                path="/auto-loans"
-                element={
-                  <PlaceholderPage
-                    title="Auto Loans"
-                    description="Originate, service, and monitor vehicle loans."
-                    icon={Car}
-                  />
-                }
-              />
               <Route path="/repossession-yard" element={<RepossessionYard />} />
 
               {/* Admin-only — gated again at the route level so a bookmarked

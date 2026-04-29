@@ -171,3 +171,12 @@ export function resetInvestors(): void {
 export function monthlyInterest(investor: Investor): number {
   return Math.round((investor.principal * investor.monthlyRatePct) / 100);
 }
+
+/**
+ * Production wipe: clear ALL investor records (deposits + payouts).
+ * Used by the "Wipe All Transactional Data" admin tool when a branch is
+ * going live so capital is re-entered against real lenders.
+ */
+export function wipeInvestors(): void {
+  investorsStore.set([]);
+}

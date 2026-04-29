@@ -19,6 +19,8 @@ import { useIsAdmin } from "@/lib/stores/userRoleStore";
 import { useDaybook } from "@/lib/stores/daybookStore";
 import { useLoans } from "@/lib/stores/loansStore";
 import { useCustomers } from "@/lib/stores/customersStore";
+import { usePledgedItems } from "@/lib/stores/pledgedItemsStore";
+import { accruedInterestForLoan } from "@/lib/interest";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,44 +86,6 @@ type DefaultRow = {
   daysOverdue: number;
   outstanding: number;
 };
-
-const LOAN_REGISTER: LoanRow[] = [
-  { date: "2026-04-12", loanId: "PWN-204402", customer: "Aanya Sharma", itemDesc: "Gold Coin (50g · 24K)", grossWeightG: 50, disbursed: 305000 },
-  { date: "2026-04-13", loanId: "PWN-204415", customer: "Rohan Verma", itemDesc: "Silver Anklets (Pair)", grossWeightG: 280, disbursed: 24500 },
-  { date: "2026-04-14", loanId: "PWN-204421", customer: "Karthik R", itemDesc: "22K Gold Ring (Mens)", grossWeightG: 11, disbursed: 51000 },
-  { date: "2026-04-15", loanId: "PWN-204428", customer: "Sneha B", itemDesc: "Diamond Stud Earrings", grossWeightG: 4, disbursed: 96000 },
-  { date: "2026-04-16", loanId: "PWN-204430", customer: "Lakshmi V", itemDesc: "Gold Necklace (Antique)", grossWeightG: 62, disbursed: 295000 },
-  { date: "2026-04-18", loanId: "PWN-204512", customer: "Anand", itemDesc: "22K Gold Chain", grossWeightG: 45, disbursed: 210000 },
-  { date: "2026-04-19", loanId: "PWN-204519", customer: "Meera Iyer", itemDesc: "Gold Bangles (Set of 4)", grossWeightG: 88, disbursed: 425000 },
-  { date: "2026-04-21", loanId: "PWN-204527", customer: "Kunal Mehta", itemDesc: "Diamond Solitaire Ring", grossWeightG: 6, disbursed: 185000 },
-  { date: "2026-04-22", loanId: "PWN-204533", customer: "Suresh Patel", itemDesc: "Silver Pooja Set", grossWeightG: 720, disbursed: 62000 },
-  { date: "2026-04-23", loanId: "PWN-204540", customer: "Priya Menon", itemDesc: "22K Gold Earrings (Pair)", grossWeightG: 14, disbursed: 64000 },
-  { date: "2026-04-24", loanId: "PWN-204555", customer: "Ravi Krishnan", itemDesc: "Gold Mangalsutra", grossWeightG: 22, disbursed: 98000 },
-  { date: "2026-04-25", loanId: "PWN-204561", customer: "Divya Nair", itemDesc: "18K Diamond Pendant", grossWeightG: 8, disbursed: 142000 },
-];
-
-const COLLECTIONS: CollectionRow[] = [
-  { date: "2026-04-27", receiptId: "RCP-88421", loanId: "PWN-204402", customer: "Ravi Krishnan", mode: "CASH", interest: 2640 },
-  { date: "2026-04-27", receiptId: "RCP-88422", loanId: "PWN-204415", customer: "Meera Iyer", mode: "BANK", interest: 15000 },
-  { date: "2026-04-27", receiptId: "RCP-88423", loanId: "PWN-204555", customer: "Suresh Patel", mode: "BANK", interest: 86420 },
-  { date: "2026-04-27", receiptId: "RCP-88424", loanId: "PWN-204512", customer: "Aanya Sharma", mode: "CASH", interest: 1408 },
-  { date: "2026-04-27", receiptId: "RCP-88425", loanId: "PWN-204561", customer: "Divya Nair", mode: "BANK", interest: 8000 },
-  { date: "2026-04-27", receiptId: "RCP-88426", loanId: "PWN-204519", customer: "Rohan Verma", mode: "BANK", interest: 12150 },
-  { date: "2026-04-27", receiptId: "RCP-88427", loanId: "PWN-204527", customer: "Kunal Mehta", mode: "CASH", interest: 715 },
-  { date: "2026-04-26", receiptId: "RCP-88412", loanId: "PWN-204430", customer: "Lakshmi V", mode: "CASH", interest: 4425 },
-  { date: "2026-04-26", receiptId: "RCP-88413", loanId: "PWN-204421", customer: "Karthik R", mode: "BANK", interest: 765 },
-  { date: "2026-04-25", receiptId: "RCP-88401", loanId: "PWN-204540", customer: "Priya Menon", mode: "CASH", interest: 960 },
-];
-
-const DEFAULTS: DefaultRow[] = [
-  { loanId: "PWN-204402", customer: "Aanya Sharma", disbursedDate: "2025-10-12", dueDate: "2026-04-12", daysOverdue: 15, outstanding: 322000 },
-  { loanId: "PWN-204428", customer: "Sneha B", disbursedDate: "2025-10-15", dueDate: "2026-04-15", daysOverdue: 12, outstanding: 101400 },
-  { loanId: "PWN-204312", customer: "Vikram Hegde", disbursedDate: "2025-09-22", dueDate: "2026-03-22", daysOverdue: 36, outstanding: 178650 },
-  { loanId: "PWN-204288", customer: "Manoj Pillai", disbursedDate: "2025-09-08", dueDate: "2026-03-08", daysOverdue: 50, outstanding: 88420 },
-  { loanId: "PWN-204255", customer: "Anita K", disbursedDate: "2025-08-30", dueDate: "2026-02-28", daysOverdue: 58, outstanding: 245300 },
-  { loanId: "PWN-204210", customer: "Rakesh G", disbursedDate: "2025-08-14", dueDate: "2026-02-14", daysOverdue: 72, outstanding: 142800 },
-  { loanId: "PWN-204188", customer: "Geeta R", disbursedDate: "2025-08-02", dueDate: "2026-02-02", daysOverdue: 84, outstanding: 67200 },
-];
 
 const MODE_META: Record<PaymentMode, { label: string; bg: string; fg: string; border: string }> = {
   CASH: {
@@ -200,15 +164,12 @@ export default function Reports() {
 
   const inRange = (iso: string) => iso >= from && iso <= to;
 
-  // ----- Real ledger data: derive Interest Collections from the Daybook -----
-  // Source of truth = persisted Daybook entries posted by ReceiptsLedger
-  // (Interest Income / EMI Received / Full Settlement). For Full Settlement
-  // we count only the interest slice of the lump payment, which equals
-  // legalInterestPortion + companyInterestPortion when the entry was posted
-  // by ReceiptsLedger. Seed/legacy rows without those portions fall through
-  // to a settings-based recomputation in CollectionsTab.
+  // ----- Real ledger data: derive every Reports tab from the live stores
+  // (Daybook, Loans, Pledged Items) so a System Wipe / fresh deployment
+  // shows truly empty tabs instead of stale demo numbers.
   const daybook = useDaybook();
   const loans = useLoans();
+  const pledgedItems = usePledgedItems();
   const loanRateLookup = useMemo(() => {
     const map = new Map<string, { ratePctPerAnnum: number; legalPct?: number }>();
     for (const l of loans) {
@@ -270,16 +231,86 @@ export default function Reports() {
     return rows;
   }, [daybook, loanRateLookup]);
 
+  // ----- Loan Register (derived from useLoans + usePledgedItems) -----
+  const pledgedByLoanId = useMemo(() => {
+    const map = new Map<string, (typeof pledgedItems)[number]>();
+    for (const p of pledgedItems) map.set(p.loanId, p);
+    return map;
+  }, [pledgedItems]);
+
+  const realRegister = useMemo<LoanRow[]>(() => {
+    const rows: LoanRow[] = loans.map((l) => {
+      const pledge = pledgedByLoanId.get(l.id);
+      let itemDesc: string;
+      let grossWeightG: number;
+      if (l.product === "PAWN") {
+        itemDesc = pledge?.title ?? "—";
+        grossWeightG = pledge?.grossWeightG ?? 0;
+      } else {
+        // Vehicle / chit / other — use makeModel + reg no when available.
+        const v = l.vehicleDetails;
+        itemDesc = v
+          ? [v.makeModel, v.regNo].filter(Boolean).join(" · ")
+          : l.product;
+        grossWeightG = 0;
+      }
+      return {
+        date: l.startedAtIso,
+        loanId: l.id,
+        customer: l.customer,
+        itemDesc,
+        grossWeightG,
+        disbursed: l.principal,
+      };
+    });
+    rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    return rows;
+  }, [loans, pledgedByLoanId]);
+
   const filteredRegister = useMemo(
-    () => LOAN_REGISTER.filter((r) => inRange(r.date)),
-    [from, to],
+    () => realRegister.filter((r) => inRange(r.date)),
+    [from, to, realRegister],
   );
   const filteredCollections = useMemo(
     () => realCollections.filter((r) => inRange(r.date)),
     [from, to, realCollections],
   );
-  // The defaults list is point-in-time, not date-ranged — show it as-is.
-  const filteredDefaults = DEFAULTS;
+
+  // ----- Maturity & Defaults (derived from useLoans) -----
+  // Any ACTIVE loan whose maturity date is in the past, ordered by most
+  // overdue first. Outstanding = principal + live accrued interest as-of today.
+  const realDefaults = useMemo<DefaultRow[]>(() => {
+    const today = todayIso();
+    const rows: DefaultRow[] = loans
+      .filter(
+        (l) =>
+          l.status === "ACTIVE" &&
+          typeof l.maturityIso === "string" &&
+          l.maturityIso < today,
+      )
+      .map((l) => {
+        const due = l.maturityIso!;
+        const msPerDay = 1000 * 60 * 60 * 24;
+        const daysOverdue = Math.max(
+          0,
+          Math.floor(
+            (new Date(today).getTime() - new Date(due).getTime()) / msPerDay,
+          ),
+        );
+        const accrued = accruedInterestForLoan(l);
+        return {
+          loanId: l.id,
+          customer: l.customer,
+          disbursedDate: l.startedAtIso,
+          dueDate: due,
+          daysOverdue,
+          outstanding: l.principal + accrued,
+        };
+      });
+    rows.sort((a, b) => b.daysOverdue - a.daysOverdue);
+    return rows;
+  }, [loans]);
+  const filteredDefaults = realDefaults;
 
   const handleExport = () => {
     const range = `${from}_to_${to}`;

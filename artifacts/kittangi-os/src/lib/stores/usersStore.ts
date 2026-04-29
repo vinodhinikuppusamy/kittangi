@@ -135,6 +135,25 @@ export function deleteUser(id: string): void {
 }
 
 /**
+ * Production wipe helper: prune the users list down to a single record.
+ * Used by the "Wipe All Transactional Data" admin tool so the only account
+ * left after cleanup is the admin who triggered the reset. Returns true
+ * when the keeper id matched an existing record (i.e. the prune actually
+ * happened); returns false if the id wasn't found and the store was left
+ * untouched (so the caller can surface a friendly error).
+ */
+export function pruneUsersToOne(keeperId: string): boolean {
+  const current = usersStore.get();
+  const keeper = current.find((u) => u.id === keeperId);
+  if (!keeper) return false;
+  // Force the surviving account to ADMIN/ACTIVE so the operator can sign
+  // back in afterwards even if their own role had been demoted at some
+  // point during the demo.
+  usersStore.set([{ ...keeper, role: "ADMIN", status: "ACTIVE" }]);
+  return true;
+}
+
+/**
  * On boot, the seed hashes above are pre-computed for the literal default
  * password but stored offline. Call this once at app startup (idempotent) to
  * regenerate any stale hashes against `DEFAULT_SEED_PASSWORD` so demo logins

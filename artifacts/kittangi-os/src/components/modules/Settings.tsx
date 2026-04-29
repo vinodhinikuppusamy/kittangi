@@ -702,23 +702,34 @@ function AddUserDialog({
 
 function DangerZoneTab() {
   const role = useUserRole();
+  const { user: currentUser } = useAuth();
   const isAdmin = role === "ADMIN";
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [resetting, setResetting] = useState(false);
 
   const handleReset = async () => {
+    if (!currentUser) {
+      toast.error("You must be signed in to wipe transactional data.");
+      return;
+    }
     setResetting(true);
     try {
-      const result = performSystemReset();
-      toast.success("System Reset complete", {
-        icon: <CheckCircle2 className="h-4 w-4" />,
-        description: `Wiped: ${result.wiped.join(", ")}. Preserved: ${result.preserved.join(", ")}.`,
-      });
+      const result = performSystemReset(currentUser.id);
+      if (!result.keeperId) {
+        toast.error(
+          "Wipe partially failed — current admin record was missing, so the user list was left untouched. Try signing out and back in.",
+        );
+      } else {
+        toast.success("All transactional data wiped", {
+          icon: <CheckCircle2 className="h-4 w-4" />,
+          description: `${result.wiped.length} stores cleared. Configuration preserved (${result.preserved.length} stores).`,
+        });
+      }
       setConfirmOpen(false);
       setConfirmText("");
     } catch (err) {
-      toast.error("System Reset failed", {
+      toast.error("Wipe failed", {
         description: err instanceof Error ? err.message : "Unknown error",
       });
     } finally {
@@ -765,13 +776,20 @@ function DangerZoneTab() {
         >
           <div className="max-w-xl space-y-1">
             <div className="flex items-center gap-2 text-sm font-semibold text-rose-700">
-              <AlertTriangle className="h-4 w-4" /> System Reset
+              <AlertTriangle className="h-4 w-4" /> Wipe All Transactional Data
             </div>
             <p className="text-xs text-slate-600">
-              Permanently deletes <strong>all daybook entries, loans,
-              pledged items, day locks and receipts</strong>. Your users,
-              global settings, branch profile, vault layout and customer
-              records are preserved. This cannot be undone.
+              Production launch reset. Permanently deletes <strong>all
+              loans, receipts (daybook entries), pledged items, customers,
+              investor capital and the activity log</strong>, and prunes the
+              user list down to your current admin account so you can rebuild
+              the staff roster from scratch.{" "}
+              <strong>
+                Vault configuration, account definitions (cash &amp; bank with
+                their opening balances), branch profile and global settings
+                are preserved.
+              </strong>{" "}
+              This cannot be undone.
             </p>
           </div>
           <Button
@@ -781,7 +799,7 @@ function DangerZoneTab() {
             className="h-10 bg-rose-600 font-semibold text-white hover:bg-rose-700"
           >
             <Trash2 className="mr-1 h-4 w-4" />
-            Run System Reset
+            Wipe Transactional Data
           </Button>
         </div>
       </CardContent>
@@ -790,25 +808,33 @@ function DangerZoneTab() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-rose-700">
-              Confirm System Reset
+              Confirm: Wipe All Transactional Data
             </DialogTitle>
             <DialogDescription>
-              This will permanently delete all transactional data. Type{" "}
-              <strong>RESET</strong> to confirm.
+              This permanently deletes every loan, receipt, customer,
+              investor and pledged item on the books. Type{" "}
+              <strong>WIPE</strong> to confirm.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Input
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
-              placeholder="Type RESET to confirm"
+              placeholder="Type WIPE to confirm"
               data-testid="input-system-reset-confirm"
             />
             <div className="rounded-md bg-rose-50 p-3 text-xs text-rose-700">
               <p className="font-semibold">Will be wiped:</p>
-              <p>Daybook entries · Loans · Pledged items · Day locks · Receipts</p>
+              <p>
+                Loans · Receipts (Daybook) · Pledged items · Customers ·
+                Investor capital &amp; payouts · Day locks · Activity log ·
+                Other user accounts
+              </p>
               <p className="mt-2 font-semibold">Will be preserved:</p>
-              <p>Users · Settings · Branch profile · Vault config · Customers</p>
+              <p>
+                Vault layout · Account definitions (with opening balances) ·
+                Branch profile · Global settings · Your admin account
+              </p>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -825,11 +851,11 @@ function DangerZoneTab() {
             <Button
               type="button"
               onClick={handleReset}
-              disabled={confirmText !== "RESET" || resetting}
+              disabled={confirmText !== "WIPE" || resetting}
               data-testid="button-confirm-system-reset"
               className="bg-rose-600 font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
             >
-              {resetting ? "Resetting..." : "Yes, Reset Everything"}
+              {resetting ? "Wiping..." : "Yes, Wipe Everything"}
             </Button>
           </div>
         </DialogContent>

@@ -1,22 +1,17 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { LogIn, ShieldCheck } from "lucide-react";
+import { LogIn } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { DEFAULT_SEED_PASSWORD } from "@/lib/stores/usersStore";
 
 /**
  * Sign-in screen. Accepts username (or email) + password and on success
  * redirects to either the originally-requested route (preserved on the
  * `state.from` prop by `RequireAuth`) or the dashboard.
- *
- * The demo banner at the bottom lists seed credentials so reviewers can
- * sign in to the prototype without needing to be told the password out of
- * band.
  */
 export default function Login() {
   const { user, ready, signIn } = useAuth();
@@ -109,6 +104,7 @@ export default function Login() {
           <Button
             type="submit"
             disabled={submitting || !ready}
+            data-testid="button-sign-in"
             className="w-full"
             style={{
               backgroundColor: "var(--brand-primary)",
@@ -120,28 +116,9 @@ export default function Login() {
           </Button>
         </form>
 
-        <div
-          className="mt-6 rounded-lg border p-3 text-[11px] leading-relaxed text-slate-600"
-          style={{
-            borderColor: "rgba(74,111,165,0.20)",
-            backgroundColor: "rgba(74,111,165,0.05)",
-          }}
-        >
-          <div className="mb-1 flex items-center gap-1.5 font-semibold text-slate-700">
-            <ShieldCheck size={12} style={{ color: "var(--brand-primary)" }} />
-            Demo accounts
-          </div>
-          <ul className="ml-4 list-disc space-y-0.5">
-            <li>
-              <strong>anita</strong> (Admin) ·{" "}
-              <code className="rounded bg-white px-1">{DEFAULT_SEED_PASSWORD}</code>
-            </li>
-            <li>
-              <strong>rahul</strong> (Staff) ·{" "}
-              <code className="rounded bg-white px-1">{DEFAULT_SEED_PASSWORD}</code>
-            </li>
-          </ul>
-        </div>
+        <p className="mt-6 text-center text-[11px] text-slate-500">
+          For access, contact your branch administrator.
+        </p>
       </div>
     </div>
   );

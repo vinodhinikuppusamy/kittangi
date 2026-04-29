@@ -142,3 +142,11 @@ export function deleteCustomer(id: string): void {
 export function resetCustomers(): void {
   customersStore.set(SEED_CUSTOMERS);
 }
+
+/**
+ * Production wipe: clear ALL customer records. Used by the
+ * "Wipe All Transactional Data" admin tool when a branch is going live.
+ */
+export function wipeCustomers(): void {
+  customersStore.set([]);
+}

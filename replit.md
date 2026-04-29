@@ -46,6 +46,30 @@ attachment to `loan.legalDocs` as a base64 data URL of type `AGREEMENT`.
 Uploads are bounded (≤ 4 MB per file, ≤ 12 MB total, ≤ 8 files) so the
 loan record stays well under the localStorage quota.
 
+### Production-Launch Hardening (Apr 2026)
+The first production cut introduced an admin-only **Wipe All Transactional
+Data** action (Settings → Danger Zone). It uses `performSystemReset(keeperUserId)`
+in `src/lib/systemReset.ts` to atomically wipe loans, pledged items,
+daybook receipts, customers, investors, day locks, and the activity log,
+and prunes the user list down to the current admin (forced to ADMIN/ACTIVE
+via `pruneUsersToOne`). It explicitly **preserves** account definitions
+(with their opening balances), vault layout, branch profile, and global
+settings, so the Trial Balance immediately re-balances at ₹0 (DR cash/bank
+opening balances === CR opening capital). The confirmation dialog requires
+the operator to type "WIPE" and surfaces a fallback error if the keeper
+admin is missing from the store. Every Reports tab (Loan Register,
+Interest Collections, Maturity & Defaults) is now derived from the live
+stores (`useLoans`, `usePledgedItems`, `useDaybook`) — no hardcoded sample
+data — so a fresh deployment / post-wipe state shows truly empty tabs.
+RBAC: STAFF accounts cannot reach Financials/Deposits/Settings (route
+gated by `<RequireAuth requireAdmin />`, sidebar filtered in `Layout.tsx`,
+Reports → Interest Collections hides Legal/Company split columns via
+`useIsAdmin()`). The Login screen no longer prints demo credentials; the
+seed admin is `anita` / `kittangi123`. The browser tab title is
+"Kittangi OS — Financial Suite" with a brand favicon at `/favicon.svg`.
+The redundant `/auto-loans` placeholder route was removed
+(VehicleOrigination is the canonical entry point for the vehicle vertical).
+
 ### Trial Balance — Balance-Sheet Style (Apr 2026)
 The Trial Balance card in `Financials.tsx` was rewritten from a
 per-category sum-of-debits/sum-of-credits view (which never balanced
