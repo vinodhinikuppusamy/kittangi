@@ -24,13 +24,48 @@ Balance Sheet's accrued-interest asset line (Financials) — the seeded
 (`accruedInterestForLoan`) freezes accrual at `loan.closedAtIso` once a
 loan transitions out of ACTIVE, and returns ₹0 for legacy closed loans
 that predate the closure-timestamp field. `closeLoanWithSettlement` /
-`markLoanForAuction` stamp `closedAtIso` automatically on transition. Origination forms (Pawn
-& Vehicle) no longer collect a manual processing fee; both auto-derive it
-from `Settings → Rates & Fees → Processing Fee per ₹1,000` (default ₹15/₹1k
-⇒ ₹1,500 on a ₹1L loan). The split-interest helper (`splitInterest`)
-continues to allocate Legal vs Company portions; updated defaults are
-pawn rate 2.5%/m (30% p.a.) and legal component 18% p.a. so the standard
-pawn loan splits as 1.5%/m Legal + 1.0%/m Company.
+`markLoanForAuction` stamp `closedAtIso` automatically on transition. Origination forms (Pawn,
+Vehicle, and the rebuilt "New Loan" dialog) no longer collect a manual
+processing fee; all three auto-derive it from `Settings → Rates & Fees →
+Processing Fee per ₹1,000` (default ₹15/₹1k ⇒ ₹1,500 on a ₹1L loan), post
+the NET amount to the Daybook, and store the GROSS as `loan.principal`. The
+split-interest helper (`splitInterest`) continues to allocate Legal vs
+Company portions; updated defaults are pawn rate 2.5%/m (30% p.a.) and
+legal component 18% p.a. so the standard pawn loan splits as 1.5%/m Legal
++ 1.0%/m Company.
+
+### "New Loan" Dialog (Apr 2026)
+The Loan Management catch-all CTA was renamed from "Document Loan" to
+"New Loan" and rebuilt into a general-purpose origination flow
+(`DocumentLoanDialog.tsx`). It now mirrors the Pawn/Vehicle pattern: a
+per-loan **Legal Interest** override (defaults to
+`settings.globalLegalInterestRatePct`, with auto-computed Company
+remainder), an **auto-derived slab processing fee** preview, and a
+multi-file **Legal/Collateral document uploader** that persists each
+attachment to `loan.legalDocs` as a base64 data URL of type `AGREEMENT`.
+Uploads are bounded (≤ 4 MB per file, ≤ 12 MB total, ≤ 8 files) so the
+loan record stays well under the localStorage quota.
+
+### Trial Balance — Balance-Sheet Style (Apr 2026)
+The Trial Balance card in `Financials.tsx` was rewritten from a
+per-category sum-of-debits/sum-of-credits view (which never balanced
+because the Daybook `side` is account-perspective, not strict
+double-entry) into a proper accounting identity:
+- **DR**: Outstanding Loan Principal (gross basis, sum of `loan.principal`
+  for active loans minus matched Principal Recovery entries) + Cash &
+  Bank Account Balances + Cumulative Operating Expenses (Branch Expense,
+  Salary, Utilities, Interest Expense, Other Expense).
+- **CR**: Active Investor Deposits + Interest Collected (split into Legal
+  + Company portions, using per-entry `legalInterestPortion` /
+  `companyInterestPortion` fields when present, otherwise the
+  `globalLegalInterestRatePct ÷ 30 %` ratio fallback) + Processing Fees
+  Earned (computed as Σ `loan.principal − daybook disbursement amount`)
+  + Opening Capital (sum of account opening balances).
+Any residual is surfaced as an "Out by ₹X" badge (green "Balanced" when
+< ₹0.50). The accounting identity is verified to hold under all new
+postings — the only persistent gap traces back to seed data (investor
+deposits not mirrored to the Daybook, plus legacy Full Settlement entries
+that predate the legal/company portion split fields).
 
 ### Frontend (Kittangi OS Frontend)
 The frontend is built with React 18, Vite, TypeScript 5.9, Tailwind CSS v4, and shadcn/ui. It uses a consistent brand color palette defined with CSS variables. The layout includes a fixed header and a sidebar with an App Switcher for navigating between PAWN, VEHICLE, CAPITAL, and ADMINISTRATION verticals. Routing is handled by `react-router-dom v6`. Client-side data persistence uses `localStorage` for various stores like customers, pledged items, loans, and accounts. Key features include photo capture using `getUserMedia`, a flexible print pipeline for thermal receipts and A4 statements, and a shared `DocumentViewer` for loan agreements. The system includes a comprehensive loan management lifecycle, reporting capabilities with CSV/Excel export, daybook entries for expenses and internal transfers, atomic vehicle disbursement, and strict loan closure logic. It supports document loans, vault packet QR code generation for pawn origination, and storage of legal documents for vehicle loans. Financials include Trial Balance, Yearly Balance Sheet, and a "Print Chitta" feature for daybook summaries. Global settings allow for manual interest splitting, and a robust authentication system with role-based access control (RBAC) is implemented, supporting Admin and Staff roles. The system also features part release/renew functionality for pawn items and a system reset option for development.

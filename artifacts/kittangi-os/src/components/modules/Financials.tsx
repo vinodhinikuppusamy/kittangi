@@ -50,6 +50,7 @@ import {
   useAllAccountBalances,
 } from "@/lib/stores/accountsStore";
 import { useLoans } from "@/lib/stores/loansStore";
+import { useSettings } from "@/lib/stores/settingsStore";
 import { accruedInterestForLoan } from "@/lib/interest";
 
 const inr = (n: number) =>
@@ -361,32 +362,10 @@ export default function Financials() {
     };
   }, [allEntries, investors, fy]);
 
-  // ---- Trial Balance (live, all-time) -----------------------------------
-  // Sums every persisted Daybook entry by category, separating debits from
-  // credits. The two columns must tie out — any drift indicates a posting
-  // bug somewhere upstream.
-  const trialBalance = useMemo(() => {
-    const map = new Map<string, { debit: number; credit: number }>();
-    let totalDebit = 0;
-    let totalCredit = 0;
-    for (const e of allEntries) {
-      const row = map.get(e.category) ?? { debit: 0, credit: 0 };
-      if (e.side === "DEBIT") {
-        row.debit += e.amount;
-        totalDebit += e.amount;
-      } else {
-        row.credit += e.amount;
-        totalCredit += e.amount;
-      }
-      map.set(e.category, row);
-    }
-    const rows = Array.from(map.entries())
-      .map(([category, v]) => ({ category, ...v }))
-      .sort((a, b) =>
-        b.debit + b.credit - (a.debit + a.credit),
-      );
-    return { rows, totalDebit, totalCredit };
-  }, [allEntries]);
+  // The trial-balance computation is moved below the balance-sheet block
+  // because it depends on the same live aggregates (account balances,
+  // outstanding principal, investor deposits). See the `trialBalance` memo
+  // a few sections down.
 
   // ---- Balance-sheet snapshot ------------------------------------------
   // Total Assets (= current outstanding loan book principal) is computed by
@@ -517,6 +496,207 @@ export default function Financials() {
       tieOut: totalAssets - (totalLiabilities + totalEquity),
     };
   }, [accountsList, accountBalances, allLoans, balance]);
+
+  // ---- Trial Balance (live, balance-sheet style) -----------------------
+  // Replaces the legacy per-category sum-of-debits/sum-of-credits view —
+  // that one would never balance because Daybook `side` is account-
+  // perspective (CREDIT = cash IN), not strict double-entry.
+  //
+  // The new TB lays out the accounting identity directly:
+  //
+  //   DR: Outstanding Principal (gross) + Cash & Bank + Cumulative Expenses
+  //   CR: Investor Deposits + Interest Collected (Legal + Company)
+  //       + Processing Fees Earned + Opening Capital
+  //
+  // The DR principal is on the GROSS basis (loan.principal) so it lines
+  // up with the CR fee credit (gross − net retained at origination); see
+  // the worked-example proof in the comments below the memo.
+  //
+  // For an ideal series of postings the two columns tie out to ₹0; any
+  // residual surfaces in the "Out by ₹X" badge so the operator can chase
+  // the gap. Most often it traces to either an investor deposit whose
+  // matching cash inflow was never posted to the Daybook, or seeded /
+  // legacy Full Settlement entries that predate the legal/company
+  // portion split fields.
+  const settings = useSettings();
+  const trialBalance = useMemo(() => {
+    // ---- DR — Assets & Expenses ---------------------------------------
+
+    // Identify closed loans the same way the balance memo does: a "Full
+    // Settlement" entry's refId is "RCP-XXXXX • LOAN-ID". The loanId
+    // after the bullet is what we key on.
+    const closedLoanIds = new Set<string>();
+    for (const e of allEntries) {
+      if (e.category === "Full Settlement" && e.refId) {
+        const parts = e.refId.split("•").map((p) => p.trim());
+        const loanId = parts.length >= 2 ? parts[1] : parts[0];
+        if (loanId) closedLoanIds.add(loanId);
+      }
+    }
+    // Active loans by id for O(1) lookups inside the recovery loop.
+    const activeLoanById = new Map<string, (typeof allLoans)[number]>();
+    for (const l of allLoans) {
+      if (l.status !== "ACTIVE") continue;
+      if (closedLoanIds.has(l.id)) continue;
+      activeLoanById.set(l.id, l);
+    }
+
+    // Gross outstanding principal = Σ(loan.principal for active loans)
+    //   − Σ(Principal Recovery entries linked to those active loans).
+    // Using the gross stored principal is what makes the fee credit
+    // tie out: at origination DR_principal increases by `gross` while
+    // DR_cash decreases by `net` (net = gross − fee), so the total DR
+    // change is `+fee`, exactly matching the +fee on CR.
+    let drOutstandingPrincipal = 0;
+    for (const l of activeLoanById.values()) {
+      drOutstandingPrincipal += l.principal;
+    }
+    for (const e of allEntries) {
+      if (e.side !== "CREDIT") continue;
+      if (e.category !== "Principal Recovery") continue;
+      const parts = (e.refId ?? "").split("•").map((p) => p.trim());
+      const loanId = parts.length >= 2 ? parts[1] : parts[0];
+      if (!loanId) continue;
+      if (!activeLoanById.has(loanId)) continue;
+      drOutstandingPrincipal -= e.amount;
+    }
+    drOutstandingPrincipal = Math.max(0, drOutstandingPrincipal);
+
+    const drCashAndBank = accountsList.reduce(
+      (s, a) => s + (accountBalances[a.id] ?? 0),
+      0,
+    );
+
+    // Cumulative expense outflows (DEBIT entries categorised as opex /
+    // financing cost). Cash Movement and Internal Transfer are intra-book
+    // and net to ₹0 across the two legs, so they're excluded by design.
+    const expenseCategories = new Set([
+      "Branch Expense",
+      "Salary",
+      "Utilities",
+      "Interest Expense",
+      "Other Expense",
+    ]);
+    let drCumExpenses = 0;
+    for (const e of allEntries) {
+      if (e.side === "DEBIT" && expenseCategories.has(e.category)) {
+        drCumExpenses += e.amount;
+      }
+    }
+
+    // ---- CR — Liabilities, Income & Equity ----------------------------
+    const crInvestorDeposits = balance.totalLiabilities;
+    const crOpeningCapital = accountsList.reduce(
+      (s, a) => s + (a.openingBalance ?? 0),
+      0,
+    );
+
+    // Interest collected — split into Legal vs Company. When the entry
+    // carries the explicit portions (modern receipts), use them.
+    // Otherwise fall back to the global Legal % over the standard pawn
+    // book rate (30% p.a.) so legacy seed entries still produce a
+    // sensible split rather than the previous hard-coded 50/50.
+    const fallbackLegalShare = Math.min(
+      1,
+      Math.max(0, settings.globalLegalInterestRatePct / 30),
+    );
+    let crLegalInterest = 0;
+    let crCompanyInterest = 0;
+    for (const e of allEntries) {
+      if (e.side !== "CREDIT") continue;
+      if (
+        e.category === "Interest Income" ||
+        e.category === "EMI Received"
+      ) {
+        const lp = e.legalInterestPortion;
+        const cp = e.companyInterestPortion;
+        if (lp !== undefined && cp !== undefined) {
+          crLegalInterest += lp;
+          crCompanyInterest += cp;
+        } else {
+          // Legacy entry — apply the configured global Legal % as a
+          // ratio against the standard 30% p.a. pawn rate. Clamped to
+          // [0, 1] to handle pathological setups.
+          crLegalInterest += e.amount * fallbackLegalShare;
+          crCompanyInterest += e.amount * (1 - fallbackLegalShare);
+        }
+      } else if (e.category === "Full Settlement") {
+        // Full Settlement amount = principal + interest. Only the
+        // interest sub-amount is income; the principal sub-amount
+        // offsets the asset side (handled via the activeLoanById /
+        // closedLoanIds logic above).
+        const lp = e.legalInterestPortion ?? 0;
+        const cp = e.companyInterestPortion ?? 0;
+        crLegalInterest += lp;
+        crCompanyInterest += cp;
+        // Legacy seed Full Settlement entries lack portion fields, so
+        // their interest contribution is silently ₹0 here — that gap
+        // will surface in the "Out by" badge so the operator knows to
+        // re-issue the closure receipt or post a manual income entry.
+      }
+    }
+    const crInterestCollected = crLegalInterest + crCompanyInterest;
+
+    // Processing-fee income — implicit in the disbursement flow: we
+    // store loan.principal as the GROSS amount but post the net (after
+    // fee deduction) to the Daybook. Summed across ALL loans (active
+    // and closed) because once earned at origination, fee income stays
+    // on the books even after the loan is settled.
+    let crFeesEarned = 0;
+    const disbursementByRef = new Map<string, number>();
+    for (const e of allEntries) {
+      if (e.category === "Loan Disbursement" && e.side === "DEBIT") {
+        const ref = e.refId?.trim();
+        if (!ref) continue;
+        // First disbursement entry per loan id wins (defensive against
+        // duplicate postings — should never happen but guards the math).
+        if (!disbursementByRef.has(ref)) {
+          disbursementByRef.set(ref, e.amount);
+        }
+      }
+    }
+    for (const l of allLoans) {
+      const disbursed = disbursementByRef.get(l.id);
+      if (disbursed === undefined) continue;
+      const fee = l.principal - disbursed;
+      if (fee > 0) crFeesEarned += fee;
+    }
+
+    const drTotal =
+      drOutstandingPrincipal + drCashAndBank + drCumExpenses;
+    const crTotal =
+      crInvestorDeposits +
+      crInterestCollected +
+      crFeesEarned +
+      crOpeningCapital;
+
+    return {
+      // DR rows
+      drOutstandingPrincipal,
+      drCashAndBank,
+      drCumExpenses,
+      // CR rows
+      crInvestorDeposits,
+      crLegalInterest,
+      crCompanyInterest,
+      crInterestCollected,
+      crFeesEarned,
+      crOpeningCapital,
+      // Totals
+      drTotal,
+      crTotal,
+      // Signed gap — positive = debits exceed credits (asset overstated
+      // or income/liability understated); negative = the reverse.
+      outBy: drTotal - crTotal,
+    };
+  }, [
+    allEntries,
+    allLoans,
+    accountsList,
+    accountBalances,
+    balance,
+    settings.globalLegalInterestRatePct,
+  ]);
 
   // ---- Render -----------------------------------------------------------
   return (
@@ -742,36 +922,28 @@ export default function Financials() {
                     Trial Balance
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Live aggregation of every Daybook posting by category.
-                    Total Debits must equal Total Credits.
+                    Live balance-sheet view: Assets &amp; Expenses on the
+                    debit side, Liabilities, Income &amp; Equity on the
+                    credit side. The totals must tie.
                   </CardDescription>
                 </div>
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
                   style={{
                     backgroundColor:
-                      Math.abs(
-                        trialBalance.totalDebit - trialBalance.totalCredit,
-                      ) < 0.5
+                      Math.abs(trialBalance.outBy) < 0.5
                         ? "rgba(34,197,94,0.14)"
                         : "rgba(244,63,94,0.14)",
                     color:
-                      Math.abs(
-                        trialBalance.totalDebit - trialBalance.totalCredit,
-                      ) < 0.5
+                      Math.abs(trialBalance.outBy) < 0.5
                         ? "rgb(21,128,61)"
                         : "#be123c",
                   }}
+                  data-testid="badge-tb-status"
                 >
-                  {Math.abs(
-                    trialBalance.totalDebit - trialBalance.totalCredit,
-                  ) < 0.5
+                  {Math.abs(trialBalance.outBy) < 0.5
                     ? "Balanced"
-                    : `Out by ${inr(
-                        Math.abs(
-                          trialBalance.totalDebit - trialBalance.totalCredit,
-                        ),
-                      )}`}
+                    : `Out by ${inr(Math.abs(trialBalance.outBy))}`}
                 </span>
                 <Button
                   type="button"
@@ -785,21 +957,6 @@ export default function Financials() {
                   }}
                   onClick={() => {
                     const today = new Date().toISOString().slice(0, 10);
-                    const headers = [
-                      "Category",
-                      "Debit (INR)",
-                      "Credit (INR)",
-                    ];
-                    const dataRows = trialBalance.rows.map((r) => [
-                      r.category,
-                      num(r.debit),
-                      num(r.credit),
-                    ]);
-                    const totalRow = [
-                      "TOTAL",
-                      num(trialBalance.totalDebit),
-                      num(trialBalance.totalCredit),
-                    ];
                     exportXlsx(`kittangi-trial-balance-${today}.xlsx`, [
                       {
                         name: "Trial Balance",
@@ -807,11 +964,61 @@ export default function Financials() {
                           [`Kittangi OS — Trial Balance`],
                           [`Generated ${fmtDateXlsx(today)}`],
                           [],
-                          headers,
-                          ...dataRows,
-                          totalRow,
+                          ["Particulars", "Debit (INR)", "Credit (INR)"],
+                          ["— ASSETS & EXPENSES —", "", ""],
+                          [
+                            "Outstanding Loan Principal",
+                            num(trialBalance.drOutstandingPrincipal),
+                            "",
+                          ],
+                          [
+                            "Cash & Bank Account Balances",
+                            num(trialBalance.drCashAndBank),
+                            "",
+                          ],
+                          [
+                            "Cumulative Operating Expenses",
+                            num(trialBalance.drCumExpenses),
+                            "",
+                          ],
+                          ["— LIABILITIES, INCOME & EQUITY —", "", ""],
+                          [
+                            "Investor Deposits (Active)",
+                            "",
+                            num(trialBalance.crInvestorDeposits),
+                          ],
+                          [
+                            "Interest Collected — Legal Portion",
+                            "",
+                            num(trialBalance.crLegalInterest),
+                          ],
+                          [
+                            "Interest Collected — Company Portion",
+                            "",
+                            num(trialBalance.crCompanyInterest),
+                          ],
+                          [
+                            "Processing Fees Earned",
+                            "",
+                            num(trialBalance.crFeesEarned),
+                          ],
+                          [
+                            "Opening Capital",
+                            "",
+                            num(trialBalance.crOpeningCapital),
+                          ],
+                          [
+                            "TOTAL",
+                            num(trialBalance.drTotal),
+                            num(trialBalance.crTotal),
+                          ],
+                          [
+                            "Out by",
+                            "",
+                            num(Math.abs(trialBalance.outBy)),
+                          ],
                         ],
-                        colWidths: [32, 20, 20],
+                        colWidths: [40, 20, 20],
                       },
                     ]);
                     toast.success("Trial Balance exported", {
@@ -832,9 +1039,11 @@ export default function Financials() {
               >
                 <Table>
                   <TableHeader>
-                    <TableRow style={{ backgroundColor: "rgba(74,111,165,0.04)" }}>
+                    <TableRow
+                      style={{ backgroundColor: "rgba(74,111,165,0.04)" }}
+                    >
                       <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
-                        Category
+                        Particulars
                       </TableHead>
                       <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wider">
                         Debit (₹)
@@ -845,35 +1054,136 @@ export default function Financials() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {trialBalance.rows.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={3}
-                          className="py-6 text-center text-xs text-slate-500"
-                        >
-                          No Daybook entries yet.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      trialBalance.rows.map((r) => (
-                        <TableRow key={r.category}>
-                          <TableCell className="text-sm font-medium text-slate-800">
-                            {r.category}
-                          </TableCell>
-                          <TableCell className="text-right text-sm tabular-nums text-slate-700">
-                            {r.debit > 0 ? inr(r.debit) : "—"}
-                          </TableCell>
-                          <TableCell className="text-right text-sm tabular-nums text-slate-700">
-                            {r.credit > 0 ? inr(r.credit) : "—"}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
+                    {/* DR — Assets & Expenses */}
+                    <TableRow
+                      style={{ backgroundColor: "rgba(74,111,165,0.03)" }}
+                    >
+                      <TableCell
+                        colSpan={3}
+                        className="text-[11px] font-semibold uppercase tracking-wider"
+                        style={{ color: "var(--brand-primary)" }}
+                      >
+                        Assets &amp; Expenses
+                      </TableCell>
+                    </TableRow>
+                    <TableRow data-testid="row-tb-principal">
+                      <TableCell className="text-sm font-medium text-slate-800">
+                        Outstanding Loan Principal
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-700">
+                        {inr(trialBalance.drOutstandingPrincipal)}
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-400">
+                        —
+                      </TableCell>
+                    </TableRow>
+                    <TableRow data-testid="row-tb-accounts">
+                      <TableCell className="text-sm font-medium text-slate-800">
+                        Cash &amp; Bank Account Balances
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-700">
+                        {inr(trialBalance.drCashAndBank)}
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-400">
+                        —
+                      </TableCell>
+                    </TableRow>
+                    <TableRow data-testid="row-tb-expenses">
+                      <TableCell className="text-sm font-medium text-slate-800">
+                        Cumulative Operating Expenses
+                        <span className="ml-1 text-[10px] text-slate-500">
+                          (rent, salary, utilities, interest paid)
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-700">
+                        {inr(trialBalance.drCumExpenses)}
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-400">
+                        —
+                      </TableCell>
+                    </TableRow>
+
+                    {/* CR — Liabilities, Income & Equity */}
+                    <TableRow
+                      style={{ backgroundColor: "rgba(74,111,165,0.03)" }}
+                    >
+                      <TableCell
+                        colSpan={3}
+                        className="text-[11px] font-semibold uppercase tracking-wider"
+                        style={{ color: "var(--brand-primary)" }}
+                      >
+                        Liabilities, Income &amp; Equity
+                      </TableCell>
+                    </TableRow>
+                    <TableRow data-testid="row-tb-investors">
+                      <TableCell className="text-sm font-medium text-slate-800">
+                        Investor Deposits (Active)
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-400">
+                        —
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-700">
+                        {inr(trialBalance.crInvestorDeposits)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow data-testid="row-tb-legal">
+                      <TableCell className="text-sm font-medium text-slate-800 pl-6">
+                        Interest Collected &mdash; Legal Portion
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-400">
+                        —
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-700">
+                        {inr(trialBalance.crLegalInterest)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow data-testid="row-tb-company">
+                      <TableCell className="text-sm font-medium text-slate-800 pl-6">
+                        Interest Collected &mdash; Company Portion
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-400">
+                        —
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-700">
+                        {inr(trialBalance.crCompanyInterest)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow data-testid="row-tb-fees">
+                      <TableCell className="text-sm font-medium text-slate-800">
+                        Processing Fees Earned
+                        <span className="ml-1 text-[10px] text-slate-500">
+                          (gross principal − net disbursed)
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-400">
+                        —
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-700">
+                        {inr(trialBalance.crFeesEarned)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow data-testid="row-tb-opening">
+                      <TableCell className="text-sm font-medium text-slate-800">
+                        Opening Capital
+                        <span className="ml-1 text-[10px] text-slate-500">
+                          (sum of account opening balances)
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-400">
+                        —
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums text-slate-700">
+                        {inr(trialBalance.crOpeningCapital)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Totals */}
                     <TableRow
                       style={{
                         backgroundColor: "rgba(74,111,165,0.06)",
                         fontWeight: 600,
                       }}
+                      data-testid="row-tb-total"
                     >
                       <TableCell
                         className="text-sm uppercase tracking-wide"
@@ -885,18 +1195,27 @@ export default function Financials() {
                         className="text-right text-sm tabular-nums"
                         style={{ color: "var(--brand-primary)" }}
                       >
-                        {inr(trialBalance.totalDebit)}
+                        {inr(trialBalance.drTotal)}
                       </TableCell>
                       <TableCell
                         className="text-right text-sm tabular-nums"
                         style={{ color: "var(--brand-primary)" }}
                       >
-                        {inr(trialBalance.totalCredit)}
+                        {inr(trialBalance.crTotal)}
                       </TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
               </div>
+              {Math.abs(trialBalance.outBy) >= 0.5 && (
+                <p className="mt-3 text-[11px] leading-snug text-slate-500">
+                  Most common cause of a non-zero gap: investor deposits
+                  whose corresponding cash inflow wasn&apos;t posted to the
+                  Daybook. Post a CREDIT entry under category &quot;Other
+                  Income&quot; (or via the dedicated capital-inflow flow)
+                  to the receiving account so the books reconcile.
+                </p>
+              )}
             </CardContent>
           </Card>
 

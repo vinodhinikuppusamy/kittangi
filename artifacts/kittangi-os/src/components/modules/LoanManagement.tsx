@@ -211,7 +211,7 @@ export default function LoanManagement() {
           onClick={() => setDocDialogOpen(true)}
         >
           <FileSignature size={16} className="mr-2" />
-          Document Loan
+          New Loan
         </Button>
       </div>
 
