@@ -11,6 +11,27 @@ I prefer clear and concise communication. When making changes, prioritize iterat
 ### Monorepo Structure
 The project is organized as a pnpm workspace monorepo containing a React + Vite frontend application (`artifacts/kittangi-os`), an Express API server (`artifacts/api-server`), and a UI design sandbox (`artifacts/mockup-sandbox`).
 
+### Interest Engine & Processing Fee (Apr 2026)
+A shared interest engine (`src/lib/interest.ts`) is now the single source of
+truth for accrued interest. Pricing rule: the first 30 days always charge a
+full month of interest (the "minimum month" floor); days beyond 30 accrue
+per-day at the daily-equivalent rate (`monthly / 30`). For ₹1,00,000 @ 30%
+p.a. that is ₹2,500 at day 30 and ₹3,750 at day 45. The engine drives the
+Outstanding Dues panel (Receipts Ledger), the Final Settlement dialog (Loan
+Lifecycle), the new "Accrued Interest" column in Loan Management, and the
+Balance Sheet's accrued-interest asset line (Financials) — the seeded
+`loan.accruedInterest` field is now legacy. A status-aware wrapper
+(`accruedInterestForLoan`) freezes accrual at `loan.closedAtIso` once a
+loan transitions out of ACTIVE, and returns ₹0 for legacy closed loans
+that predate the closure-timestamp field. `closeLoanWithSettlement` /
+`markLoanForAuction` stamp `closedAtIso` automatically on transition. Origination forms (Pawn
+& Vehicle) no longer collect a manual processing fee; both auto-derive it
+from `Settings → Rates & Fees → Processing Fee per ₹1,000` (default ₹15/₹1k
+⇒ ₹1,500 on a ₹1L loan). The split-interest helper (`splitInterest`)
+continues to allocate Legal vs Company portions; updated defaults are
+pawn rate 2.5%/m (30% p.a.) and legal component 18% p.a. so the standard
+pawn loan splits as 1.5%/m Legal + 1.0%/m Company.
+
 ### Frontend (Kittangi OS Frontend)
 The frontend is built with React 18, Vite, TypeScript 5.9, Tailwind CSS v4, and shadcn/ui. It uses a consistent brand color palette defined with CSS variables. The layout includes a fixed header and a sidebar with an App Switcher for navigating between PAWN, VEHICLE, CAPITAL, and ADMINISTRATION verticals. Routing is handled by `react-router-dom v6`. Client-side data persistence uses `localStorage` for various stores like customers, pledged items, loans, and accounts. Key features include photo capture using `getUserMedia`, a flexible print pipeline for thermal receipts and A4 statements, and a shared `DocumentViewer` for loan agreements. The system includes a comprehensive loan management lifecycle, reporting capabilities with CSV/Excel export, daybook entries for expenses and internal transfers, atomic vehicle disbursement, and strict loan closure logic. It supports document loans, vault packet QR code generation for pawn origination, and storage of legal documents for vehicle loans. Financials include Trial Balance, Yearly Balance Sheet, and a "Print Chitta" feature for daybook summaries. Global settings allow for manual interest splitting, and a robust authentication system with role-based access control (RBAC) is implemented, supporting Admin and Staff roles. The system also features part release/renew functionality for pawn items and a system reset option for development.
 

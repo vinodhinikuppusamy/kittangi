@@ -52,6 +52,7 @@ import {
   logActivity,
 } from "@/lib/stores/activityLogStore";
 import { useSettings } from "@/lib/stores/settingsStore";
+import { computeProcessingFee } from "@/lib/interest";
 import { useCustomers } from "@/lib/stores/customersStore";
 import {
   addDaybookEntry,
@@ -73,7 +74,8 @@ type PawnFormValues = {
   marketRate: string;
   lendingRate: string;
   requestedLoanAmount: string;
-  chitExpense: string;
+  // Processing fee is no longer captured here — it is auto-derived from
+  // Settings → Rates & Fees → Processing Fee per ₹1,000 at submit time.
   /** Account id (from accountsStore) the disbursement is paid out from. */
   paymentSource: string;
   /** Annual interest rate captured at origination. */
@@ -179,7 +181,6 @@ export default function PawnOrigination() {
       marketRate: "6450",
       lendingRate: "5200",
       requestedLoanAmount: "",
-      chitExpense: "250",
       paymentSource: "",
       // Pulled from the Global Settings store so a Settings → Rates change
       // flows directly into new originations without per-form drift.
@@ -233,11 +234,16 @@ export default function PawnOrigination() {
   const lendingRate = parseFloat(values.lendingRate || "0");
   const marketRate = parseFloat(values.marketRate || "0");
   const requested = parseFloat(values.requestedLoanAmount || "0");
-  const chit = parseFloat(values.chitExpense || "0");
+  // Auto-derived processing fee — Settings → Rates & Fees is the single
+  // source of truth for the per-₹1,000 slab.
+  const processingFee = computeProcessingFee({
+    loanAmount: requested,
+    feePerThousand: settings.processingFeePer1000,
+  });
 
   const maxLoanValue = Math.max(0, netWeight * lendingRate);
   const marketValue = Math.max(0, netWeight * marketRate);
-  const netDisbursement = Math.max(0, requested - chit);
+  const netDisbursement = Math.max(0, requested - processingFee);
   const exceedsMax = requested > maxLoanValue && requested > 0;
 
   const onSubmit = (data: PawnFormValues) => {
@@ -895,25 +901,25 @@ export default function PawnOrigination() {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-slate-600">
-                      Chit Expense / Processing Fee
+                      Processing Fee (auto)
                     </Label>
-                    <div className="relative">
-                      <IndianRupee
-                        size={14}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                      />
-                      <Input
-                        type="number"
-                        step="1"
-                        min="0"
-                        placeholder="0"
-                        className="h-10 bg-white pl-8"
-                        style={inputBaseStyle}
-                        {...register("chitExpense")}
-                      />
+                    <div
+                      className="flex h-10 items-center justify-between rounded-md border bg-slate-50 px-3"
+                      style={{ borderColor: "rgba(74,111,165,0.20)" }}
+                    >
+                      <span className="text-xs text-slate-500">
+                        ₹{settings.processingFeePer1000} × (Loan ÷ 1,000)
+                      </span>
+                      <span
+                        className="text-sm font-semibold"
+                        style={{ color: "var(--brand-primary)" }}
+                      >
+                        {inr(processingFee)}
+                      </span>
                     </div>
                     <p className="text-[11px] text-slate-500">
-                      Deducted from the requested amount at disbursement.
+                      Auto-computed from Settings → Rates &amp; Fees. Deducted
+                      from disbursement.
                     </p>
                   </div>
                 </div>
@@ -1005,7 +1011,7 @@ export default function PawnOrigination() {
                         Net Disbursement Amount
                       </div>
                       <div className="mt-0.5 text-[11px] text-slate-500">
-                        Requested − Chit Expense
+                        Requested − Processing Fee
                       </div>
                     </div>
                     <div

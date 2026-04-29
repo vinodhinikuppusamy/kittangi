@@ -17,8 +17,19 @@ export type GlobalSettings = {
   vehicleRatePctPerAnnum: number;
   /** Penalty / overdue rate applied on missed instalments, % per month. */
   penaltyRatePctPerMonth: number;
-  /** Flat processing fee charged at origination (₹). */
+  /**
+   * Legacy flat processing fee (₹). Kept for backward-compatibility with
+   * persisted Settings blobs from earlier builds; no live surface reads it
+   * anymore — origination forms now derive the fee from
+   * `processingFeePer1000` (per-₹1,000 slab pricing).
+   */
   processingFeeFlat: number;
+  /**
+   * Processing fee charged per ₹1,000 of loan principal at origination.
+   * Pawn + Vehicle origination forms multiply this by the requested loan
+   * amount to auto-compute the fee — there is no per-loan override field.
+   */
+  processingFeePer1000: number;
   /**
    * Default Legal Interest component — % per annum that is allocated to the
    * legal-rate book of accounts when an interest receipt is posted. Per-loan
@@ -31,17 +42,37 @@ export type GlobalSettings = {
 const STORAGE_KEY = "kittangi:settings:v1";
 
 const DEFAULT_SETTINGS: GlobalSettings = {
-  pawnRatePctPerMonth: 1.5,
+  pawnRatePctPerMonth: 2.5,
   vehicleRatePctPerAnnum: 11.25,
   penaltyRatePctPerMonth: 2.0,
   processingFeeFlat: 500,
-  globalLegalInterestRatePct: 12,
+  processingFeePer1000: 15,
+  globalLegalInterestRatePct: 18,
 };
 
 const settingsStore = createPersistentStore<GlobalSettings>(
   STORAGE_KEY,
   DEFAULT_SETTINGS,
 );
+
+/**
+ * One-time forward migration. When the persisted settings blob is missing
+ * any field that the current `GlobalSettings` shape requires (e.g. the
+ * `processingFeePer1000` slab introduced April 2026), back-fill with the
+ * default and rewrite the store so every downstream reader gets a stable
+ * object reference. Doing this at module-load — instead of wrapping every
+ * read — avoids a `useSyncExternalStore` infinite-render loop, since
+ * returning a fresh `{...defaults, ...current}` from the snapshot would
+ * make React think the value changed on every commit.
+ */
+(function backfillMissingSettingsFields(): void {
+  const current = settingsStore.get() as Partial<GlobalSettings>;
+  const required = Object.keys(DEFAULT_SETTINGS) as Array<keyof GlobalSettings>;
+  const missing = required.some((k) => current[k] === undefined);
+  if (missing) {
+    settingsStore.set({ ...DEFAULT_SETTINGS, ...current } as GlobalSettings);
+  }
+})();
 
 export function useSettings(): GlobalSettings {
   return usePersistentStore(settingsStore);

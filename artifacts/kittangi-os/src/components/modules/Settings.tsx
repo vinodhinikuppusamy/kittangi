@@ -113,7 +113,8 @@ type RatesForm = {
   pawnRate: string;
   vehicleRate: string;
   penaltyRate: string;
-  processingFee: string;
+  /** Per-₹1,000 processing fee charged at origination (replaces legacy flat). */
+  processingFeePer1000: string;
   /** % per annum that lands in the legal-rate ledger on every interest receipt. */
   legalInterestRate: string;
 };
@@ -1344,7 +1345,7 @@ function RatesAndFeesTab() {
       pawnRate: settings.pawnRatePctPerMonth.toFixed(2),
       vehicleRate: settings.vehicleRatePctPerAnnum.toFixed(2),
       penaltyRate: settings.penaltyRatePctPerMonth.toFixed(2),
-      processingFee: String(settings.processingFeeFlat),
+      processingFeePer1000: String(settings.processingFeePer1000),
       legalInterestRate: settings.globalLegalInterestRatePct.toFixed(2),
     },
   });
@@ -1357,7 +1358,7 @@ function RatesAndFeesTab() {
       pawnRate: settings.pawnRatePctPerMonth.toFixed(2),
       vehicleRate: settings.vehicleRatePctPerAnnum.toFixed(2),
       penaltyRate: settings.penaltyRatePctPerMonth.toFixed(2),
-      processingFee: String(settings.processingFeeFlat),
+      processingFeePer1000: String(settings.processingFeePer1000),
       legalInterestRate: settings.globalLegalInterestRatePct.toFixed(2),
     });
   }, [settings, reset]);
@@ -1367,13 +1368,13 @@ function RatesAndFeesTab() {
       pawnRatePctPerMonth: parseFloat(data.pawnRate || "0") || 0,
       vehicleRatePctPerAnnum: parseFloat(data.vehicleRate || "0") || 0,
       penaltyRatePctPerMonth: parseFloat(data.penaltyRate || "0") || 0,
-      processingFeeFlat: parseInt(data.processingFee || "0", 10) || 0,
+      processingFeePer1000: parseInt(data.processingFeePer1000 || "0", 10) || 0,
       globalLegalInterestRatePct:
         parseFloat(data.legalInterestRate || "0") || 0,
     });
     toast.success("Global rates updated", {
       icon: <CheckCircle2 className="h-4 w-4" />,
-      description: `Pawn ${data.pawnRate}% · Vehicle ${data.vehicleRate}% · Legal ${data.legalInterestRate}% · Fee ₹${data.processingFee}`,
+      description: `Pawn ${data.pawnRate}% · Vehicle ${data.vehicleRate}% · Legal ${data.legalInterestRate}% · Fee ₹${data.processingFeePer1000}/₹1k`,
     });
   };
 
@@ -1453,19 +1454,23 @@ function RatesAndFeesTab() {
             </FieldGroup>
 
             <FieldGroup
-              label="Standard Processing Fee (₹)"
-              htmlFor="processingFee"
-              error={errors.processingFee?.message}
+              label="Processing Fee (per ₹1,000)"
+              htmlFor="processingFeePer1000"
+              error={errors.processingFeePer1000?.message}
             >
               <RateInput
-                id="processingFee"
+                id="processingFeePer1000"
                 prefix="₹"
-                placeholder="500"
-                {...register("processingFee", {
+                placeholder="15"
+                {...register("processingFeePer1000", {
                   required: "Required",
                   pattern: { value: /^\d+$/, message: "Enter a whole rupee amount" },
                 })}
               />
+              <p className="mt-1 text-[11px] text-slate-500">
+                Auto-applied at origination — e.g. ₹15/₹1,000 charges ₹1,500
+                on a ₹1,00,000 loan.
+              </p>
             </FieldGroup>
 
             <FieldGroup

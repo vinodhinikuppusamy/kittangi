@@ -67,6 +67,7 @@ import {
   useLoans,
   type Loan,
 } from "@/lib/stores/loansStore";
+import { accruedInterestForLoan } from "@/lib/interest";
 import {
   addDaybookEntry,
   DayLockedError,
@@ -177,8 +178,11 @@ export default function LoanLifecycle() {
   // Live outstanding balance for the loan: principal + accrued interest, less
   // anything already collected against it (sum of CREDIT entries linked by
   // refId). Drives the Final Settlement dialog's split + the gating that
-  // prevents flipping status unless the balance is exactly ₹0.
-  const grossDue = (loan?.principal ?? 0) + (loan?.accruedInterest ?? 0);
+  // prevents flipping status unless the balance is exactly ₹0. Interest is
+  // computed live from the floor + pro-rata engine so the dialog always
+  // reflects "as-of-today" dues — matching what the Receipts cashier sees.
+  const liveAccruedInterest = loan ? accruedInterestForLoan(loan) : 0;
+  const grossDue = (loan?.principal ?? 0) + liveAccruedInterest;
   const outstandingBalance = Math.max(0, grossDue - totalCollected);
 
   // When the dialog opens, prefill the amount with the full outstanding and
@@ -665,7 +669,7 @@ export default function LoanLifecycle() {
               <div className="text-right font-mono">{inr(loan.principal)}</div>
               <div className="text-slate-600">Accrued Interest</div>
               <div className="text-right font-mono">
-                {inr(loan.accruedInterest ?? 0)}
+                {inr(liveAccruedInterest)}
               </div>
               <div className="text-slate-600">Already Collected</div>
               <div className="text-right font-mono text-emerald-700">

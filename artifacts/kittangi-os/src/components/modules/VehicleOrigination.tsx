@@ -70,6 +70,7 @@ import {
 import { isDateLocked } from "@/lib/stores/dayLocksStore";
 import { useAccounts } from "@/lib/stores/accountsStore";
 import { useSettings } from "@/lib/stores/settingsStore";
+import { computeProcessingFee } from "@/lib/interest";
 
 type VehicleType = "TWO_WHEELER" | "FOUR_WHEELER" | "COMMERCIAL";
 
@@ -83,7 +84,8 @@ type VehicleForm = {
   chassisNumber: string;
   marketValue: string;
   loanAmount: string;
-  rtoFee: string;
+  // Processing fee is no longer captured manually — it is auto-derived from
+  // Settings → Rates & Fees → Processing Fee per ₹1,000 at submit time.
   docCharges: string;
   ratePctPerAnnum: string;
   legalInterestPct: string;
@@ -193,7 +195,6 @@ export default function VehicleOrigination() {
       chassisNumber: "",
       marketValue: "",
       loanAmount: "",
-      rtoFee: "",
       docCharges: "",
       ratePctPerAnnum: String(settings.vehicleRatePctPerAnnum),
       legalInterestPct: String(settings.globalLegalInterestRatePct),
@@ -276,7 +277,12 @@ export default function VehicleOrigination() {
 
   const marketValue = toNum(values.marketValue);
   const loanAmount = toNum(values.loanAmount);
-  const rtoFee = toNum(values.rtoFee);
+  // Auto-derived processing fee — Settings → Rates & Fees is the single
+  // source of truth for the per-₹1,000 slab.
+  const rtoFee = computeProcessingFee({
+    loanAmount,
+    feePerThousand: settings.processingFeePer1000,
+  });
   const docCharges = toNum(values.docCharges);
   const tenureMonths = toNum(values.tenureMonths);
   const startIso = todayIso();
@@ -315,8 +321,8 @@ export default function VehicleOrigination() {
       toast.error("Loan amount cannot exceed market value (LTV > 100%).");
       return;
     }
-    if (rtoFee < 0 || docCharges < 0) {
-      toast.error("RTO fee and documentation charges cannot be negative.");
+    if (docCharges < 0) {
+      toast.error("Documentation charges cannot be negative.");
       return;
     }
     if (loanAmount - rtoFee - docCharges <= 0) {
@@ -818,15 +824,26 @@ export default function VehicleOrigination() {
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Field
-                    label="RTO / Processing Fee (₹)"
-                    htmlFor="rtoFee"
-                    error={errors.rtoFee?.message}
+                    label="Processing Fee (auto)"
+                    htmlFor="processingFeeAuto"
                   >
-                    <RupeeInput
-                      id="rtoFee"
-                      placeholder="e.g., 7,500"
-                      {...register("rtoFee")}
-                    />
+                    <div
+                      className="flex h-10 items-center justify-between rounded-md border bg-slate-50 px-3"
+                      style={{ borderColor: "rgba(74,111,165,0.20)" }}
+                    >
+                      <span className="text-xs text-slate-500">
+                        ₹{settings.processingFeePer1000} × (Loan ÷ 1,000)
+                      </span>
+                      <span
+                        className="text-sm font-semibold"
+                        style={{ color: "var(--brand-primary)" }}
+                      >
+                        {inr(rtoFee)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      From Settings → Rates &amp; Fees.
+                    </p>
                   </Field>
 
                   <Field
@@ -866,7 +883,7 @@ export default function VehicleOrigination() {
                         {inr(netDisbursement)}
                       </p>
                       <p className="mt-1 text-[11px] text-slate-500">
-                        Loan Amount − RTO Fee − Documentation Charges
+                        Loan Amount − Processing Fee − Documentation Charges
                       </p>
                     </div>
 
@@ -1343,7 +1360,7 @@ function BreakdownPill({
         <span className="font-semibold text-slate-700">{inr(loanAmount)}</span>
       </div>
       <div className="flex items-center justify-between gap-4">
-        <span className="text-slate-500">− RTO Fee</span>
+        <span className="text-slate-500">− Processing Fee</span>
         <span className="font-semibold text-slate-700">{inr(rtoFee)}</span>
       </div>
       <div className="flex items-center justify-between gap-4">

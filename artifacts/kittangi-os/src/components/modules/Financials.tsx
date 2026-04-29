@@ -50,6 +50,7 @@ import {
   useAllAccountBalances,
 } from "@/lib/stores/accountsStore";
 import { useLoans } from "@/lib/stores/loansStore";
+import { accruedInterestForLoan } from "@/lib/interest";
 
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -478,9 +479,15 @@ export default function Financials() {
     const bankBalances = accountsList
       .filter((a) => a.type !== "CASH")
       .reduce((s, a) => s + (accountBalances[a.id] ?? 0), 0);
-    const accruedInterest = allLoans
-      .filter((l) => l.status === "ACTIVE")
-      .reduce((s, l) => s + (l.accruedInterest ?? 0), 0);
+    // Asset = unbilled interest on still-open principal. We use the live
+    // engine (floor + per-day pro-rata) instead of the legacy
+    // `loan.accruedInterest` snapshot so the Balance Sheet matches what the
+    // Receipts cashier and Loan Management table show today. The helper
+    // already returns 0 for non-ACTIVE loans, so no extra filter is needed.
+    const accruedInterest = allLoans.reduce(
+      (s, l) => s + accruedInterestForLoan(l),
+      0,
+    );
 
     const totalAssets =
       cashOnHand + bankBalances + balance.activePrincipal + accruedInterest;

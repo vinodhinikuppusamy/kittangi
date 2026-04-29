@@ -54,6 +54,13 @@ export type Loan = {
   /** ISO date when the loan matures (principal becomes due). */
   maturityIso?: string;
   status: LoanStatus;
+  /**
+   * Set when the loan transitions out of ACTIVE (full settlement or auction).
+   * Acts as the freeze date for the live interest engine — `accruedInterestForLoan`
+   * stops accruing once this is populated, so closed loans don't keep ticking
+   * up in Loan Management / Loan Lifecycle / Balance Sheet.
+   */
+  closedAtIso?: string;
   /** Account id (from accountsStore) the disbursement was paid from. */
   disbursedFromAccountId?: string;
   /** Pledged item id linking to pledgedItemsStore (Pawn loans only). */
@@ -261,7 +268,10 @@ export function wipeLoans(): void {
 export function closeLoanWithSettlement(loanId: string): void {
   const loan = loansStore.get().find((l) => l.id === loanId);
   if (!loan) return;
-  updateLoan(loanId, { status: "CLOSED" });
+  updateLoan(loanId, {
+    status: "CLOSED",
+    closedAtIso: loan.closedAtIso ?? new Date().toISOString(),
+  });
   if (loan.pledgedItemId) {
     updatePledgedItem(loan.pledgedItemId, {
       status: "RELEASED",
@@ -278,7 +288,10 @@ export function closeLoanWithSettlement(loanId: string): void {
 export function markLoanForAuction(loanId: string): void {
   const loan = loansStore.get().find((l) => l.id === loanId);
   if (!loan) return;
-  updateLoan(loanId, { status: "AUCTION" });
+  updateLoan(loanId, {
+    status: "AUCTION",
+    closedAtIso: loan.closedAtIso ?? new Date().toISOString(),
+  });
   if (loan.pledgedItemId) {
     updatePledgedItem(loan.pledgedItemId, { status: "AUCTION" });
   }

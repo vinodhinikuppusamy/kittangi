@@ -64,6 +64,7 @@ import {
 import { isDateLocked } from "@/lib/stores/dayLocksStore";
 import { useAccounts, getAccount } from "@/lib/stores/accountsStore";
 import { useLoans } from "@/lib/stores/loansStore";
+import { accruedInterestFor, accruedInterestForLoan } from "@/lib/interest";
 import { useIsAdmin } from "@/lib/stores/userRoleStore";
 import { splitInterest, useSettings } from "@/lib/stores/settingsStore";
 
@@ -268,7 +269,10 @@ export default function ReceiptsLedger() {
   }, [loanQuery, activeLoans]);
 
   const principal = selectedLoan?.principal ?? 0;
-  const interest = selectedLoan?.accruedInterest ?? 0;
+  // Live accrued interest using the floor + pro-rata engine. The first
+  // 30 days of a loan always charge a full month of interest; after that,
+  // interest accrues per day at the daily-equivalent rate.
+  const interest = selectedLoan ? accruedInterestForLoan(selectedLoan) : 0;
   const totalDue = principal + interest;
 
   // ---------------------------------------------------------------------------
@@ -348,7 +352,18 @@ export default function ReceiptsLedger() {
     // time the receipt was generated equals what was owed in interest).
     if (fullEntry) {
       const loan = allLoans.find((l) => l.id === row.loanId);
-      const accrued = loan?.accruedInterest ?? 0;
+      // Reconstruct the interest slice using the same live engine the
+      // cashier sees so re-prints stay consistent with the dues panel.
+      const accrued = loan
+        ? accruedInterestFor(
+            {
+              principal: loan.principal,
+              ratePctPerAnnum: loan.ratePctPerAnnum,
+              startedAtIso: loan.startedAtIso,
+            },
+            fullEntry.dateIso,
+          )
+        : 0;
       interestPortion = Math.min(accrued, fullEntry.amount);
       principalPortion = fullEntry.amount - interestPortion;
     }

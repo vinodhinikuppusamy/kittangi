@@ -36,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useLoans, type Loan, type LoanStatus } from "@/lib/stores/loansStore";
+import { accruedInterestForLoan } from "@/lib/interest";
 import { useAccounts } from "@/lib/stores/accountsStore";
 import { useSettings } from "@/lib/stores/settingsStore";
 import DocumentLoanDialog from "./DocumentLoanDialog";
@@ -333,6 +334,9 @@ export default function LoanManagement() {
                   <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wider">
                     Principal
                   </TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wider">
+                    Accrued Interest
+                  </TableHead>
                   <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
                     Rate
                   </TableHead>
@@ -354,7 +358,7 @@ export default function LoanManagement() {
                 {filteredLoans.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={9}
+                      colSpan={10}
                       className="h-24 text-center text-sm text-slate-500"
                     >
                       No loans match the selected filters.
@@ -384,6 +388,9 @@ export default function LoanManagement() {
                       <TableCell>{productBadge(l.product)}</TableCell>
                       <TableCell className="text-right text-sm font-semibold text-slate-800">
                         {inr(l.principal)}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-mono text-slate-700">
+                        {inr(accruedInterestForLoan(l))}
                       </TableCell>
                       <TableCell className="text-xs text-slate-600">
                         {rateLabel(
