@@ -5,12 +5,12 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Brand palette (Yugam-style) */
-  --bg-main: #E9F4FB;
+  /* Brand palette */
+  --bg-main: #FFF5F5;
   --sidebar-bg: #FFFFFF;
-  --brand-primary: #4A6FA5;
-  --brand-accent: #89CFF0;
-  --brand-light: #BFDDF5;
+  --brand-primary: #ff3a4c;
+  --brand-accent: #ff8a95;
+  --brand-light: #ffd0d4;
   --text-main: #030213;
   --text-muted: #64748B;
 

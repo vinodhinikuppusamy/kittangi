@@ -149,7 +149,7 @@ export default function DocumentLoanDialog({
 
   const companyRate = Math.max(0, rate - Math.min(rate, legalRate));
 
-  // Hard limits to keep the loan record from blowing past localStorage's
+  // Hard limits to keep the loan record payload bounded for API safety.
   // ~5 MB-per-origin quota — base64 inflates payload by ~33%, so we cap
   // both per-file and aggregate sizes (and a sensible max file count).
   const MAX_FILE_BYTES = 4 * 1024 * 1024;

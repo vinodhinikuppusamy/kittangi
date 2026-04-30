@@ -229,6 +229,7 @@ export function getLoan(id: string): Loan | undefined {
 
 export function addLoan(draft: Loan): Loan {
   loansStore.set((prev) => [draft, ...prev]);
+  void import("@/lib/stores/apiSync").then(({ apiCreate }) => apiCreate("/loans", draft));
   return draft;
 }
 
@@ -236,10 +237,12 @@ export function updateLoan(id: string, patch: Partial<Loan>): void {
   loansStore.set((prev) =>
     prev.map((l) => (l.id === id ? { ...l, ...patch, id: l.id } : l)),
   );
+  void import("@/lib/stores/apiSync").then(({ apiUpdate }) => apiUpdate("/loans", id, patch));
 }
 
 export function deleteLoan(id: string): void {
   loansStore.set((prev) => prev.filter((l) => l.id !== id));
+  void import("@/lib/stores/apiSync").then(({ apiDelete }) => apiDelete("/loans", id));
 }
 
 export function resetLoans(): void {

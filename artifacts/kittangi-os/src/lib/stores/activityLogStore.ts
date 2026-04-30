@@ -2,9 +2,7 @@ import {
   createPersistentStore,
   usePersistentStore,
 } from "@/lib/stores/persistentStore";
-import { getUser } from "@/lib/stores/usersStore";
-
-const SESSION_KEY = "kittangi:session:v1";
+import { getCurrentAuthUser } from "@/lib/auth/AuthContext";
 
 /**
  * Activity Log — a small, capped, persistent ring buffer of recent user
@@ -21,7 +19,7 @@ const SESSION_KEY = "kittangi:session:v1";
  *   - `link` is an optional in-app path (e.g. `/loans/PWN-204512`) so the
  *     widget can offer a "View" deep-link.
  *
- * The store is capped at MAX_ENTRIES so localStorage doesn't grow without
+ * The store is capped at MAX_ENTRIES so UI memory doesn't grow without
  * bound; the Dashboard widget only ever shows the latest 5.
  */
 
@@ -75,17 +73,8 @@ export function useActivityLog(): ActivityEntry[] {
  * in the usersStore. Falls back to "system" so log calls never throw.
  */
 export function getCurrentActor(): string {
-  if (typeof window === "undefined") return "system";
-  try {
-    const raw = window.localStorage.getItem(SESSION_KEY);
-    if (!raw) return "system";
-    const id = JSON.parse(raw) as string;
-    if (!id) return "system";
-    const user = getUser(id);
-    return user?.username ?? "system";
-  } catch {
-    return "system";
-  }
+  const user = getCurrentAuthUser();
+  return user?.username ?? "system";
 }
 
 export function logActivity(args: {
@@ -106,6 +95,7 @@ export function logActivity(args: {
     const next = [created, ...prev];
     return next.length > MAX_ENTRIES ? next.slice(0, MAX_ENTRIES) : next;
   });
+  void import("@/lib/stores/apiSync").then(({ apiCreate }) => apiCreate("/activity-log", created));
   return created;
 }
 

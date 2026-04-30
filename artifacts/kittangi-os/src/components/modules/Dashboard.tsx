@@ -106,8 +106,11 @@ const ACTIVITY_ICON: Record<
 };
 
 export default function Dashboard() {
-  const ctx = useOutletContext<{ activeVertical: Vertical } | undefined>();
+  const ctx = useOutletContext<
+    { activeVertical: Vertical; setActiveVertical?: (next: Vertical) => void } | undefined
+  >();
   const vertical: Vertical = ctx?.activeVertical ?? "PAWN";
+  const setActiveVertical = ctx?.setActiveVertical;
   const isPawn = vertical === "PAWN";
 
   const loans = useLoans();
@@ -269,11 +272,21 @@ export default function Dashboard() {
         <div
           className="flex items-center gap-2 rounded-xl border bg-white p-1 text-sm shadow-sm"
           style={{ borderColor: "rgba(74,111,165,0.18)" }}
-          role="status"
-          aria-label="Active vertical"
+          role="group"
+          aria-label="Switch vertical"
         >
-          <VerticalPill active={isPawn} icon={Landmark} label="Pawn Broking" />
-          <VerticalPill active={!isPawn} icon={Car} label="Vehicle Finance" />
+          <VerticalPill
+            active={isPawn}
+            icon={Landmark}
+            label="Pawn Broking"
+            onClick={() => setActiveVertical?.("PAWN")}
+          />
+          <VerticalPill
+            active={!isPawn}
+            icon={Car}
+            label="Vehicle Finance"
+            onClick={() => setActiveVertical?.("VEHICLE")}
+          />
         </div>
       </div>
 
@@ -640,13 +653,18 @@ function VerticalPill({
   active,
   icon: Icon,
   label,
+  onClick,
 }: {
   active: boolean;
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   label: string;
+  onClick?: () => void;
 }) {
   return (
-    <span
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
       className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
         active ? "" : "text-slate-500"
       }`}
@@ -658,7 +676,7 @@ function VerticalPill({
     >
       <Icon className="h-3.5 w-3.5" />
       {label}
-    </span>
+    </button>
   );
 }
 

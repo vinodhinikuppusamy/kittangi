@@ -10,8 +10,8 @@ import {
  * Settings → User Management → Admin Mode switch can flip it to STAFF to
  * exercise the restricted experience.
  *
- * NOTE: Earlier builds persisted the value "CASHIER" — we coerce that to
- * "STAFF" on first read so users with stale localStorage don't get stuck.
+ * NOTE: Earlier builds persisted the value "CASHIER" — we still coerce that to
+ * "STAFF" for compatibility when legacy values are encountered.
  */
 
 export type UserRole = "ADMIN" | "STAFF";

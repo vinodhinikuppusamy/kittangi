@@ -34,7 +34,7 @@ const STORAGE_KEY = "kittangi:accounts:v1";
 //
 // IMPORTANT: The seed account ids ("CASH", "HDFC", "SBI") match the
 // literal strings written into the existing Daybook seed (and into
-// localStorage on returning devices) so balance computations work
+// hydrated datasets from returning devices) so balance computations work
 // correctly out of the box without any data migration.
 // ---------------------------------------------------------------------------
 
@@ -103,6 +103,7 @@ export function addAccount(
     id: draft.id ?? nextAccountId(accountsStore.get()),
   };
   accountsStore.set((prev) => [...prev, created]);
+  void import("@/lib/stores/apiSync").then(({ apiCreate }) => apiCreate("/accounts", { ...created, openedAtIso: created.openedAtIso ?? new Date().toISOString() }));
   return created;
 }
 
@@ -110,10 +111,12 @@ export function updateAccount(id: string, patch: Partial<Account>): void {
   accountsStore.set((prev) =>
     prev.map((a) => (a.id === id ? { ...a, ...patch, id: a.id } : a)),
   );
+  void import("@/lib/stores/apiSync").then(({ apiUpdate }) => apiUpdate("/accounts", id, patch));
 }
 
 export function deleteAccount(id: string): void {
   accountsStore.set((prev) => prev.filter((a) => a.id !== id));
+  void import("@/lib/stores/apiSync").then(({ apiDelete }) => apiDelete("/accounts", id));
 }
 
 export function resetAccounts(): void {

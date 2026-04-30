@@ -38,6 +38,7 @@ export function getBranchProfile(): BranchProfile {
 
 export function updateBranchProfile(patch: Partial<BranchProfile>): void {
   store.set((prev) => ({ ...prev, ...patch }));
+  void import("@/lib/stores/apiSync").then(({ apiPut }) => apiPut("/branch-profile", patch));
 }
 
 export function resetBranchProfile(): void {

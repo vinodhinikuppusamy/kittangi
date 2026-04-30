@@ -27,11 +27,13 @@ import Login from "@/components/modules/Login";
 import Profile from "@/components/modules/Profile";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import RequireAuth from "@/lib/auth/RequireAuth";
+import { DataSyncProvider } from "@/lib/stores/DataSyncProvider";
 
 function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
       <AuthProvider>
+        <DataSyncProvider>
         <Routes>
           {/* Unauthenticated entry point. Sits OUTSIDE the Layout so the
               sidebar/header chrome doesn't flash on the sign-in screen. */}
@@ -92,6 +94,7 @@ function App() {
             },
           }}
         />
+        </DataSyncProvider>
       </AuthProvider>
     </BrowserRouter>
   );

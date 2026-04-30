@@ -198,6 +198,7 @@ export function addPledgedItem(
     id: draft.id ?? nextItemId(pledgedItemsStore.get()),
   };
   pledgedItemsStore.set((prev) => [created, ...prev]);
+  void import("@/lib/stores/apiSync").then(({ apiCreate }) => apiCreate("/pledged-items", created));
   return created;
 }
 
@@ -208,10 +209,12 @@ export function updatePledgedItem(
   pledgedItemsStore.set((prev) =>
     prev.map((i) => (i.id === id ? { ...i, ...patch, id: i.id } : i)),
   );
+  void import("@/lib/stores/apiSync").then(({ apiUpdate }) => apiUpdate("/pledged-items", id, patch));
 }
 
 export function deletePledgedItem(id: string): void {
   pledgedItemsStore.set((prev) => prev.filter((i) => i.id !== id));
+  void import("@/lib/stores/apiSync").then(({ apiDelete }) => apiDelete("/pledged-items", id));
 }
 
 /**

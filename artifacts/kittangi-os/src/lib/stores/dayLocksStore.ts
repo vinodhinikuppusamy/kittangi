@@ -43,10 +43,12 @@ export function lockDay(lock: DayLock): void {
     const others = prev.filter((l) => l.dateIso !== lock.dateIso);
     return [lock, ...others];
   });
+  void import("@/lib/stores/apiSync").then(({ apiPost }) => apiPost("/day-locks", { dateIso: lock.dateIso }));
 }
 
 export function unlockDay(dateIso: string): void {
   dayLocksStore.set((prev) => prev.filter((l) => l.dateIso !== dateIso));
+  void import("@/lib/stores/apiSync").then(({ apiDelete }) => apiDelete("/day-locks", dateIso));
 }
 
 /**

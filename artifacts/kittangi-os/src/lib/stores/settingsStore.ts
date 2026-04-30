@@ -5,8 +5,8 @@ import {
 
 /**
  * Global system settings — financial parameters that drive new originations
- * and the legal-vs-company interest split. Persisted in localStorage so the
- * Settings → Rates & Fees tab is the single source of truth, and every
+ * and the legal-vs-company interest split. Hydrated from backend settings so
+ * the Settings → Rates & Fees tab is the single source of truth, and every
  * downstream surface (Pawn / Vehicle Origination, ReceiptsLedger interest
  * split, Reports) reads from this store via `useSettings()`.
  */
@@ -84,6 +84,11 @@ export function getSettings(): GlobalSettings {
 
 export function setSettings(patch: Partial<GlobalSettings>): void {
   settingsStore.set((prev) => ({ ...prev, ...patch }));
+  void import("@/lib/stores/apiSync").then(({ apiPut }) => {
+    for (const [key, value] of Object.entries(patch)) {
+      void apiPut(`/settings/${encodeURIComponent(key)}`, { value });
+    }
+  });
 }
 
 export function resetSettings(): void {

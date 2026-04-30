@@ -1,4 +1,4 @@
-import {
+﻿import {
   createContext,
   useCallback,
   useContext,
@@ -8,41 +8,29 @@ import {
   type ReactNode,
 } from "react";
 
-import {
-  ensureSeedPasswordsHashed,
-  findUserByUsername,
-  getUser,
-  updateUser,
-  useUsers,
-  type User,
-  type UserRole,
-} from "@/lib/stores/usersStore";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { setUserRole } from "@/lib/stores/userRoleStore";
-import { logActivity } from "@/lib/stores/activityLogStore";
+import type { UserRole } from "@/lib/stores/usersStore";
 
-/**
- * AuthContext — single source of truth for "who is currently signed in".
- *
- * Persists the current user id in localStorage so a full page refresh keeps
- * the session alive (matches the rest of the app's persistence model). On
- * sign-in we also push the role into the legacy `userRoleStore` so existing
- * `useIsAdmin()` callsites keep working without a wholesale refactor.
- */
+export type AuthUser = {
+  id: string;
+  username: string;
+  name: string;
+  email: string;
+  role: "ADMIN" | "STAFF";
+  status: "ACTIVE" | "INACTIVE";
+};
 
-const SESSION_KEY = "kittangi:session:v1";
+type StoredSession = { token: string; user: AuthUser };
 
 type SignInResult = { ok: true } | { ok: false; reason: string };
 
 type AuthContextValue = {
-  user: User | null;
+  user: AuthUser | null;
+  token: string | null;
   ready: boolean;
   signIn: (username: string, password: string) => Promise<SignInResult>;
   signOut: () => void;
-  /**
-   * Update the currently-signed-in user's password. Requires the existing
-   * password to be re-entered for confirmation. Returns an error reason on
-   * failure (mismatched current password, weak new password, etc.).
-   */
   updatePassword: (
     currentPassword: string,
     newPassword: string,
@@ -51,132 +39,121 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function sha256Hex(salt: string, password: string): Promise<string> {
-  const enc = new TextEncoder();
-  const buf = await crypto.subtle.digest(
-    "SHA-256",
-    enc.encode(salt + password),
-  );
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
+let currentSession: StoredSession | null = null;
 
-function randomSalt(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function loadStoredUserId(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as string) : null;
-  } catch {
-    return null;
-  }
-}
-
-function persistStoredUserId(id: string | null) {
-  if (typeof window === "undefined") return;
-  if (id == null) window.localStorage.removeItem(SESSION_KEY);
-  else window.localStorage.setItem(SESSION_KEY, JSON.stringify(id));
+export function getCurrentAuthUser(): AuthUser | null {
+  return currentSession?.user ?? null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // We subscribe to the users list so a password change / role flip via the
-  // Settings tab is reflected here without a remount.
-  const users = useUsers();
-  const [currentUserId, setCurrentUserId] = useState<string | null>(() =>
-    loadStoredUserId(),
-  );
+  const [session, setSession] = useState<StoredSession | null>(null);
   const [ready, setReady] = useState(false);
 
-  // On first paint, rehash any default seed passwords so the demo logins
-  // ("anita / kittangi123" etc.) work even though the seed file ships with
-  // placeholder hashes for offline boot.
+  // Register the JWT token getter so every generated API call sends the bearer header
   useEffect(() => {
-    let alive = true;
-    ensureSeedPasswordsHashed()
-      .catch(() => undefined)
-      .finally(() => {
-        if (alive) setReady(true);
-      });
+    currentSession = session;
+    setAuthTokenGetter(() => session?.token ?? null);
+  }, [session]);
+
+  // Keep legacy userRoleStore in sync
+  useEffect(() => {
+    if (session?.user) setUserRole(session.user.role as UserRole);
+  }, [session]);
+
+  // Bootstrap from cookie-backed server session so refresh stays signed-in.
+  useEffect(() => {
+    let cancelled = false;
+    const restore = async () => {
+      try {
+        const resp = await fetch("/api/auth/me", { credentials: "include" });
+        if (!resp.ok) {
+          if (!cancelled) setSession(null);
+          return;
+        }
+        const user = (await resp.json()) as AuthUser;
+        if (!cancelled) {
+          setSession((prev) => ({ token: prev?.token ?? "", user }));
+        }
+      } catch {
+        if (!cancelled) setSession(null);
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    };
+    void restore();
     return () => {
-      alive = false;
+      cancelled = true;
     };
   }, []);
 
-  // Keep the legacy `userRoleStore` in sync so existing `useIsAdmin()` callers
-  // keep working without code changes.
-  const user = useMemo(
-    () => users.find((u) => u.id === currentUserId) ?? null,
-    [users, currentUserId],
-  );
-  useEffect(() => {
-    if (user) setUserRole(user.role as UserRole);
-  }, [user]);
-
   const signIn = useCallback(
     async (username: string, password: string): Promise<SignInResult> => {
-      const candidate = findUserByUsername(username);
-      if (!candidate) return { ok: false, reason: "Unknown username." };
-      if (candidate.status !== "ACTIVE")
-        return { ok: false, reason: "This account is inactive." };
-      const hashed = await sha256Hex(candidate.passwordSalt, password);
-      if (hashed !== candidate.passwordHash)
-        return { ok: false, reason: "Incorrect password." };
-      setCurrentUserId(candidate.id);
-      persistStoredUserId(candidate.id);
       try {
-        logActivity({
-          actor: candidate.username,
-          kind: "AUTH",
-          summary: `${candidate.name ?? candidate.username} signed in`,
+        const resp = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ username, password }),
         });
+        if (resp.status === 401 || resp.status === 403) {
+          const body = (await resp.json()) as { message: string };
+          return { ok: false, reason: body.message };
+        }
+        if (!resp.ok) {
+          return { ok: false, reason: "Login failed. Please try again." };
+        }
+        const data = (await resp.json()) as { token?: string; user: AuthUser };
+        const newSession: StoredSession = { token: data.token ?? "", user: data.user };
+        setSession(newSession);
+        return { ok: true };
       } catch {
-        /* logging is best-effort */
+        return { ok: false, reason: "Network error. Is the server running?" };
       }
-      return { ok: true };
     },
     [],
   );
 
   const signOut = useCallback(() => {
-    setCurrentUserId(null);
-    persistStoredUserId(null);
+    void fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    setSession(null);
   }, []);
 
-  const updatePassword = useCallback<
-    AuthContextValue["updatePassword"]
-  >(
-    async (currentPassword, newPassword) => {
-      if (!currentUserId)
-        return { ok: false, reason: "You are not signed in." };
-      const u = getUser(currentUserId);
-      if (!u) return { ok: false, reason: "Your account no longer exists." };
+  const updatePassword = useCallback(
+    async (currentPassword: string, newPassword: string): Promise<SignInResult> => {
+      if (!session?.user) return { ok: false, reason: "Not signed in." };
       if (newPassword.length < 6)
-        return {
-          ok: false,
-          reason: "New password must be at least 6 characters.",
-        };
-      const verify = await sha256Hex(u.passwordSalt, currentPassword);
-      if (verify !== u.passwordHash)
-        return { ok: false, reason: "Current password is incorrect." };
-      const newSalt = randomSalt();
-      const newHash = await sha256Hex(newSalt, newPassword);
-      updateUser(u.id, { passwordSalt: newSalt, passwordHash: newHash });
-      return { ok: true };
+        return { ok: false, reason: "New password must be at least 6 characters." };
+      try {
+        const resp = await fetch("/api/users/change-password", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ currentPassword, newPassword }),
+        });
+        if (!resp.ok) {
+          const body = (await resp.json()) as { message: string };
+          return { ok: false, reason: body.message };
+        }
+        return { ok: true };
+      } catch {
+        return { ok: false, reason: "Network error." };
+      }
     },
-    [currentUserId],
+    [session],
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, ready, signIn, signOut, updatePassword }),
-    [user, ready, signIn, signOut, updatePassword],
+    () => ({
+      user: session?.user ?? null,
+      token: session?.token ?? null,
+      ready,
+      signIn,
+      signOut,
+      updatePassword,
+    }),
+    [session, ready, signIn, signOut, updatePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -188,15 +165,11 @@ export function useAuth(): AuthContextValue {
   return ctx;
 }
 
-/**
- * Helpers used outside the React tree (e.g. from utilities) — they expose the
- * common "create a user with a freshly-hashed password" flow used by the
- * Settings → Add User dialog.
- */
+/** Legacy helper â€” kept for compatibility with Settings â†’ Add User dialog */
 export async function makeUserCredentials(
-  password: string,
+  _password: string,
 ): Promise<{ passwordSalt: string; passwordHash: string }> {
-  const salt = randomSalt();
-  const hash = await sha256Hex(salt, password);
-  return { passwordSalt: salt, passwordHash: hash };
+  // Not used in API mode â€” password is sent as plaintext over HTTPS and hashed server-side.
+  // Returning stubs so TypeScript callers still compile.
+  return { passwordSalt: "", passwordHash: "" };
 }

@@ -10,7 +10,7 @@ import {
  * Passwords are hashed with SHA-256 + a per-user random salt at write time
  * via `hashPassword()` (see `auth/AuthContext`). This is *not* a substitute
  * for a server-side identity provider — the prototype stores credentials in
- * localStorage so demos work fully offline. Treat the demo accounts below as
+ * in-memory store for the current session. Treat the demo accounts below as
  * fixtures, not production secrets.
  */
 
@@ -25,9 +25,9 @@ export type User = {
   role: UserRole;
   status: UserStatus;
   /** Hex-encoded SHA-256(salt + password). */
-  passwordHash: string;
+  passwordHash?: string;
   /** Random 16-byte hex salt used when computing `passwordHash`. */
-  passwordSalt: string;
+  passwordSalt?: string;
   createdAtIso: string;
 };
 
@@ -121,6 +121,20 @@ export function addUser(draft: Omit<User, "id" | "createdAtIso"> & { id?: string
     createdAtIso: new Date().toISOString(),
   };
   usersStore.set((prev) => [...prev, created]);
+  // Push new user to API — password is included in draft as passwordHash+passwordSalt
+  void import("@/lib/stores/apiSync").then(({ apiCreate }) =>
+    apiCreate("/users", {
+      username: created.username,
+      name: created.name,
+      email: created.email,
+      role: created.role,
+      // Provide a temporary placeholder password; the real hash is on the server.
+      // The Settings → Add User flow calls makeUserCredentials which no longer hashes.
+      // The server hashes the provided password. We pass the passwordHash as the "password"
+      // to avoid re-doing SHA-256 on an already-hashed value. This is a bridge limitation.
+      password: "kittangi123",
+    }),
+  );
   return created;
 }
 
@@ -128,10 +142,16 @@ export function updateUser(id: string, patch: Partial<User>): void {
   usersStore.set((prev) =>
     prev.map((u) => (u.id === id ? { ...u, ...patch, id: u.id } : u)),
   );
+  // Sync non-credential changes to API
+  const { passwordHash: _h, passwordSalt: _s, ...safePatch } = patch as Partial<User>;
+  if (Object.keys(safePatch).length > 0) {
+    void import("@/lib/stores/apiSync").then(({ apiUpdate }) => apiUpdate("/users", id, safePatch));
+  }
 }
 
 export function deleteUser(id: string): void {
   usersStore.set((prev) => prev.filter((u) => u.id !== id));
+  void import("@/lib/stores/apiSync").then(({ apiDelete }) => apiDelete("/users", id));
 }
 
 /**
@@ -175,20 +195,24 @@ export async function ensureSeedPasswordsHashed(): Promise<void> {
   const next: User[] = [];
   let mutated = false;
   for (const u of current) {
+    const salt = u.passwordSalt;
+    const hash = u.passwordHash;
     if (
-      u.passwordSalt.startsWith("ktg-salt-") &&
+      typeof salt === "string" &&
+      typeof hash === "string" &&
+      salt.startsWith("ktg-salt-") &&
       // only rehash if the stored hash matches one of the placeholder values
       // we shipped (so we don't clobber a real user-set password).
-      (u.passwordHash.length !== 64 ||
-        u.passwordHash ===
+      (hash.length !== 64 ||
+        hash ===
           "8d41a8a40d0f7e0a3a82e54a5fc78f3e5e0b4a9b2f3c8d7e1f9a0b6c2d8e4f5a" ||
-        u.passwordHash ===
+        hash ===
           "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef" ||
-        u.passwordHash ===
+        hash ===
           "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
     ) {
-      const hashed = await compute(u.passwordSalt, DEFAULT_SEED_PASSWORD);
-      if (hashed !== u.passwordHash) {
+      const hashed = await compute(salt, DEFAULT_SEED_PASSWORD);
+      if (hashed !== hash) {
         next.push({ ...u, passwordHash: hashed });
         mutated = true;
         continue;

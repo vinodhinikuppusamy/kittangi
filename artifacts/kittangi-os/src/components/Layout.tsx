@@ -343,7 +343,11 @@ export default function Layout({ children }: { children?: ReactNode }) {
         className="pt-16 pl-64"
         style={{ minHeight: "100vh" }}
       >
-        <div className="p-8">{children ?? <Outlet context={{ activeVertical }} />}</div>
+        <div className="p-8">
+          {children ?? (
+            <Outlet context={{ activeVertical, setActiveVertical }} />
+          )}
+        </div>
       </main>
     </div>
   );

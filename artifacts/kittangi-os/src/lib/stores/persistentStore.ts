@@ -2,51 +2,42 @@ import { useSyncExternalStore } from "react";
 
 type Listener = () => void;
 
+type StoreRecord = {
+  setSnapshot: (next: unknown) => void;
+};
+
+const storeRegistry = new Map<string, StoreRecord>();
+
 export type PersistentStore<T> = {
   get: () => T;
   set: (next: T | ((prev: T) => T)) => void;
   subscribe: (listener: Listener) => () => void;
 };
 
+export function hydratePersistentStore<T>(key: string, snapshot: T): void {
+  const record = storeRegistry.get(key);
+  if (!record) return;
+  record.setSnapshot(snapshot);
+}
+
 /**
- * Lightweight module-scope store backed by `window.localStorage`. Provides a
- * single source of truth that any number of React components can subscribe to
- * via `usePersistentStore`. Designed to keep the working model durable across
- * full-page refreshes without pulling in a heavyweight state library.
- *
- * NOTE: Image data is stored as base64 data URLs inside the JSON blob. Per
- * browser, localStorage is capped around 5 MB — sufficient for prototype use
- * with a handful of customer photos / item shots.
+ * Lightweight module-scope store that any number of React components can
+ * subscribe to via `usePersistentStore`. This is intentionally in-memory only;
+ * durable state now lives on backend APIs.
  */
 export function createPersistentStore<T>(
   key: string,
   initial: T,
 ): PersistentStore<T> {
-  const load = (): T => {
-    if (typeof window === "undefined") return initial;
-    try {
-      const raw = window.localStorage.getItem(key);
-      if (!raw) return initial;
-      return JSON.parse(raw) as T;
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn(`[Kittangi OS] Failed to load store "${key}":`, err);
-      return initial;
-    }
-  };
-
-  let state = load();
+  let state = initial;
   const listeners = new Set<Listener>();
 
-  const persist = () => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(key, JSON.stringify(state));
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn(`[Kittangi OS] Failed to persist store "${key}":`, err);
-    }
-  };
+  storeRegistry.set(key, {
+    setSnapshot: (next) => {
+      state = next as T;
+      listeners.forEach((l) => l());
+    },
+  });
 
   return {
     get: () => state,
@@ -55,7 +46,6 @@ export function createPersistentStore<T>(
         typeof next === "function"
           ? (next as (prev: T) => T)(state)
           : next;
-      persist();
       listeners.forEach((l) => l());
     },
     subscribe: (listener) => {

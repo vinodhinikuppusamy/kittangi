@@ -129,6 +129,7 @@ export function addInvestor(
     payouts: [],
   };
   investorsStore.set((prev) => [created, ...prev]);
+  void import("@/lib/stores/apiSync").then(({ apiCreate }) => apiCreate("/investors", created));
   return created;
 }
 
@@ -136,10 +137,12 @@ export function updateInvestor(id: string, patch: Partial<Investor>): void {
   investorsStore.set((prev) =>
     prev.map((i) => (i.id === id ? { ...i, ...patch, id: i.id } : i)),
   );
+  void import("@/lib/stores/apiSync").then(({ apiUpdate }) => apiUpdate("/investors", id, patch));
 }
 
 export function deleteInvestor(id: string): void {
   investorsStore.set((prev) => prev.filter((i) => i.id !== id));
+  void import("@/lib/stores/apiSync").then(({ apiDelete }) => apiDelete("/investors", id));
 }
 
 export function recordPayout(

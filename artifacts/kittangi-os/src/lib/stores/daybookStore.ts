@@ -475,6 +475,7 @@ export function addDaybookEntry(
   };
   // Newest-first so the Daybook table naturally bubbles fresh activity.
   daybookStore.set((prev) => [created, ...prev]);
+  void import("@/lib/stores/apiSync").then(({ apiCreate }) => apiCreate("/daybook", created));
   return created;
 }
 
@@ -496,6 +497,7 @@ export function removeDaybookEntry(id: string): DaybookEntry | null {
     throw new DayLockedError(target.dateIso);
   }
   daybookStore.set((prev) => prev.filter((e) => e.id !== id));
+  void import("@/lib/stores/apiSync").then(({ apiDelete }) => apiDelete("/daybook", id));
   return target;
 }
 

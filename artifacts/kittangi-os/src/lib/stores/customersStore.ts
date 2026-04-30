@@ -125,6 +125,7 @@ export function addCustomer(
     address: draft.address,
   };
   customersStore.set((prev) => [created, ...prev]);
+  void import("@/lib/stores/apiSync").then(({ apiCreate }) => apiCreate("/customers", { ...created, createdAtIso: new Date().toISOString() }));
   return created;
 }
 
@@ -132,10 +133,12 @@ export function updateCustomer(id: string, patch: Partial<Customer>): void {
   customersStore.set((prev) =>
     prev.map((c) => (c.id === id ? { ...c, ...patch, id: c.id } : c)),
   );
+  void import("@/lib/stores/apiSync").then(({ apiUpdate }) => apiUpdate("/customers", id, patch));
 }
 
 export function deleteCustomer(id: string): void {
   customersStore.set((prev) => prev.filter((c) => c.id !== id));
+  void import("@/lib/stores/apiSync").then(({ apiDelete }) => apiDelete("/customers", id));
 }
 
 /** Reset to the seed data. Useful for the debug "reset demo" affordance. */
