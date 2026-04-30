@@ -1,15 +1,31 @@
 # See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
 # compiled output
-dist
-tmp
+dist/
+tmp/
 out-tsc
 *.tsbuildinfo
 .expo
 .expo-shared
+build/
+.build/
+.vscode
+
+# environment
+.env
+.env.example
+.env.local
+*.env
+.env.production
 
 # dependencies
-node_modules
+node_modules/
+
+# logs
+logs/
+npm-debug.log
+yarn-error.log
+testem.log
 
 # IDEs and editors
 /.idea
@@ -20,7 +36,7 @@ node_modules
 .settings/
 *.sublime-workspace
 
-# IDE - VSCode
+# VSCode
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
@@ -32,18 +48,19 @@ node_modules
 /connect.lock
 /coverage
 /libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
 /typings
 
-# System Files
+# system files
 .DS_Store
 Thumbs.db
 
+# project-specific
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
+build files/
+build files/.staging/
 
-# Replit
+# replit
 .cache/
+.local/
 .local/

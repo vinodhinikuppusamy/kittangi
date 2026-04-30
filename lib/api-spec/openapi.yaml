@@ -10,13 +10,37 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: customers
+    description: Customer management
+  - name: loans
+    description: Loan management
+  - name: pledgedItems
+    description: Pledged items
+  - name: daybook
+    description: Daybook entries
+  - name: accounts
+    description: Accounts
+  - name: investors
+    description: Investors / deposits
+  - name: users
+    description: User management
+  - name: dayLocks
+    description: Day locks
+  - name: branchProfile
+    description: Branch profile
+  - name: settings
+    description: App settings
+  - name: activityLog
+    description: Activity log
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +48,1316 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Auth ────────────────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login and get JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: JWT token + user info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPublic"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ─── Customers ───────────────────────────────────────────────────────────────
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List all customers
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a customer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerInput"
+      responses:
+        "201":
+          description: Created customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get a customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update a customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerInput"
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    delete:
+      operationId: deleteCustomer
+      tags: [customers]
+      summary: Delete a customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Loans ───────────────────────────────────────────────────────────────────
+  /loans:
+    get:
+      operationId: listLoans
+      tags: [loans]
+      summary: List all loans
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of loans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Loan"
+    post:
+      operationId: createLoan
+      tags: [loans]
+      summary: Create a loan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoanInput"
+      responses:
+        "201":
+          description: Created loan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+
+  /loans/{id}:
+    get:
+      operationId: getLoan
+      tags: [loans]
+      summary: Get a loan
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Loan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateLoan
+      tags: [loans]
+      summary: Update a loan
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoanInput"
+      responses:
+        "200":
+          description: Updated loan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+    delete:
+      operationId: deleteLoan
+      tags: [loans]
+      summary: Delete a loan
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Pledged Items ────────────────────────────────────────────────────────────
+  /pledged-items:
+    get:
+      operationId: listPledgedItems
+      tags: [pledgedItems]
+      summary: List pledged items
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of pledged items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PledgedItem"
+    post:
+      operationId: createPledgedItem
+      tags: [pledgedItems]
+      summary: Create a pledged item
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PledgedItemInput"
+      responses:
+        "201":
+          description: Created pledged item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PledgedItem"
+
+  /pledged-items/{id}:
+    get:
+      operationId: getPledgedItem
+      tags: [pledgedItems]
+      summary: Get a pledged item
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "200":
+          description: Pledged item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PledgedItem"
+    patch:
+      operationId: updatePledgedItem
+      tags: [pledgedItems]
+      summary: Update a pledged item
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PledgedItemInput"
+      responses:
+        "200":
+          description: Updated pledged item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PledgedItem"
+    delete:
+      operationId: deletePledgedItem
+      tags: [pledgedItems]
+      summary: Delete a pledged item
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Daybook ─────────────────────────────────────────────────────────────────
+  /daybook:
+    get:
+      operationId: listDaybookEntries
+      tags: [daybook]
+      summary: List daybook entries
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: dateIso
+          schema:
+            type: string
+          required: false
+      responses:
+        "200":
+          description: Daybook entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DaybookEntry"
+    post:
+      operationId: createDaybookEntry
+      tags: [daybook]
+      summary: Create a daybook entry
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DaybookEntryInput"
+      responses:
+        "201":
+          description: Created entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DaybookEntry"
+
+  /daybook/{id}:
+    patch:
+      operationId: updateDaybookEntry
+      tags: [daybook]
+      summary: Update a daybook entry
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DaybookEntryInput"
+      responses:
+        "200":
+          description: Updated entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DaybookEntry"
+    delete:
+      operationId: deleteDaybookEntry
+      tags: [daybook]
+      summary: Delete a daybook entry
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Accounts ─────────────────────────────────────────────────────────────────
+  /accounts:
+    get:
+      operationId: listAccounts
+      tags: [accounts]
+      summary: List accounts
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+    post:
+      operationId: createAccount
+      tags: [accounts]
+      summary: Create an account
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountInput"
+      responses:
+        "201":
+          description: Created account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+
+  /accounts/{id}:
+    patch:
+      operationId: updateAccount
+      tags: [accounts]
+      summary: Update an account
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+    delete:
+      operationId: deleteAccount
+      tags: [accounts]
+      summary: Delete an account
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Investors ────────────────────────────────────────────────────────────────
+  /investors:
+    get:
+      operationId: listInvestors
+      tags: [investors]
+      summary: List investors
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Investors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Investor"
+    post:
+      operationId: createInvestor
+      tags: [investors]
+      summary: Create an investor
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvestorInput"
+      responses:
+        "201":
+          description: Created investor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Investor"
+
+  /investors/{id}:
+    patch:
+      operationId: updateInvestor
+      tags: [investors]
+      summary: Update an investor
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvestorInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Investor"
+    delete:
+      operationId: deleteInvestor
+      tags: [investors]
+      summary: Delete an investor
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Users ────────────────────────────────────────────────────────────────────
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List users (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserPublic"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a user (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreateInput"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPublic"
+
+  /users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update a user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPublic"
+
+  /users/change-password:
+    post:
+      operationId: changePassword
+      tags: [users]
+      summary: Change own password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordInput"
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  # ─── Day Locks ────────────────────────────────────────────────────────────────
+  /day-locks:
+    get:
+      operationId: listDayLocks
+      tags: [dayLocks]
+      summary: List day locks
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Day locks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DayLock"
+    post:
+      operationId: createDayLock
+      tags: [dayLocks]
+      summary: Lock a day
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dateIso:
+                  type: string
+              required: [dateIso]
+      responses:
+        "201":
+          description: Created day lock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DayLock"
+
+  /day-locks/{dateIso}:
+    delete:
+      operationId: deleteDayLock
+      tags: [dayLocks]
+      summary: Unlock a day
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: dateIso
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Unlocked
+
+  # ─── Branch Profile ───────────────────────────────────────────────────────────
+  /branch-profile:
+    get:
+      operationId: getBranchProfile
+      tags: [branchProfile]
+      summary: Get branch profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Branch profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BranchProfile"
+    put:
+      operationId: updateBranchProfile
+      tags: [branchProfile]
+      summary: Update branch profile (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchProfile"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BranchProfile"
+
+  # ─── Settings ─────────────────────────────────────────────────────────────────
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get all settings as a key-value map
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Settings map
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /settings/{key}:
+    put:
+      operationId: setSetting
+      tags: [settings]
+      summary: Set a setting value (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                value:
+                  {}
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Activity Log ─────────────────────────────────────────────────────────────
+  /activity-log:
+    get:
+      operationId: listActivityLog
+      tags: [activityLog]
+      summary: List recent activity
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          required: false
+      responses:
+        "200":
+          description: Activity log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityLogEntry"
+    post:
+      operationId: createActivityLogEntry
+      tags: [activityLog]
+      summary: Create an activity log entry
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivityLogEntryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityLogEntry"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    idParam:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorMessage"
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorMessage"
+
   schemas:
     HealthStatus:
       type: object
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
+
+    ErrorMessage:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required: [username, password]
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserPublic"
+      required: [token, user]
+
+    UserPublic:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, STAFF]
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+      required: [id, username, name, email, role, status]
+
+    UserCreateInput:
+      type: object
+      properties:
+        username:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, STAFF]
+        password:
+          type: string
+      required: [username, name, email, role, password]
+
+    UserUpdateInput:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, STAFF]
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+
+    ChangePasswordInput:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+      required: [currentPassword, newPassword]
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: string
+        fullName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        kycStatus:
+          type: string
+          enum: [PENDING, VERIFIED, REJECTED]
+        activeLoans:
+          type: integer
+        photoDataUrl:
+          type: string
+        dob:
+          type: string
+        aadhar:
+          type: string
+        pan:
+          type: string
+        address:
+          type: string
+        createdAtIso:
+          type: string
+      required: [id, fullName, phone, kycStatus, activeLoans, createdAtIso]
+
+    CustomerInput:
+      type: object
+      properties:
+        id:
+          type: string
+        fullName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        kycStatus:
+          type: string
+          enum: [PENDING, VERIFIED, REJECTED]
+        activeLoans:
+          type: integer
+        photoDataUrl:
+          type: string
+        dob:
+          type: string
+        aadhar:
+          type: string
+        pan:
+          type: string
+        address:
+          type: string
+      required: [fullName, phone]
+
+    Loan:
+      type: object
+      properties:
+        id:
+          type: string
+        product:
+          type: string
+          enum: [PAWN, VEHICLE, DOCUMENT]
+        customer:
+          type: string
+        customerCode:
+          type: string
+        principal:
+          type: number
+        ratePctPerAnnum:
+          type: number
+        startedAtIso:
+          type: string
+        durationLabel:
+          type: string
+        maturityIso:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, CLOSED, AUCTION]
+        closedAtIso:
+          type: string
+        disbursedFromAccountId:
+          type: string
+        pledgedItemId:
+          type: string
+        notes:
+          type: string
+        accruedInterest:
+          type: number
+      required: [id, product, customer, customerCode, principal, ratePctPerAnnum, startedAtIso, status]
+
+    LoanInput:
+      type: object
+      properties:
+        id:
+          type: string
+        product:
+          type: string
+          enum: [PAWN, VEHICLE, DOCUMENT]
+        customer:
+          type: string
+        customerCode:
+          type: string
+        principal:
+          type: number
+        ratePctPerAnnum:
+          type: number
+        startedAtIso:
+          type: string
+        durationLabel:
+          type: string
+        maturityIso:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, CLOSED, AUCTION]
+        closedAtIso:
+          type: string
+        disbursedFromAccountId:
+          type: string
+        pledgedItemId:
+          type: string
+        notes:
+          type: string
+        accruedInterest:
+          type: number
+      required: [product, customer, customerCode, principal, ratePctPerAnnum, startedAtIso]
+
+    PledgedItem:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        category:
+          type: string
+          enum: [GOLD, SILVER, DIAMOND, OTHER]
+        grossWeightG:
+          type: number
+        netWeightG:
+          type: number
+        pledgedValue:
+          type: number
+        loanId:
+          type: string
+        customer:
+          type: string
+        status:
+          type: string
+          enum: [VAULTED, RELEASED, AUCTION]
+        vaultLoc:
+          type: string
+        photos:
+          type: array
+          items:
+            type: string
+      required: [id, title, category, grossWeightG, netWeightG, pledgedValue, loanId, customer, status]
+
+    PledgedItemInput:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        category:
+          type: string
+          enum: [GOLD, SILVER, DIAMOND, OTHER]
+        grossWeightG:
+          type: number
+        netWeightG:
+          type: number
+        pledgedValue:
+          type: number
+        loanId:
+          type: string
+        customer:
+          type: string
+        status:
+          type: string
+          enum: [VAULTED, RELEASED, AUCTION]
+        vaultLoc:
+          type: string
+        photos:
+          type: array
+          items:
+            type: string
+      required: [title, category, grossWeightG, netWeightG, pledgedValue, loanId, customer]
+
+    DaybookEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        dateIso:
+          type: string
+        time:
+          type: string
+        side:
+          type: string
+          enum: [CREDIT, DEBIT]
+        category:
+          type: string
+        particulars:
+          type: string
+        account:
+          type: string
+        amount:
+          type: number
+        customerName:
+          type: string
+        customerId:
+          type: string
+        loanId:
+          type: string
+        note:
+          type: string
+        reference:
+          type: string
+      required: [id, dateIso, time, side, category, particulars, account, amount]
+
+    DaybookEntryInput:
+      type: object
+      properties:
+        id:
+          type: string
+        dateIso:
+          type: string
+        time:
+          type: string
+        side:
+          type: string
+          enum: [CREDIT, DEBIT]
+        category:
+          type: string
+        particulars:
+          type: string
+        account:
+          type: string
+        amount:
+          type: number
+        customerName:
+          type: string
+        customerId:
+          type: string
+        loanId:
+          type: string
+        note:
+          type: string
+        reference:
+          type: string
+      required: [dateIso, side, category, particulars, account, amount]
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [CASH, BANK]
+        subtitle:
+          type: string
+        openingBalance:
+          type: number
+        openedAtIso:
+          type: string
+      required: [id, name, type, openingBalance, openedAtIso]
+
+    AccountInput:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [CASH, BANK]
+        subtitle:
+          type: string
+        openingBalance:
+          type: number
+        openedAtIso:
+          type: string
+      required: [name, type]
+
+    Investor:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        contact:
+          type: string
+        depositDateIso:
+          type: string
+        principal:
+          type: number
+        monthlyRatePct:
+          type: number
+        payoutCycle:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, CLOSED]
+        payouts:
+          type: array
+          items: {}
+      required: [id, name, contact, depositDateIso, principal, monthlyRatePct, payoutCycle, status]
+
+    InvestorInput:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        contact:
+          type: string
+        depositDateIso:
+          type: string
+        principal:
+          type: number
+        monthlyRatePct:
+          type: number
+        payoutCycle:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, CLOSED]
+      required: [name, contact, depositDateIso, principal, monthlyRatePct, payoutCycle]
+
+    DayLock:
+      type: object
+      properties:
+        dateIso:
+          type: string
+        lockedByUserId:
+          type: string
+        lockedAtIso:
+          type: string
+      required: [dateIso, lockedByUserId, lockedAtIso]
+
+    BranchProfile:
+      type: object
+      properties:
+        branchName:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        logoDataUrl:
+          type: string
+        gstin:
+          type: string
+        licenseNo:
+          type: string
+      required: [branchName]
+
+    ActivityLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        atIso:
+          type: string
+        actor:
+          type: string
+        kind:
+          type: string
+        summary:
+          type: string
+        link:
+          type: string
+      required: [id, atIso, actor, kind, summary]
+
+    ActivityLogEntryInput:
+      type: object
+      properties:
+        id:
+          type: string
+        atIso:
+          type: string
+        actor:
+          type: string
+        kind:
+          type: string
+        summary:
+          type: string
+        link:
+          type: string
+      required: [actor, kind, summary]
 
