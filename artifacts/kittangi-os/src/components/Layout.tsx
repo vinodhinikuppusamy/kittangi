@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LogOut, Search, UserCircle } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Menu, Search, UserCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   ADMIN_NAV,
@@ -22,7 +22,7 @@ function AppSwitcher({
     <div className="px-4 pt-4 pb-3">
       <label
         htmlFor="vertical-switcher"
-        className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5"
+        className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider"
         style={{ color: "var(--text-muted)" }}
       >
         Active Vertical
@@ -32,7 +32,7 @@ function AppSwitcher({
           id="vertical-switcher"
           value={value}
           onChange={(e) => onChange(e.target.value as Vertical)}
-          className="w-full appearance-none rounded-lg border-2 bg-white px-3 py-2.5 pr-9 text-sm font-semibold cursor-pointer outline-none transition-colors focus:ring-4"
+          className="w-full appearance-none rounded-lg border-2 bg-white px-3 py-2.5 pr-9 text-sm font-semibold outline-none transition-colors focus:ring-4"
           style={{
             borderColor: "var(--brand-primary)",
             color: "var(--brand-primary)",
@@ -57,9 +57,11 @@ function AppSwitcher({
 function SidebarLinkList({
   items,
   isAdmin,
+  onItemClick,
 }: {
   items: NavItem[];
   isAdmin: boolean;
+  onItemClick?: () => void;
 }) {
   // Admin-only links are filtered OUT for staff users so the sidebar matches
   // what's actually reachable. The route layer enforces the same gate so a
@@ -77,6 +79,7 @@ function SidebarLinkList({
           <li key={item.to}>
             <NavLink
               to={item.to}
+              onClick={onItemClick}
               className={({ isActive }) =>
                 [
                   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
@@ -115,49 +118,64 @@ function Sidebar({
   vertical,
   onChangeVertical,
   isAdmin,
+  isOpen,
+  onClose,
 }: {
   vertical: Vertical;
   onChangeVertical: (v: Vertical) => void;
   isAdmin: boolean;
+  isOpen: boolean;
+  onClose: () => void;
 }) {
   const items = getNavForVertical(vertical);
 
   return (
-    <aside
-      className="fixed inset-y-0 left-0 z-30 flex flex-col border-r"
-      style={{
-        width: 256,
-        backgroundColor: "var(--sidebar-bg)",
-        borderColor: "rgba(74, 111, 165, 0.12)",
-      }}
-    >
+    <>
+      <div
+        className={[
+          "fixed inset-0 z-30 bg-black/30 transition-opacity md:hidden",
+          isOpen ? "opacity-100" : "pointer-events-none opacity-0",
+        ].join(" ")}
+        onClick={onClose}
+        aria-hidden={!isOpen}
+      />
+
+      <aside
+        className={[
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r transition-transform duration-200 ease-out",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+          "md:z-30 md:translate-x-0",
+        ].join(" ")}
+        style={{
+          backgroundColor: "var(--sidebar-bg)",
+          borderColor: "rgba(74, 111, 165, 0.12)",
+        }}
+      >
       {/* Brand */}
       <div
-        className="flex items-center gap-3 px-5"
-        style={{ height: 80, borderBottom: "1px solid rgba(74,111,165,0.08)" }}
+        className="relative flex items-center justify-center px-5"
+        style={{ height: 96, borderBottom: "1px solid rgba(74,111,165,0.08)" }}
       >
         <img
           src="/kittangi.webp"
           alt="Kittangi Logo"
-          className="h-12 w-auto object-contain"
+          className="h-16 w-44 object-contain"
         />
-        <div className="flex flex-col leading-tight">
-          <span
-            className="text-lg font-bold tracking-tight"
-            style={{ color: "var(--brand-primary)" }}
-          >
-            Kittangi OS
-          </span>
-          <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-            Financial Suite
-          </span>
-        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-slate-100 md:hidden"
+          aria-label="Close sidebar"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       <AppSwitcher value={vertical} onChange={onChangeVertical} />
 
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
-        <SidebarLinkList items={items} isAdmin={isAdmin} />
+        <SidebarLinkList items={items} isAdmin={isAdmin} onItemClick={onClose} />
 
         {/* Capital section — admin-only, hidden entirely from staff. */}
         {isAdmin && (
@@ -171,7 +189,11 @@ function Sidebar({
               </p>
             </div>
             <div className="mt-2">
-              <SidebarLinkList items={CAPITAL_NAV} isAdmin={isAdmin} />
+              <SidebarLinkList
+                items={CAPITAL_NAV}
+                isAdmin={isAdmin}
+                onItemClick={onClose}
+              />
             </div>
           </>
         )}
@@ -188,7 +210,11 @@ function Sidebar({
               </p>
             </div>
             <div className="mt-2">
-              <SidebarLinkList items={ADMIN_NAV} isAdmin={isAdmin} />
+              <SidebarLinkList
+                items={ADMIN_NAV}
+                isAdmin={isAdmin}
+                onItemClick={onClose}
+              />
             </div>
           </>
         )}
@@ -213,11 +239,16 @@ function Sidebar({
           color: var(--brand-primary);
         }
       `}</style>
-    </aside>
+      </aside>
+    </>
   );
 }
 
-function Header() {
+function Header({
+  onToggleSidebar,
+}: {
+  onToggleSidebar: () => void;
+}) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -232,14 +263,24 @@ function Header() {
       className="fixed top-0 right-0 z-20 flex items-center justify-between border-b bg-white px-6"
       style={{
         height: 64,
-        left: 256,
+        left: 0,
         borderColor: "rgba(74,111,165,0.10)",
       }}
     >
       {/* Global search */}
-      <div className="flex max-w-xl flex-1 items-center">
+      <div className="flex max-w-xl flex-1 items-center gap-3 md:ml-64">
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border bg-white text-slate-700 transition-colors hover:bg-slate-50 md:hidden"
+          style={{ borderColor: "rgba(74,111,165,0.18)" }}
+          aria-label="Open sidebar"
+        >
+          <Menu size={18} />
+        </button>
+
         <div
-          className="flex w-full items-center gap-2 rounded-lg border bg-white px-3 py-2 transition-colors focus-within:ring-4"
+          className="hidden w-full items-center gap-2 rounded-lg border bg-white px-3 py-2 transition-colors focus-within:ring-4 sm:flex"
           style={{
             borderColor: "rgba(74,111,165,0.18)",
             // @ts-expect-error CSS var
@@ -322,6 +363,7 @@ function Header() {
 
 export default function Layout({ children }: { children?: ReactNode }) {
   const [activeVertical, setActiveVertical] = useState<Vertical>("PAWN");
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
 
@@ -331,10 +373,14 @@ export default function Layout({ children }: { children?: ReactNode }) {
         vertical={activeVertical}
         onChangeVertical={setActiveVertical}
         isAdmin={isAdmin}
+        isOpen={isMobileSidebarOpen}
+        onClose={() => setIsMobileSidebarOpen(false)}
       />
-      <Header />
+      <Header
+        onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+      />
       <main
-        className="pt-16 pl-64"
+        className="pt-16 md:pl-64"
         style={{ minHeight: "100vh" }}
       >
         <div className="p-8">
