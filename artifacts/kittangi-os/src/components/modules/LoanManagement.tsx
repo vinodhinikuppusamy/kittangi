@@ -79,7 +79,7 @@ function statusBadge(status: LoanStatus) {
           className="border-transparent font-medium"
           style={{
             backgroundColor: "rgba(74,111,165,0.12)",
-            color: "var(--brand-primary)",
+            color: "#000000",
           }}
         >
           Closed
@@ -113,7 +113,7 @@ function productBadge(product: Loan["product"]) {
       className="font-medium"
       style={{
         borderColor: "rgba(74,111,165,0.25)",
-        color: "var(--brand-primary)",
+        color: "#000000",
       }}
     >
       {label}
@@ -248,7 +248,7 @@ export default function LoanManagement() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle
               className="text-base font-semibold"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "#000000" }}
             >
               All Loans
             </CardTitle>
@@ -375,7 +375,7 @@ export default function LoanManagement() {
                     >
                       <TableCell
                         className="font-mono text-xs"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "#000000" }}
                       >
                         {l.id}
                       </TableCell>
@@ -412,7 +412,7 @@ export default function LoanManagement() {
                           size="sm"
                           variant="ghost"
                           className="h-8 px-3 text-xs"
-                          style={{ color: "var(--brand-primary)" }}
+                          style={{ color: "#000000" }}
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/loans/${l.id}`);
@@ -464,7 +464,7 @@ function SummaryCard({
             </div>
             <div
               className="mt-2 text-2xl font-bold tracking-tight"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "#000000" }}
             >
               {value}
             </div>
@@ -474,7 +474,7 @@ function SummaryCard({
             className="flex h-10 w-10 items-center justify-center rounded-lg"
             style={{ backgroundColor: "var(--brand-light)" }}
           >
-            <Icon size={18} style={{ color: "var(--brand-primary)" }} />
+            <Icon size={18} style={{ color: "#000000" }} />
           </div>
         </div>
       </CardContent>

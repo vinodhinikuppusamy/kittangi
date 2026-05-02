@@ -143,7 +143,7 @@ export default function PhotoCapture({
     <div className="space-y-2">
       <div
         className="text-xs font-semibold uppercase tracking-wide"
-        style={{ color: "var(--brand-primary)" }}
+        style={{ color: "var(--text-main)" }}
       >
         {label}
       </div>
@@ -251,7 +251,7 @@ export default function PhotoCapture({
                   className="h-9 px-3 text-xs"
                   style={{
                     borderColor: "rgba(74,111,165,0.25)",
-                    color: "var(--brand-primary)",
+                    color: "var(--text-main)",
                   }}
                 >
                   <Camera size={14} className="mr-1.5" />

@@ -95,7 +95,7 @@ type StatCardProps = {
  
 function StatCard({ label, value, hint, icon: Icon, accent = "primary" }: StatCardProps) {
   const accentColors: Record<NonNullable<StatCardProps["accent"]>, { bg: string; fg: string }> = {
-    primary: { bg: "var(--brand-light)", fg: "var(--brand-primary)" },
+    primary: { bg: "var(--brand-light)", fg: "var(--text-main)" },
     green: { bg: "rgba(34,197,94,0.12)", fg: "rgb(21,128,61)" },
     amber: { bg: "rgba(245,158,11,0.14)", fg: "rgb(180,83,9)" },
   };
@@ -113,7 +113,7 @@ function StatCard({ label, value, hint, icon: Icon, accent = "primary" }: StatCa
             </div>
             <div
               className="mt-2 text-3xl font-bold tracking-tight"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "var(--text-main)" }}
             >
               {value.toLocaleString("en-IN")}
             </div>
@@ -307,7 +307,7 @@ export default function VaultManagement() {
           className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 text-xs font-medium"
           style={{
             borderColor: "rgba(74,111,165,0.18)",
-            color: "var(--brand-primary)",
+            color: "var(--text-main)",
           }}
         >
           <Lock size={14} />
@@ -322,7 +322,7 @@ export default function VaultManagement() {
           value={stats.totalSafes}
           hint="Physical safe units"
           icon={(props) => (
-            <Vault {...props} style={{ color: "var(--brand-primary)" }} />
+            <Vault {...props} style={{ color: "var(--text-main)" }} />
           )}
           accent="primary"
         />
@@ -331,7 +331,7 @@ export default function VaultManagement() {
           value={stats.totalLockers}
           hint="Across all safes"
           icon={(props) => (
-            <Box {...props} style={{ color: "var(--brand-primary)" }} />
+            <Box {...props} style={{ color: "var(--text-main)" }} />
           )}
           accent="primary"
         />
@@ -370,7 +370,7 @@ export default function VaultManagement() {
                 className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
                 style={{ backgroundColor: "var(--brand-light)" }}
               >
-                <Vault size={16} style={{ color: "var(--brand-primary)" }} />
+                <Vault size={16} style={{ color: "var(--text-main)" }} />
               </div>
               <div>
                 <CardTitle
@@ -392,7 +392,7 @@ export default function VaultManagement() {
               className="h-9"
               style={{
                 borderColor: "rgba(74,111,165,0.30)",
-                color: "var(--brand-primary)",
+                color: "var(--text-main)",
               }}
             >
               <Link to="/settings">
@@ -417,7 +417,7 @@ export default function VaultManagement() {
                 <Link
                   to="/settings"
                   className="underline"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "var(--text-main)" }}
                 >
                   Settings → Vault Configuration
                 </Link>{" "}
@@ -487,7 +487,7 @@ export default function VaultManagement() {
                       className="rounded-md border bg-white px-2 py-1 font-mono text-[11px]"
                       style={{
                         borderColor: "rgba(74,111,165,0.18)",
-                        color: "var(--brand-primary)",
+                        color: "var(--text-main)",
                       }}
                     >
                       Prefix: {safe.config.prefix}
@@ -535,7 +535,7 @@ export default function VaultManagement() {
                                 {isOccupied ? (
                                   <Lock
                                     size={12}
-                                    style={{ color: "var(--brand-primary)" }}
+                                    style={{ color: "var(--text-main)" }}
                                   />
                                 ) : (
                                   <Key
@@ -654,7 +654,7 @@ export default function VaultManagement() {
                 data-testid="button-transfer-locker"
                 style={{
                   borderColor: "rgba(74,111,165,0.40)",
-                  color: "var(--brand-primary)",
+                  color: "var(--text-main)",
                 }}
               >
                 <ArrowLeftRight size={16} className="mr-2" />
@@ -681,7 +681,7 @@ export default function VaultManagement() {
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2 text-base font-semibold"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "var(--text-main)" }}
             >
               <ArrowLeftRight size={16} />
               Transfer Pledged Item

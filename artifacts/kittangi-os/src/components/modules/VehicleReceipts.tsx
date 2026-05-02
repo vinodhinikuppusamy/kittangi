@@ -13,7 +13,14 @@ import {
   Receipt,
   Search,
   Wallet,
+  Building,
+  Landmark,
 } from "lucide-react";
+
+import { useLoans, type Loan } from "@/lib/stores/loansStore";
+import { useAccounts } from "@/lib/stores/accountsStore";
+import { useDaybook, addDaybookEntry, DayLockedError } from "@/lib/stores/daybookStore";
+import { getCurrentActor, logActivity } from "@/lib/stores/activityLogStore";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,163 +49,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type CreditAccount = "CASH_HAND" | "HDFC" | "SBI";
-
-type VehicleLoan = {
-  id: string;
-  customer: string;
-  vehicle: string;
-  rcNumber: string;
-  emiDue: number;
-  monthsOverdue: number;
-};
-
-type VehicleReceipt = {
-  receiptId: string;
-  recordedAt: string;
-  loanId: string;
-  customer: string;
-  vehicle: string;
-  paymentMonth: string; // e.g., 2026-04
-  emi: number;
-  penalty: number;
-  total: number;
-  account: CreditAccount;
-};
-
 type FormValues = {
   loanId: string;
   paymentMonth: string;
   emiAmount: string;
   latePenalty: string;
-  creditAccount: CreditAccount | "";
+  creditAccount: string;
 };
 
-const VEHICLE_LOANS: VehicleLoan[] = [
-  {
-    id: "VEH-30021",
-    customer: "Rohan Verma",
-    vehicle: "Hyundai Creta SX",
-    rcNumber: "KA01AB1234",
-    emiDue: 18250,
-    monthsOverdue: 3,
-  },
-  {
-    id: "VEH-30044",
-    customer: "Meera Iyer",
-    vehicle: "Honda Activa 6G",
-    rcNumber: "KA02CD7788",
-    emiDue: 2850,
-    monthsOverdue: 4,
-  },
-  {
-    id: "VEH-30077",
-    customer: "Ashok Logistics Pvt Ltd",
-    vehicle: "Tata Ace Gold",
-    rcNumber: "KA05EF2210",
-    emiDue: 9400,
-    monthsOverdue: 2,
-  },
-  {
-    id: "VEH-30091",
-    customer: "Aanya Sharma",
-    vehicle: "Maruti Swift VXi",
-    rcNumber: "KA03GH5512",
-    emiDue: 11200,
-    monthsOverdue: 0,
-  },
-  {
-    id: "VEH-30103",
-    customer: "Kunal Mehta",
-    vehicle: "Royal Enfield Classic 350",
-    rcNumber: "KA04JK1190",
-    emiDue: 4150,
-    monthsOverdue: 1,
-  },
-  {
-    id: "VEH-30118",
-    customer: "Priya Menon",
-    vehicle: "Mahindra Bolero Pickup",
-    rcNumber: "KA06LM3340",
-    emiDue: 8900,
-    monthsOverdue: 0,
-  },
-];
-
-const CREDIT_ACCOUNTS: { value: CreditAccount; label: string; sub: string; icon: typeof Wallet }[] = [
-  { value: "CASH_HAND", label: "Cash in Hand", sub: "Branch cash drawer", icon: Wallet },
-  { value: "HDFC", label: "HDFC Bank", sub: "Current A/c ••• 4521", icon: Building2 },
-  { value: "SBI", label: "SBI Bank", sub: "Overdraft A/c ••• 8870", icon: Banknote },
-];
-
-const ACCOUNT_LABEL: Record<CreditAccount, string> = {
-  CASH_HAND: "Cash",
-  HDFC: "HDFC",
-  SBI: "SBI",
-};
-
-const RECENT_RECEIPTS: VehicleReceipt[] = [
-  {
-    receiptId: "RCV-50118",
-    recordedAt: "Today · 09:34 AM",
-    loanId: "VEH-30091",
-    customer: "Aanya Sharma",
-    vehicle: "Maruti Swift VXi",
-    paymentMonth: "2026-04",
-    emi: 11200,
-    penalty: 0,
-    total: 11200,
-    account: "HDFC",
-  },
-  {
-    receiptId: "RCV-50117",
-    recordedAt: "Today · 09:12 AM",
-    loanId: "VEH-30118",
-    customer: "Priya Menon",
-    vehicle: "Mahindra Bolero Pickup",
-    paymentMonth: "2026-04",
-    emi: 8900,
-    penalty: 0,
-    total: 8900,
-    account: "CASH_HAND",
-  },
-  {
-    receiptId: "RCV-50116",
-    recordedAt: "Yesterday · 04:48 PM",
-    loanId: "VEH-30103",
-    customer: "Kunal Mehta",
-    vehicle: "Royal Enfield Classic 350",
-    paymentMonth: "2026-03",
-    emi: 4150,
-    penalty: 415,
-    total: 4565,
-    account: "CASH_HAND",
-  },
-  {
-    receiptId: "RCV-50115",
-    recordedAt: "Yesterday · 02:21 PM",
-    loanId: "VEH-30077",
-    customer: "Ashok Logistics Pvt Ltd",
-    vehicle: "Tata Ace Gold",
-    paymentMonth: "2026-03",
-    emi: 9400,
-    penalty: 940,
-    total: 10340,
-    account: "SBI",
-  },
-  {
-    receiptId: "RCV-50114",
-    recordedAt: "Yesterday · 11:05 AM",
-    loanId: "VEH-30044",
-    customer: "Meera Iyer",
-    vehicle: "Honda Activa 6G",
-    paymentMonth: "2026-02",
-    emi: 2850,
-    penalty: 570,
-    total: 3420,
-    account: "HDFC",
-  },
-];
 
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -238,8 +96,37 @@ const monthYearOptions = (() => {
 })();
 
 export default function VehicleReceipts() {
-  const [receipts, setReceipts] = useState<VehicleReceipt[]>(RECENT_RECEIPTS);
+  const allLoans = useLoans();
+  const accounts = useAccounts();
+  const daybook = useDaybook();
   const [search, setSearch] = useState("");
+
+  const vehicleLoans = useMemo(
+    () => allLoans.filter((l) => l.product === "VEHICLE" && l.status === "ACTIVE"),
+    [allLoans],
+  );
+
+  const recentReceipts = useMemo(() => {
+    return daybook
+      .filter((e) => e.side === "CREDIT" && e.category === "EMI Received")
+      .map((e) => {
+        const loan = allLoans.find((l) => l.id === (e.refId ?? "").split("•").pop()?.trim());
+        return {
+          receiptId: e.id,
+          recordedAt: e.dateIso,
+          loanId: e.refId?.split("•").pop()?.trim() ?? "—",
+          customer: e.customerName ?? "—",
+          vehicle: loan?.vehicleDetails?.makeModel ?? "Vehicle",
+          paymentMonth: "—", // Month info not stored in daybook currently
+          emi: e.amount,
+          penalty: 0, // Split info not stored in daybook currently
+          total: e.amount,
+          account: e.account,
+        };
+      })
+      .sort((a, b) => (a.recordedAt < b.recordedAt ? 1 : -1))
+      .slice(0, 20);
+  }, [daybook, allLoans]);
 
   const {
     register,
@@ -260,8 +147,8 @@ export default function VehicleReceipts() {
 
   const values = useWatch({ control });
   const selectedLoan = useMemo(
-    () => VEHICLE_LOANS.find((l) => l.id === values.loanId),
-    [values.loanId],
+    () => vehicleLoans.find((l) => l.id === values.loanId),
+    [values.loanId, vehicleLoans],
   );
 
   const emi = toNum(values.emiAmount);
@@ -270,31 +157,30 @@ export default function VehicleReceipts() {
 
   const filteredReceipts = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return receipts;
-    return receipts.filter(
+    if (!q) return recentReceipts;
+    return recentReceipts.filter(
       (r) =>
         r.receiptId.toLowerCase().includes(q) ||
         r.loanId.toLowerCase().includes(q) ||
         r.customer.toLowerCase().includes(q) ||
         r.vehicle.toLowerCase().includes(q),
     );
-  }, [search, receipts]);
+  }, [search, recentReceipts]);
 
-  const todayCollected = useMemo(
-    () =>
-      receipts
-        .filter((r) => r.recordedAt.toLowerCase().startsWith("today"))
-        .reduce((s, r) => s + r.total, 0),
-    [receipts],
-  );
+  const todayCollected = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return recentReceipts
+      .filter((r) => r.recordedAt === today)
+      .reduce((s, r) => s + r.total, 0);
+  }, [recentReceipts]);
 
   const onPrefillEMI = () => {
     if (selectedLoan) {
-      setValue("emiAmount", String(selectedLoan.emiDue), { shouldDirty: true });
-      const suggestedPenalty = selectedLoan.monthsOverdue > 0
-        ? Math.round(selectedLoan.emiDue * 0.1 * selectedLoan.monthsOverdue)
-        : 0;
-      setValue("latePenalty", String(suggestedPenalty), { shouldDirty: true });
+      // Estimate EMI as Principal / Duration (crude but dynamic)
+      const months = parseInt(selectedLoan.durationLabel?.split(" ")[0] ?? "36");
+      const suggestedEMI = Math.round(selectedLoan.principal / months);
+      setValue("emiAmount", String(suggestedEMI), { shouldDirty: true });
+      setValue("latePenalty", "0", { shouldDirty: true });
     }
   };
 
@@ -312,35 +198,58 @@ export default function VehicleReceipts() {
       return;
     }
 
-    const loan = VEHICLE_LOANS.find((l) => l.id === data.loanId)!;
+    const loan = vehicleLoans.find((l) => l.id === data.loanId)!;
+    const account = accounts.find((a) => a.id === data.creditAccount);
     const monthLabel =
       monthYearOptions.find((m) => m.value === data.paymentMonth)?.label ?? data.paymentMonth;
 
-    const newReceipt: VehicleReceipt = {
-      receiptId: `RCV-${(50118 + receipts.length + 1).toString()}`,
-      recordedAt: "Today · just now",
-      loanId: loan.id,
-      customer: loan.customer,
-      vehicle: loan.vehicle,
-      paymentMonth: data.paymentMonth,
-      emi,
-      penalty,
-      total: totalCollected,
-      account: data.creditAccount as CreditAccount,
-    };
+    const today = new Date().toISOString().split("T")[0];
+    const time = new Date().toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
 
-    setReceipts((prev) => [newReceipt, ...prev]);
-    toast.success("Vehicle EMI receipt recorded", {
-      icon: <CheckCircle2 className="h-4 w-4" />,
-      description: `${loan.customer} · ${monthLabel} · ${inr(totalCollected)} → ${ACCOUNT_LABEL[data.creditAccount as CreditAccount]} (posted to Daybook)`,
-    });
-    reset({
-      loanId: "",
-      paymentMonth: monthYearOptions[0].value,
-      emiAmount: "",
-      latePenalty: "",
-      creditAccount: "",
-    });
+    try {
+      addDaybookEntry({
+        dateIso: today,
+        time,
+        side: "CREDIT",
+        category: "EMI Received",
+        particulars: `Vehicle EMI — ${loan.customer} · ${monthLabel}`,
+        refId: `RCV-${Date.now()} • ${loan.id}`,
+        account: data.creditAccount,
+        amount: totalCollected,
+        customerName: loan.customer,
+        customerId: loan.customerCode,
+      });
+
+      logActivity({
+        actor: getCurrentActor(),
+        kind: "RECEIPT",
+        summary: `Vehicle EMI received: ${loan.customer} · ${inr(totalCollected)}`,
+        link: `/loans/${loan.id}`,
+      });
+
+      toast.success("Vehicle EMI receipt recorded", {
+        icon: <CheckCircle2 className="h-4 w-4" />,
+        description: `${loan.customer} · ${monthLabel} · ${inr(totalCollected)} → ${account?.name ?? data.creditAccount} (posted to Daybook)`,
+      });
+
+      reset({
+        loanId: "",
+        paymentMonth: monthYearOptions[0].value,
+        emiAmount: "",
+        latePenalty: "",
+        creditAccount: "",
+      });
+    } catch (err) {
+      if (err instanceof DayLockedError) {
+        toast.error("Today's Daybook is locked. Unlock it in the Chitta page first.");
+      } else {
+        toast.error("Failed to record receipt. Please try again.");
+      }
+    }
   };
 
   return (
@@ -373,9 +282,9 @@ export default function VehicleReceipts() {
           className="flex items-center gap-3 rounded-xl border bg-white px-4 py-2.5 text-sm"
           style={{ borderColor: "rgba(74,111,165,0.18)" }}
         >
-          <CreditCard className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
+          <CreditCard className="h-4 w-4" style={{ color: "var(--text-main)" }} />
           <span className="text-slate-500">Today's Vehicle Collection</span>
-          <span className="font-semibold" style={{ color: "var(--brand-primary)" }}>
+          <span className="font-semibold" style={{ color: "var(--text-main)" }}>
             {inr(todayCollected)}
           </span>
         </div>
@@ -391,7 +300,7 @@ export default function VehicleReceipts() {
                   className="flex h-9 w-9 items-center justify-center rounded-lg"
                   style={{ background: "var(--brand-light)" }}
                 >
-                  <Car className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+                  <Car className="h-5 w-5" style={{ color: "var(--text-main)" }} />
                 </div>
                 <div>
                   <CardTitle className="text-base font-semibold text-slate-900">
@@ -420,15 +329,14 @@ export default function VehicleReceipts() {
                       <SelectValue placeholder="Select a vehicle loan..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {VEHICLE_LOANS.map((l) => (
+                      {vehicleLoans.map((l) => (
                         <SelectItem key={l.id} value={l.id}>
                           <div className="flex flex-col">
                             <span className="text-sm font-medium">
-                              {l.id} · {l.vehicle}
+                              {l.id} · {l.vehicleDetails?.makeModel ?? "Vehicle"}
                             </span>
                             <span className="text-xs text-slate-500">
-                              {l.customer} · EMI {inr(l.emiDue)}
-                              {l.monthsOverdue > 0 && ` · ${l.monthsOverdue}m overdue`}
+                              {l.customer} · Principal {inr(l.principal)}
                             </span>
                           </div>
                         </SelectItem>
@@ -445,27 +353,18 @@ export default function VehicleReceipts() {
                     >
                       <div>
                         <div className="text-sm font-semibold text-slate-800">
-                          {selectedLoan.vehicle}
+                          {selectedLoan.vehicleDetails?.makeModel ?? "Vehicle"}
                         </div>
                         <div className="text-xs text-slate-500">
-                          {selectedLoan.customer} · {selectedLoan.rcNumber} · EMI {inr(selectedLoan.emiDue)}
+                          {selectedLoan.customer} · {selectedLoan.vehicleDetails?.regNo ?? "No RC"} · Principal {inr(selectedLoan.principal)}
                         </div>
                       </div>
-                      {selectedLoan.monthsOverdue > 0 ? (
-                        <Badge
-                          variant="secondary"
-                          className="bg-amber-100 text-amber-800 hover:bg-amber-100"
-                        >
-                          {selectedLoan.monthsOverdue}m overdue
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="secondary"
-                          className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
-                        >
-                          Current
-                        </Badge>
-                      )}
+                      <Badge
+                        variant="secondary"
+                        className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                      >
+                        {selectedLoan.status}
+                      </Badge>
                     </div>
                   )}
                   {selectedLoan && (
@@ -473,7 +372,7 @@ export default function VehicleReceipts() {
                       type="button"
                       onClick={onPrefillEMI}
                       className="mt-2 text-xs font-medium underline-offset-2 hover:underline"
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "var(--text-main)" }}
                     >
                       Prefill EMI &amp; suggested penalty
                     </button>
@@ -554,7 +453,7 @@ export default function VehicleReceipts() {
                       </p>
                       <p
                         className="mt-1 text-2xl font-extrabold leading-tight"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "var(--text-main)" }}
                       >
                         {inr(totalCollected)}
                       </p>
@@ -564,7 +463,7 @@ export default function VehicleReceipts() {
                     </div>
                     <IndianRupee
                       className="h-10 w-10 opacity-30"
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "var(--text-main)" }}
                     />
                   </div>
                 </div>
@@ -574,7 +473,7 @@ export default function VehicleReceipts() {
                   <Select
                     value={values.creditAccount || ""}
                     onValueChange={(v) =>
-                      setValue("creditAccount", v as CreditAccount, { shouldDirty: true })
+                      setValue("creditAccount", v, { shouldDirty: true })
                     }
                   >
                     <SelectTrigger
@@ -586,15 +485,15 @@ export default function VehicleReceipts() {
                       <SelectValue placeholder="Cash or Bank account..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {CREDIT_ACCOUNTS.map((a) => {
-                        const Icon = a.icon;
+                      {accounts.map((a) => {
+                        const Icon = a.type === "CASH" ? Wallet : Landmark;
                         return (
-                          <SelectItem key={a.value} value={a.value}>
+                          <SelectItem key={a.id} value={a.id}>
                             <div className="flex items-center gap-2.5">
-                              <Icon className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
+                              <Icon className="h-4 w-4" style={{ color: "var(--text-main)" }} />
                               <div className="flex flex-col">
-                                <span className="text-sm font-medium">{a.label}</span>
-                                <span className="text-xs text-slate-500">{a.sub}</span>
+                                <span className="text-sm font-medium">{a.name}</span>
+                                <span className="text-xs text-slate-500">{a.subtitle}</span>
                               </div>
                             </div>
                           </SelectItem>
@@ -603,7 +502,7 @@ export default function VehicleReceipts() {
                     </SelectContent>
                   </Select>
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Same Cash / HDFC / SBI accounts as Pawn — keeps the Daybook unified.
+                    Same accounts as Pawn — keeps the Daybook unified.
                   </p>
                 </Field>
 
@@ -631,14 +530,14 @@ export default function VehicleReceipts() {
                     className="flex h-9 w-9 items-center justify-center rounded-lg"
                     style={{ background: "var(--brand-light)" }}
                   >
-                    <History className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+                    <History className="h-5 w-5" style={{ color: "var(--text-main)" }} />
                   </div>
                   <div>
                     <CardTitle className="text-base font-semibold text-slate-900">
                       Recent Vehicle Receipts
                     </CardTitle>
                     <CardDescription className="text-sm text-slate-500">
-                      Last {receipts.length} EMI / penalty postings.
+                      Last {recentReceipts.length} EMI / penalty postings.
                     </CardDescription>
                   </div>
                 </div>
@@ -700,7 +599,7 @@ export default function VehicleReceipts() {
                           <TableCell>
                             <div
                               className="font-mono text-xs font-semibold"
-                              style={{ color: "var(--brand-primary)" }}
+                              style={{ color: "var(--text-main)" }}
                             >
                               {r.receiptId}
                             </div>
@@ -716,12 +615,12 @@ export default function VehicleReceipts() {
                             {monthYearOptions.find((m) => m.value === r.paymentMonth)?.label ?? r.paymentMonth}
                           </TableCell>
                           <TableCell className="text-right tabular-nums">{inr(r.emi)}</TableCell>
-                          <TableCell className="text-right tabular-nums text-amber-700">
+                          <TableCell className="text-right tabular-nums text-slate-900">
                             {r.penalty > 0 ? inr(r.penalty) : "—"}
                           </TableCell>
                           <TableCell
                             className="text-right font-semibold tabular-nums"
-                            style={{ color: "var(--brand-primary)" }}
+                            style={{ color: "var(--text-main)" }}
                           >
                             {inr(r.total)}
                           </TableCell>
@@ -731,10 +630,10 @@ export default function VehicleReceipts() {
                               className="font-medium"
                               style={{
                                 borderColor: "rgba(74,111,165,0.30)",
-                                color: "var(--brand-primary)",
+                                color: "var(--text-main)",
                               }}
                             >
-                              {ACCOUNT_LABEL[r.account]}
+                              {accounts.find(acc => acc.id === r.account)?.name ?? r.account}
                             </Badge>
                           </TableCell>
                         </TableRow>
@@ -770,7 +669,7 @@ function Field({
         {label}
       </Label>
       {children}
-      {error && <p className="text-xs font-medium text-rose-600">{error}</p>}
+      {error && <p className="text-xs font-medium text-slate-900">{error}</p>}
     </div>
   );
 }
@@ -787,7 +686,7 @@ const RupeeInput = ({
       className="flex h-full items-center justify-center px-3"
       style={{
         background: "rgba(191,221,245,0.35)",
-        color: "var(--brand-primary)",
+        color: "var(--text-main)",
         borderRight: "1px solid rgba(74,111,165,0.18)",
       }}
     >
@@ -801,4 +700,3 @@ const RupeeInput = ({
     />
   </div>
 );
- 

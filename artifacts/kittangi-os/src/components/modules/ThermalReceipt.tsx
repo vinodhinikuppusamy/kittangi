@@ -123,7 +123,7 @@ export default function ThermalReceiptDialog({
         >
           <DialogTitle
             className="text-base font-semibold"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "#000000" }}
           >
             Receipt Preview · 80mm Thermal
           </DialogTitle>

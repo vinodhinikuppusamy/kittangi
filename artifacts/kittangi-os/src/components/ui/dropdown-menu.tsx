@@ -27,7 +27,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      "flex cursor-default select-none items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 outline-none transition-colors focus:bg-[#fff1f3] focus:text-[#ff3a4c] data-[state=open]:bg-[#fff1f3] data-[state=open]:text-[#ff3a4c] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      "flex cursor-default select-none items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 outline-none transition-colors focus:bg-[#fff1f3] focus:text-[#030213] data-[state=open]:bg-[#fff1f3] data-[state=open]:text-[#030213] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
       inset && "pl-8",
       className
     )}
@@ -84,7 +84,7 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 outline-none transition-colors focus:bg-[#fff1f3] focus:text-[#ff3a4c] data-disabled:pointer-events-none data-disabled:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0",
+      "relative flex cursor-default select-none items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 outline-none transition-colors focus:bg-[#fff1f3] focus:text-[#030213] data-disabled:pointer-events-none data-disabled:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0",
       inset && "pl-8",
       className
     )}
@@ -100,7 +100,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-lg py-2.5 pl-3 pr-9 text-sm font-medium text-slate-600 outline-none transition-colors focus:bg-[#fff1f3] focus:text-[#ff3a4c] data-[state=checked]:bg-[#fff1f3] data-[state=checked]:text-[#ff3a4c] data-[state=checked]:font-semibold data-disabled:pointer-events-none data-disabled:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-lg py-2.5 pl-3 pr-9 text-sm font-medium text-slate-600 outline-none transition-colors focus:bg-[#fff1f3] focus:text-[#030213] data-[state=checked]:bg-[#fff1f3] data-[state=checked]:text-[#030213] data-[state=checked]:font-semibold data-disabled:pointer-events-none data-disabled:opacity-50",
       className
     )}
     checked={checked}
@@ -108,7 +108,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   >
     <span className="absolute right-3 flex h-3.5 w-3.5 items-center justify-center">
       <DropdownMenuPrimitive.ItemIndicator>
-        <Check className="h-4 w-4 text-[#ff3a4c]" />
+        <Check className="h-4 w-4 text-[#030213]" />
       </DropdownMenuPrimitive.ItemIndicator>
     </span>
     {children}
@@ -124,14 +124,14 @@ const DropdownMenuRadioItem = React.forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-lg py-2.5 pl-3 pr-9 text-sm font-medium text-slate-600 outline-none transition-colors focus:bg-[#fff1f3] focus:text-[#ff3a4c] data-[state=checked]:bg-[#fff1f3] data-[state=checked]:text-[#ff3a4c] data-[state=checked]:font-semibold data-disabled:pointer-events-none data-disabled:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-lg py-2.5 pl-3 pr-9 text-sm font-medium text-slate-600 outline-none transition-colors focus:bg-[#fff1f3] focus:text-[#030213] data-[state=checked]:bg-[#fff1f3] data-[state=checked]:text-[#030213] data-[state=checked]:font-semibold data-disabled:pointer-events-none data-disabled:opacity-50",
       className
     )}
     {...props}
   >
     <span className="absolute right-3 flex h-3.5 w-3.5 items-center justify-center">
       <DropdownMenuPrimitive.ItemIndicator>
-        <Circle className="h-2.5 w-2.5 fill-[#ff3a4c] text-[#ff3a4c]" />
+        <Circle className="h-2.5 w-2.5 fill-[#030213] text-[#030213]" />
       </DropdownMenuPrimitive.ItemIndicator>
     </span>
     {children}

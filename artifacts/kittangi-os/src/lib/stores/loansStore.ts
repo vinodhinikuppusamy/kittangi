@@ -96,124 +96,7 @@ export type Loan = {
 
 const STORAGE_KEY = "kittangi:loans:v1";
 
-// ---------------------------------------------------------------------------
-// Seed data — derived from the original ACTIVE_LOANS constant in
-// ReceiptsLedger plus a couple of closed examples so the lifecycle page
-// has both states to demo.
-// ---------------------------------------------------------------------------
-
-const SEED_LOANS: Loan[] = [
-  {
-    id: "PWN-204512",
-    product: "PAWN",
-    customer: "Aanya Sharma",
-    customerCode: "KTG-10042",
-    principal: 130000,
-    ratePctPerAnnum: 13,
-    startedAtIso: "2026-04-12",
-    durationLabel: "6 months",
-    maturityIso: "2026-10-12",
-    status: "ACTIVE",
-    disbursedFromAccountId: "CASH",
-    pledgedItemId: "PKG-45",
-    accruedInterest: 4225,
-  },
-  {
-    id: "PWN-204519",
-    product: "PAWN",
-    customer: "Meera Iyer",
-    customerCode: "KTG-10044",
-    principal: 197600,
-    ratePctPerAnnum: 12,
-    startedAtIso: "2026-04-14",
-    durationLabel: "12 months",
-    maturityIso: "2027-04-14",
-    status: "ACTIVE",
-    disbursedFromAccountId: "HDFC",
-    pledgedItemId: "PKG-46",
-    accruedInterest: 5928,
-  },
-  {
-    id: "PWN-204527",
-    product: "PAWN",
-    customer: "Kunal Mehta",
-    customerCode: "KTG-10047",
-    principal: 31200,
-    ratePctPerAnnum: 13.5,
-    startedAtIso: "2026-04-16",
-    durationLabel: "6 months",
-    maturityIso: "2026-10-16",
-    status: "ACTIVE",
-    disbursedFromAccountId: "CASH",
-    pledgedItemId: "PKG-47",
-    accruedInterest: 715,
-  },
-  {
-    id: "PWN-204540",
-    product: "PAWN",
-    customer: "Priya Menon",
-    customerCode: "KTG-10059",
-    principal: 48400,
-    ratePctPerAnnum: 13,
-    startedAtIso: "2026-04-18",
-    durationLabel: "12 months",
-    maturityIso: "2027-04-18",
-    status: "ACTIVE",
-    disbursedFromAccountId: "HDFC",
-    pledgedItemId: "PKG-49",
-    accruedInterest: 1089,
-  },
-  {
-    id: "VEH-30021",
-    product: "VEHICLE",
-    customer: "Rohan Verma",
-    customerCode: "KTG-10051",
-    principal: 540000,
-    ratePctPerAnnum: 11.25,
-    startedAtIso: "2026-03-02",
-    durationLabel: "36 months",
-    maturityIso: "2029-03-02",
-    status: "ACTIVE",
-    disbursedFromAccountId: "SBI",
-    vehicleDetails: {
-      makeModel: "Maruti Swift Dzire VXI",
-      regNo: "KA 03 ME 7791",
-      year: "2024",
-      vehicleType: "FOUR_WHEELER",
-    },
-    accruedInterest: 12150,
-  },
-  {
-    id: "PWN-204555",
-    product: "PAWN",
-    customer: "Suresh Patel",
-    customerCode: "KTG-10062",
-    principal: 80000,
-    ratePctPerAnnum: 12,
-    startedAtIso: "2026-02-10",
-    durationLabel: "6 months",
-    maturityIso: "2026-08-10",
-    status: "CLOSED",
-    disbursedFromAccountId: "SBI",
-    pledgedItemId: "PKG-50",
-  },
-  {
-    id: "PWN-204402",
-    product: "PAWN",
-    customer: "Aanya Sharma",
-    customerCode: "KTG-10042",
-    principal: 250000,
-    ratePctPerAnnum: 14,
-    startedAtIso: "2026-01-20",
-    durationLabel: "3 months",
-    maturityIso: "2026-04-20",
-    status: "AUCTION",
-    disbursedFromAccountId: "CASH",
-    pledgedItemId: "PKG-52",
-  },
-];
-
-const loansStore = createPersistentStore<Loan[]>(STORAGE_KEY, SEED_LOANS);
+const loansStore = createPersistentStore<Loan[]>(STORAGE_KEY, []);
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -246,7 +129,7 @@ export function deleteLoan(id: string): void {
 }
 
 export function resetLoans(): void {
-  loansStore.set(SEED_LOANS);
+  loansStore.set([]);
 }
 
 export function wipeLoans(): void {

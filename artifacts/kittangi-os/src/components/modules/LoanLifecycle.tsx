@@ -316,9 +316,8 @@ export default function LoanLifecycle() {
       // closed loan.
       closeLoanWithSettlement(loan.id);
       toast.success("Loan fully settled", {
-        description: `${loan.id} closed${
-          pledgedItem ? " and pledged item released from the vault." : "."
-        }`,
+        description: `${loan.id} closed${pledgedItem ? " and pledged item released from the vault." : "."
+          }`,
         icon: <CheckCircle2 size={16} />,
       });
     } else {
@@ -458,7 +457,7 @@ export default function LoanLifecycle() {
             <CardHeader className="pb-3">
               <CardTitle
                 className="text-base font-semibold"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "#000000" }}
               >
                 Loan Summary
               </CardTitle>
@@ -527,7 +526,7 @@ export default function LoanLifecycle() {
             <div>
               <CardTitle
                 className="text-base font-semibold"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "#000000" }}
               >
                 Linked Ledger Activity
               </CardTitle>
@@ -599,7 +598,7 @@ export default function LoanLifecycle() {
                           className={
                             e.side === "CREDIT"
                               ? "border-green-300 text-green-700"
-                              : "border-red-300 text-red-700"
+                              : "border-slate-300 text-slate-900"
                           }
                         >
                           {e.side}
@@ -644,7 +643,7 @@ export default function LoanLifecycle() {
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2 text-base font-semibold"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "#000000" }}
             >
               <FileSignature size={16} />
               Final Settlement — {loan.id}
@@ -748,18 +747,18 @@ export default function LoanLifecycle() {
                 borderColor: isOverpaid
                   ? "rgba(220,38,38,0.40)"
                   : willFullyClose
-                  ? "rgba(34,197,94,0.40)"
-                  : "rgba(245,158,11,0.40)",
+                    ? "rgba(34,197,94,0.40)"
+                    : "rgba(245,158,11,0.40)",
                 backgroundColor: isOverpaid
                   ? "rgba(254,226,226,0.60)"
                   : willFullyClose
-                  ? "rgba(220,252,231,0.55)"
-                  : "rgba(254,243,199,0.55)",
+                    ? "rgba(220,252,231,0.55)"
+                    : "rgba(254,243,199,0.55)",
                 color: isOverpaid
                   ? "rgb(185,28,28)"
                   : willFullyClose
-                  ? "rgb(21,128,61)"
-                  : "rgb(146,64,14)",
+                    ? "rgb(21,128,61)"
+                    : "rgb(146,64,14)",
               }}
             >
               {settlementAmount === 0 ? (
@@ -854,7 +853,7 @@ function StatusPill({ status }: { status: Loan["status"] }) {
     CLOSED: {
       label: "Closed",
       bg: "rgba(74,111,165,0.12)",
-      color: "var(--brand-primary)",
+      color: "#000000",
     },
     AUCTION: {
       label: "Auction",
@@ -890,7 +889,7 @@ function SummaryRow({
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
         style={{ backgroundColor: "var(--brand-light)" }}
       >
-        <Icon size={16} style={{ color: "var(--brand-primary)" }} />
+        <Icon size={16} style={{ color: "#000000" }} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">

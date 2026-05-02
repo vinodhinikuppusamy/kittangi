@@ -18,15 +18,15 @@ export type BranchProfile = {
 
 const STORAGE_KEY = "kittangi:branch-profile:v1";
 
-const DEFAULT: BranchProfile = {
-  branchName: "Kittangi Main",
-  branchCode: "KTG-001",
-  gstin: "29ABCDE1234F1Z5",
-  address: "No. 14, MG Road, Bengaluru, Karnataka — 560001",
-  contact: "+91 98450 12345",
+const EMPTY: BranchProfile = {
+  branchName: "",
+  branchCode: "",
+  gstin: "",
+  address: "",
+  contact: "",
 };
 
-const store = createPersistentStore<BranchProfile>(STORAGE_KEY, DEFAULT);
+const store = createPersistentStore<BranchProfile>(STORAGE_KEY, EMPTY);
 
 export function useBranchProfile(): BranchProfile {
   return usePersistentStore(store);
@@ -42,5 +42,5 @@ export function updateBranchProfile(patch: Partial<BranchProfile>): void {
 }
 
 export function resetBranchProfile(): void {
-  store.set(DEFAULT);
+  store.set(EMPTY);
 }

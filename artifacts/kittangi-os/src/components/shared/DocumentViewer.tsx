@@ -152,7 +152,7 @@ function ItemBlock({ pledgedItem }: { pledgedItem?: PledgedItem }) {
           className="flex h-24 w-24 items-center justify-center rounded-lg border bg-white"
           style={{ borderColor: "rgba(74,111,165,0.30)" }}
         >
-          <Gem className="h-7 w-7" style={{ color: "var(--brand-primary)" }} />
+          <Gem className="h-7 w-7" style={{ color: "var(--text-main)" }} />
         </div>
       )}
       <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
@@ -205,7 +205,7 @@ function VehicleBlock({ loan }: { loan: Loan }) {
         className="flex h-24 w-24 items-center justify-center rounded-lg border bg-white"
         style={{ borderColor: "rgba(74,111,165,0.30)" }}
       >
-        <Icon className="h-8 w-8" style={{ color: "var(--brand-primary)" }} />
+        <Icon className="h-8 w-8" style={{ color: "var(--text-main)" }} />
       </div>
       <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
         <span className="text-slate-500">Make &amp; Model</span>
@@ -249,7 +249,7 @@ function DetailRow({
             ? "text-base font-bold"
             : "text-sm font-medium text-slate-800"
         }
-        style={emphasis ? { color: "var(--brand-primary)" } : undefined}
+        style={emphasis ? { color: "var(--text-main)" } : undefined}
       >
         {value}
       </div>
@@ -278,7 +278,7 @@ export default function DocumentViewer({
           <div>
             <div
               className="text-lg font-bold tracking-tight"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "var(--text-main)" }}
             >
               {branch.branchName}
             </div>
@@ -293,7 +293,7 @@ export default function DocumentViewer({
             </div>
             <div
               className="font-mono text-xl font-bold"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "var(--text-main)" }}
             >
               {loan.id}
             </div>
@@ -307,7 +307,7 @@ export default function DocumentViewer({
         <section className="mt-6">
           <div
             className="mb-2 text-[11px] font-semibold uppercase tracking-wider"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "var(--text-main)" }}
           >
             Borrower / KYC
           </div>
@@ -360,7 +360,7 @@ export default function DocumentViewer({
         <section className="mt-6">
           <div
             className="mb-2 text-[11px] font-semibold uppercase tracking-wider"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "var(--text-main)" }}
           >
             {isPawn ? "Pledged Item" : "Vehicle Details"}
           </div>
@@ -383,7 +383,7 @@ export default function DocumentViewer({
         <section className="mt-6">
           <div
             className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "var(--text-main)" }}
           >
             <FileSignature size={12} />
             Terms &amp; Conditions

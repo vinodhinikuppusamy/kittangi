@@ -39,65 +39,9 @@ function isoOffset(daysAgo: number): string {
   ].join("-");
 }
 
-const SEED_INVESTORS: Investor[] = [
-  {
-    id: "INV-1001",
-    name: "Ramesh Subramanyam",
-    contact: "+91 98450 11220",
-    depositDateIso: isoOffset(180),
-    principal: 1000000,
-    monthlyRatePct: 1.5,
-    payoutCycle: "1st of every month",
-    status: "ACTIVE",
-    payouts: [
-      {
-        id: "INV-PAY-1001-A",
-        dateIso: isoOffset(60),
-        period: "Feb 2026",
-        amount: 15000,
-      },
-      {
-        id: "INV-PAY-1001-B",
-        dateIso: isoOffset(30),
-        period: "Mar 2026",
-        amount: 15000,
-      },
-    ],
-  },
-  {
-    id: "INV-1002",
-    name: "Saraswathi Rao",
-    contact: "saras.rao@example.com",
-    depositDateIso: isoOffset(120),
-    principal: 500000,
-    monthlyRatePct: 1.25,
-    payoutCycle: "5th of every month",
-    status: "ACTIVE",
-    payouts: [
-      {
-        id: "INV-PAY-1002-A",
-        dateIso: isoOffset(28),
-        period: "Mar 2026",
-        amount: 6250,
-      },
-    ],
-  },
-  {
-    id: "INV-1003",
-    name: "Vivek Bhat",
-    contact: "+91 99022 33710",
-    depositDateIso: isoOffset(45),
-    principal: 750000,
-    monthlyRatePct: 1.4,
-    payoutCycle: "10th of every month",
-    status: "ACTIVE",
-    payouts: [],
-  },
-];
-
 const investorsStore = createPersistentStore<Investor[]>(
   STORAGE_KEY,
-  SEED_INVESTORS,
+  [],
 );
 
 let nextSeq = 0;
@@ -164,7 +108,7 @@ export function recordPayout(
 }
 
 export function resetInvestors(): void {
-  investorsStore.set(SEED_INVESTORS);
+  investorsStore.set([]);
 }
 
 /**

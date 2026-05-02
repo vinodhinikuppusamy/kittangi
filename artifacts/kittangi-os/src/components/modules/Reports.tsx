@@ -143,7 +143,7 @@ const ICON_TONE = {
   blue: { bg: "rgba(59,130,246,0.12)", fg: "#1d4ed8", ring: "rgba(59,130,246,0.30)" },
   green: { bg: "rgba(16,185,129,0.12)", fg: "#047857", ring: "rgba(16,185,129,0.30)" },
   amber: { bg: "rgba(245,158,11,0.12)", fg: "#b45309", ring: "rgba(245,158,11,0.30)" },
-  red: { bg: "rgba(239,68,68,0.12)", fg: "#b91c1c", ring: "rgba(239,68,68,0.30)" },
+  red: { bg: "rgba(239,68,68,0.12)", fg: "#030213", ring: "rgba(239,68,68,0.30)" },
   purple: { bg: "rgba(168,85,247,0.12)", fg: "#7e22ce", ring: "rgba(168,85,247,0.30)" },
 } as const;
 
@@ -509,7 +509,7 @@ export default function Reports() {
             className="h-11 gap-2 border-2 px-4 font-semibold"
             style={{
               borderColor: "var(--brand-primary)",
-              color: "var(--brand-primary)",
+              color: "var(--text-main)",
               background: "white",
             }}
           >
@@ -660,7 +660,7 @@ function LoanRegisterTab({ rows }: { rows: LoanRow[] }) {
                       className="rounded-md px-2 py-0.5 font-mono text-xs font-semibold"
                       style={{
                         background: "rgba(191,221,245,0.35)",
-                        color: "var(--brand-primary)",
+                        color: "var(--text-main)",
                       }}
                     >
                       {r.loanId}
@@ -671,7 +671,7 @@ function LoanRegisterTab({ rows }: { rows: LoanRow[] }) {
                   <TableCell className="py-3 text-right text-sm font-medium text-slate-700">
                     {r.grossWeightG}g
                   </TableCell>
-                  <TableCell className="py-3 text-right font-semibold" style={{ color: "var(--brand-primary)" }}>
+                  <TableCell className="py-3 text-right font-semibold" style={{ color: "var(--text-main)" }}>
                     {inr(r.disbursed)}
                   </TableCell>
                 </TableRow>
@@ -683,7 +683,7 @@ function LoanRegisterTab({ rows }: { rows: LoanRow[] }) {
                 <TableCell className="py-3 text-right text-sm font-bold text-slate-800">
                   {totalWeight.toLocaleString("en-IN")}g
                 </TableCell>
-                <TableCell className="py-3 text-right font-bold" style={{ color: "var(--brand-primary)" }}>
+                <TableCell className="py-3 text-right font-bold" style={{ color: "var(--text-main)" }}>
                   {inr(totalDisbursed)}
                 </TableCell>
               </TableRow>
@@ -814,7 +814,7 @@ function CollectionsTab({ rows }: { rows: CollectionRow[] }) {
                         className="rounded-md px-2 py-0.5 font-mono text-xs font-semibold"
                         style={{
                           background: "rgba(191,221,245,0.35)",
-                          color: "var(--brand-primary)",
+                          color: "var(--text-main)",
                         }}
                       >
                         {r.loanId}
@@ -942,7 +942,7 @@ function DefaultsTab({ rows }: { rows: DefaultRow[] }) {
                       className="rounded-md px-2 py-0.5 font-mono text-xs font-semibold"
                       style={{
                         background: "rgba(191,221,245,0.35)",
-                        color: "var(--brand-primary)",
+                        color: "var(--text-main)",
                       }}
                     >
                       {r.loanId}
@@ -952,7 +952,7 @@ function DefaultsTab({ rows }: { rows: DefaultRow[] }) {
                   <TableCell className="py-3 text-sm text-slate-700">{fmtDate(r.disbursedDate)}</TableCell>
                   <TableCell className="py-3 text-sm text-slate-700">{fmtDate(r.dueDate)}</TableCell>
                   <TableCell className="py-3 text-right">
-                    <span className="font-bold text-rose-600">
+                    <span className="font-bold text-slate-900">
                       {r.daysOverdue} days
                     </span>
                   </TableCell>
@@ -965,7 +965,7 @@ function DefaultsTab({ rows }: { rows: DefaultRow[] }) {
                 <TableCell className="py-3 text-xs font-semibold uppercase tracking-wide text-slate-600" colSpan={5}>
                   Total Outstanding At Risk
                 </TableCell>
-                <TableCell className="py-3 text-right text-base font-bold text-rose-700">
+                <TableCell className="py-3 text-right text-base font-bold text-slate-900">
                   {inr(totalRisk)}
                 </TableCell>
               </TableRow>
@@ -1214,7 +1214,7 @@ function WeeklyTab({
                         className="rounded-md px-2 py-0.5 font-mono text-xs font-semibold"
                         style={{
                           background: "rgba(191,221,245,0.35)",
-                          color: "var(--brand-primary)",
+                          color: "var(--text-main)",
                         }}
                       >
                         {l.id}
@@ -1245,7 +1245,7 @@ function WeeklyTab({
                     </TableCell>
                     <TableCell
                       className="py-3 text-right font-semibold"
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "var(--text-main)" }}
                     >
                       {inr(l.principal)}
                     </TableCell>
@@ -1323,8 +1323,8 @@ function SummaryChips({
             {c.label}
           </span>
           <span
-            className={`font-semibold ${c.danger ? "text-rose-600" : c.accent ? "text-emerald-700" : "text-slate-900"}`}
-            style={c.accent || c.danger ? undefined : { color: "var(--brand-primary)" }}
+            className={`font-semibold ${c.danger ? "text-slate-900" : c.accent ? "text-emerald-700" : "text-slate-900"}`}
+            style={c.accent || c.danger ? undefined : { color: "var(--text-main)" }}
           >
             {c.value}
           </span>

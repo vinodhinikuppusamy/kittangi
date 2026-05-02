@@ -98,7 +98,7 @@ function MetricTile({
       </div>
       <div
         className="mt-0.5 text-base font-bold"
-        style={{ color: "var(--brand-primary)" }}
+        style={{ color: "#000000" }}
       >
         {value}
       </div>
@@ -238,13 +238,13 @@ export default function CustomerLedgerSheet({
               <div className="min-w-0 flex-1">
                 <SheetTitle
                   className="flex items-center gap-2 text-lg font-bold"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "#000000" }}
                 >
                   <UserCircle size={18} />
                   Customer 360 · {customer.fullName}
                 </SheetTitle>
                 <SheetDescription className="text-xs">
-                  <span className="font-mono" style={{ color: "var(--brand-primary)" }}>
+                  <span className="font-mono" style={{ color: "#000000" }}>
                     {customer.id}
                   </span>
                   {" · "}
@@ -258,7 +258,7 @@ export default function CustomerLedgerSheet({
                     className="rounded-full px-2 py-0.5 text-[10px]"
                     style={{
                       borderColor: "rgba(74,111,165,0.30)",
-                      color: "var(--brand-primary)",
+                      color: "#000000",
                     }}
                   >
                     KYC: {customer.kycStatus}
@@ -469,7 +469,7 @@ export default function CustomerLedgerSheet({
                                 className="inline-flex items-center gap-1 rounded-md border bg-white px-1.5 py-0.5 text-[10px] font-medium"
                                 style={{
                                   borderColor: "rgba(74,111,165,0.18)",
-                                  color: "var(--brand-primary)",
+                                  color: "#000000",
                                 }}
                               >
                                 {entry.side === "CREDIT" ? (
@@ -483,7 +483,7 @@ export default function CustomerLedgerSheet({
                             <TableCell className="text-right text-sm font-semibold text-emerald-700">
                               {entry.side === "CREDIT" ? `+ ${inr(entry.amount)}` : ""}
                             </TableCell>
-                            <TableCell className="text-right text-sm font-semibold text-red-700">
+                            <TableCell className="text-right text-sm font-semibold text-slate-900">
                               {entry.side === "DEBIT" ? `− ${inr(entry.amount)}` : ""}
                             </TableCell>
                           </TableRow>

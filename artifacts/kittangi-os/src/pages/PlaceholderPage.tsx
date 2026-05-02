@@ -14,12 +14,12 @@ export default function PlaceholderPage({ title, description, icon: Icon }: Prop
           className="flex h-12 w-12 items-center justify-center rounded-xl"
           style={{ backgroundColor: "var(--brand-light)" }}
         >
-          <Icon size={22} style={{ color: "var(--brand-primary)" }} />
+          <Icon size={22} style={{ color: "var(--text-main)" }} />
         </div>
         <div>
           <h1
             className="text-2xl font-bold"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "var(--text-main)" }}
           >
             {title}
           </h1>
@@ -42,7 +42,7 @@ export default function PlaceholderPage({ title, description, icon: Icon }: Prop
         >
           <p className="text-sm">
             This screen is reserved for{" "}
-            <span style={{ color: "var(--brand-primary)" }} className="font-semibold">
+            <span style={{ color: "var(--text-main)" }} className="font-semibold">
               {title}
             </span>
             . Modules will appear here in upcoming steps.

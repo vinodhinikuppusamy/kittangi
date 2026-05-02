@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 
 import { downloadCsv, type CsvColumn } from "@/lib/csv";
+import { useLoans, type Loan } from "@/lib/stores/loansStore";
+import { useDaybook } from "@/lib/stores/daybookStore";
 
 type VehicleReportTab = "disbursal" | "collection" | "npa";
 
@@ -69,41 +71,6 @@ type DefaultRow = {
   flagged: "REPOSSESSION" | "LEGAL_NOTICE" | "WATCH";
 };
 
-const DISBURSALS: DisbursalRow[] = [
-  { date: "2026-04-02", loanId: "VEH-30091", customer: "Aanya Sharma",      vehicle: "Maruti Swift VXi",          vehicleType: "4W",   loanAmount: 460000, ltv: 72 },
-  { date: "2026-04-05", loanId: "VEH-30103", customer: "Kunal Mehta",       vehicle: "Royal Enfield Classic 350", vehicleType: "2W",   loanAmount: 110000, ltv: 78 },
-  { date: "2026-04-09", loanId: "VEH-30118", customer: "Priya Menon",       vehicle: "Mahindra Bolero Pickup",    vehicleType: "Comm", loanAmount: 240000, ltv: 65 },
-  { date: "2026-04-12", loanId: "VEH-30021", customer: "Rohan Verma",       vehicle: "Hyundai Creta SX",          vehicleType: "4W",   loanAmount: 720000, ltv: 80 },
-  { date: "2026-04-15", loanId: "VEH-30135", customer: "Lakshmi V",         vehicle: "Bajaj Pulsar 150",          vehicleType: "2W",   loanAmount:  62000, ltv: 70 },
-  { date: "2026-04-18", loanId: "VEH-30142", customer: "Suresh Patel",      vehicle: "Toyota Innova Crysta",      vehicleType: "4W",   loanAmount: 950000, ltv: 76 },
-  { date: "2026-04-20", loanId: "VEH-30077", customer: "Ashok Logistics",   vehicle: "Tata Ace Gold",             vehicleType: "Comm", loanAmount: 310000, ltv: 68 },
-  { date: "2026-04-22", loanId: "VEH-30151", customer: "Divya Nair",        vehicle: "Honda City ZX",             vehicleType: "4W",   loanAmount: 540000, ltv: 74 },
-  { date: "2026-04-24", loanId: "VEH-30044", customer: "Meera Iyer",        vehicle: "Honda Activa 6G",           vehicleType: "2W",   loanAmount:  52000, ltv: 73 },
-  { date: "2026-04-25", loanId: "VEH-30164", customer: "Karthik R",         vehicle: "Mahindra XUV 700",          vehicleType: "4W",   loanAmount: 890000, ltv: 79 },
-];
-
-const COLLECTIONS: CollectionRow[] = [
-  { loanId: "VEH-30091", customer: "Aanya Sharma",     vehicle: "Maruti Swift VXi",          expectedEMI: 11200, collectedEMI: 11200, status: "PAID" },
-  { loanId: "VEH-30118", customer: "Priya Menon",      vehicle: "Mahindra Bolero Pickup",    expectedEMI:  8900, collectedEMI:  8900, status: "PAID" },
-  { loanId: "VEH-30135", customer: "Lakshmi V",        vehicle: "Bajaj Pulsar 150",          expectedEMI:  3100, collectedEMI:  3100, status: "PAID" },
-  { loanId: "VEH-30142", customer: "Suresh Patel",     vehicle: "Toyota Innova Crysta",      expectedEMI: 22500, collectedEMI: 22500, status: "PAID" },
-  { loanId: "VEH-30151", customer: "Divya Nair",       vehicle: "Honda City ZX",             expectedEMI: 13750, collectedEMI:  6800, status: "PARTIAL" },
-  { loanId: "VEH-30164", customer: "Karthik R",        vehicle: "Mahindra XUV 700",          expectedEMI: 21300, collectedEMI: 10000, status: "PARTIAL" },
-  { loanId: "VEH-30103", customer: "Kunal Mehta",      vehicle: "Royal Enfield Classic 350", expectedEMI:  4150, collectedEMI:  4565, status: "PAID" },
-  { loanId: "VEH-30077", customer: "Ashok Logistics",  vehicle: "Tata Ace Gold",             expectedEMI:  9400, collectedEMI: 10340, status: "PAID" },
-  { loanId: "VEH-30021", customer: "Rohan Verma",      vehicle: "Hyundai Creta SX",          expectedEMI: 18250, collectedEMI:     0, status: "PENDING" },
-  { loanId: "VEH-30044", customer: "Meera Iyer",       vehicle: "Honda Activa 6G",           expectedEMI:  2850, collectedEMI:     0, status: "PENDING" },
-];
-
-const DEFAULTS: DefaultRow[] = [
-  { loanId: "VEH-30021", customer: "Rohan Verma",      vehicle: "Hyundai Creta SX",          rcNumber: "KA01AB1234", missedEMIs: 3, outstanding: 650000, flagged: "REPOSSESSION" },
-  { loanId: "VEH-30044", customer: "Meera Iyer",       vehicle: "Honda Activa 6G",           rcNumber: "KA02CD7788", missedEMIs: 4, outstanding:  48000, flagged: "REPOSSESSION" },
-  { loanId: "VEH-30164", customer: "Karthik R",        vehicle: "Mahindra XUV 700",          rcNumber: "KA07PQ4422", missedEMIs: 3, outstanding: 425000, flagged: "LEGAL_NOTICE" },
-  { loanId: "VEH-30151", customer: "Divya Nair",       vehicle: "Honda City ZX",             rcNumber: "KA08RS5566", missedEMIs: 3, outstanding: 285000, flagged: "LEGAL_NOTICE" },
-  { loanId: "VEH-30201", customer: "Vikram Shetty",    vehicle: "TVS Jupiter",               rcNumber: "KA09TU7811", missedEMIs: 5, outstanding:  38000, flagged: "REPOSSESSION" },
-];
-
-const REPOSSESSED_LOAN_IDS = new Set<string>(["VEH-30021", "VEH-30044"]);
 
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -113,28 +80,83 @@ const inr = (n: number) =>
   }).format(Number.isFinite(n) ? n : 0);
 
 export default function VehicleReports() {
+  const allLoans = useLoans();
+  const daybook = useDaybook();
+
   const [from, setFrom] = useState("2026-04-01");
   const [to, setTo] = useState("2026-04-27");
   const [activeTab, setActiveTab] = useState<VehicleReportTab>("disbursal");
 
   const inRange = (iso: string) => iso >= from && iso <= to;
-  const filteredDisbursals = useMemo(
-    () => DISBURSALS.filter((d) => inRange(d.date)),
-    [from, to],
+
+  const vehicleLoans = useMemo(
+    () => allLoans.filter((l) => l.product === "VEHICLE"),
+    [allLoans],
   );
-  // Collections (current month EMI cycle) and NPA defaults are point-in-time
-  // datasets — they don't carry a per-row date — so we deliberately export
-  // them as-is and let the date range only scope the disbursal log.
+
+  const filteredDisbursals = useMemo(() => {
+    return vehicleLoans
+      .filter((l) => inRange(l.startedAtIso))
+      .map((l) => ({
+        date: l.startedAtIso,
+        loanId: l.id,
+        customer: l.customer,
+        vehicle: l.vehicleDetails?.makeModel ?? "Vehicle",
+        vehicleType: (l.vehicleDetails?.vehicleType === "TWO_WHEELER" ? "2W" : l.vehicleDetails?.vehicleType === "FOUR_WHEELER" ? "4W" : "Comm") as "2W" | "4W" | "Comm",
+        loanAmount: l.principal,
+        ltv: 75, // LTV not stored in record, using default for display
+      }))
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+  }, [vehicleLoans, from, to]);
+
+  const collections = useMemo(() => {
+    // Group daybook receipts by loanId
+    return vehicleLoans.map((l) => {
+      const receipts = daybook.filter(
+        (e) => e.side === "CREDIT" && e.category === "EMI Received" && (e.refId ?? "").includes(l.id)
+      );
+      const collected = receipts.reduce((s, e) => s + e.amount, 0);
+      const months = parseInt(l.durationLabel?.split(" ")[0] ?? "36");
+      const expected = Math.round(l.principal / months); // Simplified monthly expected
+      return {
+        loanId: l.id,
+        customer: l.customer,
+        vehicle: l.vehicleDetails?.makeModel ?? "Vehicle",
+        expectedEMI: expected,
+        collectedEMI: collected,
+        status: (collected >= expected ? "PAID" : collected > 0 ? "PARTIAL" : "PENDING") as "PAID" | "PARTIAL" | "PENDING",
+      };
+    });
+  }, [vehicleLoans, daybook]);
+
+  const defaults = useMemo(() => {
+    return vehicleLoans
+      .filter((l) => (l as any).repossessionDetails || l.status === "AUCTION")
+      .map((l) => ({
+        loanId: l.id,
+        customer: l.customer,
+        vehicle: l.vehicleDetails?.makeModel ?? "Vehicle",
+        rcNumber: l.vehicleDetails?.regNo ?? "—",
+        missedEMIs: 3, // Heuristic
+        outstanding: l.principal,
+        flagged: (l.status === "AUCTION" ? "REPOSSESSION" : "WATCH") as "REPOSSESSION" | "LEGAL_NOTICE" | "WATCH",
+      }));
+  }, [vehicleLoans]);
+
+  const repossessedLoanIds = useMemo(
+    () => new Set(vehicleLoans.filter(l => l.status === "AUCTION").map(l => l.id)),
+    [vehicleLoans]
+  );
 
   const totals = useMemo(() => {
     const totalDisbursed = filteredDisbursals.reduce(
       (s, r) => s + r.loanAmount,
       0,
     );
-    const expected = COLLECTIONS.reduce((s, r) => s + r.expectedEMI, 0);
-    const collected = COLLECTIONS.reduce((s, r) => s + r.collectedEMI, 0);
+    const expected = collections.reduce((s, r) => s + r.expectedEMI, 0);
+    const collected = collections.reduce((s, r) => s + r.collectedEMI, 0);
     const collectionRate = expected > 0 ? (collected / expected) * 100 : 0;
-    const totalOutstanding = DEFAULTS.reduce((s, r) => s + r.outstanding, 0);
+    const totalOutstanding = defaults.reduce((s, r) => s + r.outstanding, 0);
     return {
       totalDisbursed,
       expected,
@@ -142,7 +164,7 @@ export default function VehicleReports() {
       collectionRate,
       totalOutstanding,
     };
-  }, [filteredDisbursals]);
+  }, [filteredDisbursals, collections, defaults]);
 
   const onExport = (which: VehicleReportTab) => {
     const range = `${from}_to_${to}`;
@@ -179,13 +201,13 @@ export default function VehicleReports() {
         { header: "Status", key: "status" },
       ];
       const rows: CollectionRow[] = [
-        ...COLLECTIONS,
+        ...collections,
         {
           loanId: "",
-          customer: `TOTAL (${COLLECTIONS.length} accounts)`,
+          customer: `TOTAL (${collections.length} accounts)`,
           vehicle: "",
-          expectedEMI: COLLECTIONS.reduce((s, r) => s + r.expectedEMI, 0),
-          collectedEMI: COLLECTIONS.reduce((s, r) => s + r.collectedEMI, 0),
+          expectedEMI: collections.reduce((s, r) => s + r.expectedEMI, 0),
+          collectedEMI: collections.reduce((s, r) => s + r.collectedEMI, 0),
           status: "PAID",
         },
       ];
@@ -201,14 +223,14 @@ export default function VehicleReports() {
         { header: "Flagged", key: "flagged" },
       ];
       const rows: DefaultRow[] = [
-        ...DEFAULTS,
+        ...defaults,
         {
           loanId: "",
-          customer: `TOTAL (${DEFAULTS.length} accounts)`,
+          customer: `TOTAL (${defaults.length} accounts)`,
           vehicle: "",
           rcNumber: "",
           missedEMIs: 0,
-          outstanding: DEFAULTS.reduce((s, r) => s + r.outstanding, 0),
+          outstanding: defaults.reduce((s, r) => s + r.outstanding, 0),
           flagged: "WATCH",
         },
       ];
@@ -257,7 +279,7 @@ export default function VehicleReports() {
           className="flex items-center gap-2 rounded-xl border bg-white px-3 py-2"
           style={{ borderColor: "rgba(74,111,165,0.18)" }}
         >
-          <CalendarRange className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
+          <CalendarRange className="h-4 w-4" style={{ color: "var(--text-main)" }} />
           <Input
             type="date"
             value={from}
@@ -294,8 +316,8 @@ export default function VehicleReports() {
         <StatCard
           icon={AlertTriangle}
           label="Loans in Default"
-          value={DEFAULTS.length.toString()}
-          sub={`${REPOSSESSED_LOAN_IDS.size} flagged for repossession`}
+          value={defaults.length.toString()}
+          sub={`${repossessedLoanIds.size} flagged for repossession`}
           tone="amber"
         />
         <StatCard
@@ -359,7 +381,7 @@ export default function VehicleReports() {
                       <div className="font-medium text-slate-800">{r.vehicle}</div>
                       <div className="text-[11px] text-slate-500">{r.vehicleType}</div>
                     </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums" style={{ color: "var(--brand-primary)" }}>
+                    <TableCell className="text-right font-semibold tabular-nums" style={{ color: "var(--text-main)" }}>
                       {inr(r.loanAmount)}
                     </TableCell>
                     <TableCell className="text-right">
@@ -383,7 +405,7 @@ export default function VehicleReports() {
                 <Badge variant="outline" className="font-medium" style={{ borderColor: "rgba(16,185,129,0.40)", color: "#047857" }}>
                   Collected {inr(totals.collected)}
                 </Badge>
-                <Badge variant="outline" className="font-medium" style={{ borderColor: "rgba(74,111,165,0.40)", color: "var(--brand-primary)" }}>
+                <Badge variant="outline" className="font-medium" style={{ borderColor: "rgba(74,111,165,0.40)", color: "var(--text-main)" }}>
                   Expected {inr(totals.expected)}
                 </Badge>
                 <Badge variant="outline" className="font-medium" style={{ borderColor: "rgba(244,63,94,0.40)", color: "#be123c" }}>
@@ -405,7 +427,7 @@ export default function VehicleReports() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {COLLECTIONS.map((r) => {
+                {collections.map((r) => {
                   const pct = r.expectedEMI > 0 ? (r.collectedEMI / r.expectedEMI) * 100 : 0;
                   return (
                     <TableRow key={r.loanId} className="text-sm">
@@ -417,15 +439,15 @@ export default function VehicleReports() {
                       <TableCell className="font-medium text-slate-800">{r.customer}</TableCell>
                       <TableCell className="text-slate-700">{r.vehicle}</TableCell>
                       <TableCell className="text-right tabular-nums">{inr(r.expectedEMI)}</TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums" style={{ color: "var(--brand-primary)" }}>
+                      <TableCell className="text-right font-semibold tabular-nums" style={{ color: "var(--text-main)" }}>
                         {inr(r.collectedEMI)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         <span
                           className={
                             pct >= 100 ? "font-semibold text-emerald-700" :
-                            pct >= 50 ? "font-semibold text-amber-700" :
-                            "font-semibold text-rose-700"
+                            pct >= 50 ? "font-semibold text-slate-900" :
+                            "font-semibold text-slate-900"
                           }
                         >
                           {pct.toFixed(0)}%
@@ -462,8 +484,8 @@ export default function VehicleReports() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {DEFAULTS.map((r) => {
-                  const inYard = REPOSSESSED_LOAN_IDS.has(r.loanId);
+                {defaults.map((r) => {
+                  const inYard = repossessedLoanIds.has(r.loanId);
                   return (
                     <TableRow
                       key={r.loanId}
@@ -481,7 +503,7 @@ export default function VehicleReports() {
                         {r.rcNumber}
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="font-semibold text-rose-700 tabular-nums">{r.missedEMIs}</span>
+                        <span className="font-semibold text-slate-900 tabular-nums">{r.missedEMIs}</span>
                       </TableCell>
                       <TableCell className="text-right font-semibold tabular-nums text-slate-800">
                         {inr(r.outstanding)}
@@ -549,7 +571,7 @@ function StatCard({
             </p>
             <p
               className="mt-1.5 truncate text-2xl font-bold leading-tight"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "var(--text-main)" }}
               title={value}
             >
               {value}
@@ -594,7 +616,7 @@ function ReportCard({
               size="sm"
               onClick={onExport}
               className="gap-1.5"
-              style={{ borderColor: "rgba(74,111,165,0.30)", color: "var(--brand-primary)" }}
+              style={{ borderColor: "rgba(74,111,165,0.30)", color: "var(--text-main)" }}
             >
               <Download className="h-3.5 w-3.5" />
               Export CSV

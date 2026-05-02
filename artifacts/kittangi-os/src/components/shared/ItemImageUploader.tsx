@@ -242,13 +242,13 @@ export default function ItemImageUploader({
             >
               <ImagePlus
                 size={20}
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "var(--text-main)" }}
               />
             </div>
             <div className="text-sm">
               <span
                 className="font-semibold"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "var(--text-main)" }}
               >
                 Drag &amp; drop item photos here
               </span>{" "}
@@ -282,7 +282,7 @@ export default function ItemImageUploader({
                 className="h-9 px-3 text-xs"
                 style={{
                   borderColor: "rgba(74,111,165,0.25)",
-                  color: "var(--brand-primary)",
+                  color: "var(--text-main)",
                 }}
                 disabled={remainingSlots <= 0}
               >

@@ -19,26 +19,7 @@ export type SafeConfig = {
 
 const STORAGE_KEY = "kittangi:vault-config:v1";
 
-const SEED: SafeConfig[] = [
-  {
-    id: "SAFE_1",
-    name: "Safe A",
-    subtitle: "Main Vault • Ground Floor",
-    prefix: "L-",
-    startNumber: 101,
-    lockerCount: 16,
-  },
-  {
-    id: "SAFE_2",
-    name: "Safe B",
-    subtitle: "Secondary Vault • First Floor",
-    prefix: "L-",
-    startNumber: 201,
-    lockerCount: 12,
-  },
-];
-
-const store = createPersistentStore<SafeConfig[]>(STORAGE_KEY, SEED);
+const store = createPersistentStore<SafeConfig[]>(STORAGE_KEY, []);
 
 let nextSeq = 0;
 function nextSafeId(existing: SafeConfig[]): string {
@@ -79,7 +60,7 @@ export function deleteSafe(id: string): void {
 }
 
 export function resetVaultConfig(): void {
-  store.set(SEED);
+  store.set([]);
 }
 
 /** Generate the ordered list of locker IDs for a given safe. */

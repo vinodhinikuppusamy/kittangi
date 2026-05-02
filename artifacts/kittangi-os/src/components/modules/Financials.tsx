@@ -156,7 +156,7 @@ function HeroMetric({
             }}
           >
             {positive ? (
-              <TrendingUp size={22} style={{ color: "var(--brand-primary)" }} />
+              <TrendingUp size={22} style={{ color: "#000000" }} />
             ) : (
               <TrendingDown size={22} style={{ color: "rgb(185,28,28)" }} />
             )}
@@ -195,7 +195,7 @@ function MiniMetric({
             </div>
             <div
               className="mt-2 text-2xl font-bold tracking-tight"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "#000000" }}
             >
               {value}
             </div>
@@ -738,7 +738,7 @@ export default function Financials() {
               className="h-9 w-45 bg-white text-sm"
               style={{
                 borderColor: "rgba(74,111,165,0.25)",
-                color: "var(--brand-primary)",
+                color: "#000000",
               }}
             >
               <SelectValue placeholder="Select FY..." />
@@ -772,13 +772,13 @@ export default function Financials() {
                 >
                   <Receipt
                     size={16}
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "#000000" }}
                   />
                 </div>
                 <div>
                   <CardTitle
                     className="text-base font-semibold"
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "#000000" }}
                   >
                     Annual P&amp;L Statement &mdash; FY {fy.label}
                   </CardTitle>
@@ -845,7 +845,7 @@ export default function Financials() {
 
                     {/* EXPENSES ───────────────────────── */}
                     <TableRow style={{ backgroundColor: "rgba(220,38,38,0.04)" }}>
-                      <TableCell colSpan={3} className="text-[11px] font-semibold uppercase tracking-wider text-red-800">
+                      <TableCell colSpan={3} className="text-[11px] font-semibold uppercase tracking-wider text-slate-900">
                         Expenses
                       </TableCell>
                     </TableRow>
@@ -914,12 +914,12 @@ export default function Financials() {
                   className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
                   style={{ backgroundColor: "var(--brand-light)" }}
                 >
-                  <Receipt size={16} style={{ color: "var(--brand-primary)" }} />
+                  <Receipt size={16} style={{ color: "#000000" }} />
                 </div>
                 <div className="flex-1">
                   <CardTitle
                     className="text-base font-semibold"
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "#000000" }}
                   >
                     Trial Balance
                   </CardTitle>
@@ -954,7 +954,7 @@ export default function Financials() {
                   className="ml-2 h-8 gap-1.5 px-3 text-xs font-semibold"
                   style={{
                     borderColor: "var(--brand-primary)",
-                    color: "var(--brand-primary)",
+                    color: "#000000",
                     background: "white",
                   }}
                   onClick={() => {
@@ -1063,7 +1063,7 @@ export default function Financials() {
                       <TableCell
                         colSpan={3}
                         className="text-[11px] font-semibold uppercase tracking-wider"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "#000000" }}
                       >
                         Assets &amp; Expenses
                       </TableCell>
@@ -1112,7 +1112,7 @@ export default function Financials() {
                       <TableCell
                         colSpan={3}
                         className="text-[11px] font-semibold uppercase tracking-wider"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "#000000" }}
                       >
                         Liabilities, Income &amp; Equity
                       </TableCell>
@@ -1189,19 +1189,19 @@ export default function Financials() {
                     >
                       <TableCell
                         className="text-sm uppercase tracking-wide"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "#000000" }}
                       >
                         Total
                       </TableCell>
                       <TableCell
                         className="text-right text-sm tabular-nums"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "#000000" }}
                       >
                         {inr(trialBalance.drTotal)}
                       </TableCell>
                       <TableCell
                         className="text-right text-sm tabular-nums"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "#000000" }}
                       >
                         {inr(trialBalance.crTotal)}
                       </TableCell>
@@ -1232,12 +1232,12 @@ export default function Financials() {
                   className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
                   style={{ backgroundColor: "var(--brand-light)" }}
                 >
-                  <Scale size={16} style={{ color: "var(--brand-primary)" }} />
+                  <Scale size={16} style={{ color: "#000000" }} />
                 </div>
                 <div className="flex-1">
                   <CardTitle
                     className="text-base font-semibold"
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "#000000" }}
                   >
                     Yearly Balance Sheet — As of {fy.label.split(" ")[1]}
                   </CardTitle>
@@ -1271,7 +1271,7 @@ export default function Financials() {
                   className="ml-2 h-8 gap-1.5 px-3 text-xs font-semibold"
                   style={{
                     borderColor: "var(--brand-primary)",
-                    color: "var(--brand-primary)",
+                    color: "#000000",
                     background: "white",
                   }}
                   onClick={() => {
@@ -1330,7 +1330,7 @@ export default function Financials() {
                               "Liabilities + Equity",
                               num(
                                 balanceSheet.totalLiabilities +
-                                  balanceSheet.totalEquity,
+                                balanceSheet.totalEquity,
                               ),
                             ],
                           ],
@@ -1406,14 +1406,14 @@ export default function Financials() {
                     className="flex items-center justify-between rounded-lg px-4 py-3 text-sm font-semibold"
                     style={{
                       backgroundColor: "var(--brand-light)",
-                      color: "var(--brand-primary)",
+                      color: "#000000",
                     }}
                   >
                     <span>Liabilities + Equity</span>
                     <span className="tabular-nums">
                       {inr(
                         balanceSheet.totalLiabilities +
-                          balanceSheet.totalEquity,
+                        balanceSheet.totalEquity,
                       )}
                     </span>
                   </div>
@@ -1433,12 +1433,12 @@ export default function Financials() {
                   className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
                   style={{ backgroundColor: "var(--brand-light)" }}
                 >
-                  <Scale size={16} style={{ color: "var(--brand-primary)" }} />
+                  <Scale size={16} style={{ color: "#000000" }} />
                 </div>
                 <div>
                   <CardTitle
                     className="text-base font-semibold"
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "#000000" }}
                   >
                     Business Health Snapshot
                   </CardTitle>
@@ -1523,7 +1523,7 @@ export default function Financials() {
                               >
                                 <Building2
                                   size={13}
-                                  style={{ color: "var(--brand-primary)" }}
+                                  style={{ color: "#000000" }}
                                 />
                               </div>
                               <div>
@@ -1597,7 +1597,7 @@ function PnlRow({
   amount: number;
   tone: "positive" | "negative";
 }) {
-  const color = tone === "positive" ? "text-emerald-700" : "text-red-700";
+  const color = tone === "positive" ? "text-emerald-700" : "text-slate-900";
   return (
     <TableRow>
       <TableCell>
@@ -1605,7 +1605,7 @@ function PnlRow({
           {sign === "+" ? (
             <Plus size={13} className="text-emerald-600" />
           ) : (
-            <Minus size={13} className="text-red-600" />
+            <Minus size={13} className="text-slate-900" />
           )}
           {label}
         </div>
@@ -1629,7 +1629,7 @@ function SubtotalRow({
 }) {
   const bg =
     tone === "positive" ? "rgba(34,197,94,0.08)" : "rgba(220,38,38,0.06)";
-  const color = tone === "positive" ? "text-emerald-800" : "text-red-800";
+  const color = tone === "positive" ? "text-emerald-800" : "text-slate-900";
   return (
     <TableRow
       style={{ backgroundColor: bg, borderTop: "2px solid rgba(0,0,0,0.06)" }}
@@ -1664,7 +1664,7 @@ function BSColumn({
         className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider"
         style={{
           backgroundColor: "rgba(74,111,165,0.06)",
-          color: "var(--brand-primary)",
+          color: "#000000",
         }}
       >
         {heading}
@@ -1694,7 +1694,7 @@ function BSColumn({
           className="flex items-center justify-between px-4 py-2.5 text-sm font-bold"
           style={{
             backgroundColor: "rgba(74,111,165,0.04)",
-            color: "var(--brand-primary)",
+            color: "#000000",
           }}
         >
           <span>{totalLabel}</span>

@@ -181,12 +181,12 @@ function NewDepositDialog({
               className="flex h-10 w-10 items-center justify-center rounded-lg"
               style={{ backgroundColor: "var(--brand-light)" }}
             >
-              <HandCoins size={18} style={{ color: "var(--brand-primary)" }} />
+              <HandCoins size={18} style={{ color: "#000000" }} />
             </div>
             <div>
               <DialogTitle
                 className="text-lg font-bold"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "#000000" }}
               >
                 New Investor Deposit
               </DialogTitle>
@@ -542,10 +542,10 @@ export default function Deposits() {
             style={{ borderColor: "rgba(74,111,165,0.10)" }}
           >
             <div className="flex items-center gap-2">
-              <Users size={16} style={{ color: "var(--brand-primary)" }} />
+              <Users size={16} style={{ color: "#000000" }} />
               <h2
                 className="text-sm font-semibold"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "#000000" }}
               >
                 Active Investors
               </h2>
@@ -646,7 +646,7 @@ export default function Deposits() {
                       <TableCell className="text-right">
                         <div
                           className="text-sm font-bold"
-                          style={{ color: "var(--brand-primary)" }}
+                          style={{ color: "#000000" }}
                         >
                           {inr(inv.principal)}
                         </div>
@@ -667,7 +667,7 @@ export default function Deposits() {
                           {inv.monthlyRatePct}/mo
                         </span>
                       </TableCell>
-                      <TableCell className="text-right text-sm font-bold text-red-700">
+                      <TableCell className="text-right text-sm font-bold text-slate-900">
                         {inr(monthly)}
                       </TableCell>
                       <TableCell>
@@ -744,7 +744,7 @@ export default function Deposits() {
           <DialogHeader>
             <DialogTitle
               className="text-base font-semibold"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "#000000" }}
             >
               Record Interest Payout
             </DialogTitle>
@@ -775,7 +775,7 @@ export default function Deposits() {
                   </span>
                   <span
                     className="text-base font-bold"
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "#000000" }}
                   >
                     {inr(monthlyInterest(payoutTarget))}
                   </span>

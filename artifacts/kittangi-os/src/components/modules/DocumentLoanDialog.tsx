@@ -275,11 +275,10 @@ export default function DocumentLoanDialog({
         time: timeNow(),
         side: "DEBIT",
         category: "Loan Disbursement",
-        particulars: `Loan disbursed to ${customer.name}${
-          processingFee > 0
+        particulars: `Loan disbursed to ${customer.name}${processingFee > 0
             ? ` (net of ${inr(processingFee)} processing fee)`
             : ""
-        }`,
+          }`,
         refId: loanId,
         account: accountId,
         amount: netDisbursement,
@@ -312,17 +311,15 @@ export default function DocumentLoanDialog({
       legalDocs: docs.length > 0 ? docs : undefined,
       notes:
         docs.length > 0
-          ? `General loan with ${docs.length} attached document${
-              docs.length === 1 ? "" : "s"
-            }.`
+          ? `General loan with ${docs.length} attached document${docs.length === 1 ? "" : "s"
+          }.`
           : "General loan — signed promissory note on file.",
     });
 
     toast.success("Loan disbursed", {
       icon: <CheckCircle2 size={16} />,
-      description: `${loanId} • ${inr(netDisbursement)} disbursed from ${
-        accounts.find((a) => a.id === accountId)?.name ?? accountId
-      }`,
+      description: `${loanId} • ${inr(netDisbursement)} disbursed from ${accounts.find((a) => a.id === accountId)?.name ?? accountId
+        }`,
     });
     onOpenChange(false);
     onCreated?.(loanId);
@@ -334,7 +331,7 @@ export default function DocumentLoanDialog({
         <DialogHeader>
           <DialogTitle
             className="flex items-center gap-2 text-base font-semibold"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "#000000" }}
           >
             <FileSignature size={16} />
             New Loan
@@ -516,7 +513,7 @@ export default function DocumentLoanDialog({
                 className="gap-1.5 text-xs font-semibold"
                 style={{
                   borderColor: "var(--brand-primary)",
-                  color: "var(--brand-primary)",
+                  color: "#000000",
                 }}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -536,7 +533,7 @@ export default function DocumentLoanDialog({
                   >
                     <div className="flex min-w-0 items-center gap-1.5">
                       <Paperclip size={12} className="shrink-0 text-slate-400" />
-                      <span className="truncate font-medium text-slate-700">
+                      <span className="truncate font-medium text-slate-900">
                         {d.name}
                       </span>
                     </div>
@@ -544,7 +541,7 @@ export default function DocumentLoanDialog({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 text-slate-400 hover:text-rose-600"
+                      className="h-6 w-6 p-0 text-slate-400 hover:text-slate-900"
                       onClick={() => removeDoc(i)}
                       aria-label={`Remove ${d.name}`}
                     >
@@ -562,7 +559,7 @@ export default function DocumentLoanDialog({
               style={{
                 borderColor: "rgba(74,111,165,0.18)",
                 backgroundColor: "var(--bg-main)",
-                color: "var(--brand-primary)",
+                color: "#000000",
               }}
             >
               <div className="flex justify-between">

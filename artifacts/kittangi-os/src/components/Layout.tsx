@@ -40,11 +40,10 @@ function AppSwitcher({
           id="vertical-switcher"
           className="h-11 w-full border-2 text-sm font-semibold transition-colors"
           style={{
-            borderColor: "rgba(227,30,36,0.16)",
+            border: "1px solid rgba(74, 111, 165, 0.18)",
             color: "var(--text-main)",
-            // backgroundColor: "rgba(227,30,36,0.08)",
-            // @ts-expect-error custom CSS var for ring color via Tailwind ring utility fallback
-            "--tw-ring-color": "rgba(227,30,36,0.12)",
+            // "--tw-ring-color": "rgba(74, 111, 165, 0.12)",
+            boxShadow: "none"
           }}
         >
           <SelectValue placeholder="Select Vertical" />
@@ -93,9 +92,9 @@ function SidebarLinkList({
               style={({ isActive }) =>
                 isActive
                   ? {
-                      backgroundColor: "var(--brand-primary)",
-                      color: "#ffffff",
-                    }
+                    backgroundColor: "var(--brand-primary)",
+                    color: "#ffffff",
+                  }
                   : { color: "var(--text-main)" }
               }
             >
@@ -155,92 +154,88 @@ function Sidebar({
           borderColor: "rgba(74, 111, 165, 0.12)",
         }}
       >
-      {/* Brand */}
-      <div
-        className="relative flex items-center justify-center px-5"
-        style={{ height: 96, borderBottom: "1px solid rgba(74,111,165,0.08)" }}
-      >
-        <img
-          src="/kittangi.webp"
-          alt="Kittangi Logo"
-          className="h-16 w-44 object-contain"
-        />
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-4 inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-slate-100 md:hidden"
-          aria-label="Close sidebar"
+        {/* Brand */}
+        <div
+          className="relative flex items-center justify-center px-5"
+          style={{ height: 96, borderBottom: "1px solid rgba(74,111,165,0.08)" }}
         >
-          <X size={18} />
-        </button>
-      </div>
+          <img
+            src="/kittangi.webp"
+            alt="Kittangi Logo"
+            className="h-16 w-44 object-contain"
+          />
 
-      <AppSwitcher value={vertical} onChange={onChangeVertical} />
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-4 inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-slate-100 md:hidden"
+            aria-label="Close sidebar"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-4">
-        <SidebarLinkList items={items} isAdmin={isAdmin} onItemClick={onClose} />
+        <AppSwitcher value={vertical} onChange={onChangeVertical} />
 
-        {/* Capital section — admin-only, hidden entirely from staff. */}
-        {isAdmin && (
-          <>
-            <div className="mt-6 px-3">
-              <p
-                className="text-[10px] font-semibold uppercase tracking-wider"
-                style={{ color: "var(--text-muted)" }}
-              >
-                Capital
-              </p>
-            </div>
-            <div className="mt-2">
-              <SidebarLinkList
-                items={CAPITAL_NAV}
-                isAdmin={isAdmin}
-                onItemClick={onClose}
-              />
-            </div>
-          </>
-        )}
+        <nav className="flex-1 overflow-y-auto px-3 pb-4">
+          <SidebarLinkList items={items} isAdmin={isAdmin} onItemClick={onClose} />
 
-        {/* Administration section — admin-only. */}
-        {isAdmin && (
-          <>
-            <div className="mt-6 px-3">
-              <p
-                className="text-[10px] font-semibold uppercase tracking-wider"
-                style={{ color: "var(--text-muted)" }}
-              >
-                Administration
-              </p>
-            </div>
-            <div className="mt-2">
-              <SidebarLinkList
-                items={ADMIN_NAV}
-                isAdmin={isAdmin}
-                onItemClick={onClose}
-              />
-            </div>
-          </>
-        )}
-      </nav>
+          {/* Capital section — admin-only, hidden entirely from staff. */}
+          {isAdmin && (
+            <>
+              <div className="mt-6 px-3">
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Capital
+                </p>
+              </div>
+              <div className="mt-2">
+                <SidebarLinkList
+                  items={CAPITAL_NAV}
+                  isAdmin={isAdmin}
+                  onItemClick={onClose}
+                />
+              </div>
+            </>
+          )}
 
-      <div
-        className="border-t px-4 py-3 text-[11px]"
-        style={{
-          borderColor: "rgba(74,111,165,0.10)",
-          color: "var(--text-muted)",
-        }}
-      >
-        v0.1.0 — Multi-Vertical
-      </div>
+          {/* Administration section — admin-only. */}
+          {isAdmin && (
+            <>
+              <div className="mt-6 px-3">
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Administration
+                </p>
+              </div>
+              <div className="mt-2">
+                <SidebarLinkList
+                  items={ADMIN_NAV}
+                  isAdmin={isAdmin}
+                  onItemClick={onClose}
+                />
+              </div>
+            </>
+          )}
+        </nav>
 
-      <style>{`
+        <div
+          className="border-t px-4 py-3 text-[11px]"
+          style={{
+            borderColor: "rgba(74,111,165,0.10)",
+            color: "var(--text-muted)",
+          }}
+        >
+          v0.1.0 — Multi-Vertical
+        </div>
+
+        <style>{`
         .hover-link:hover {
-          background-color: #fce4e4;
-          color: #fce4e4;
-        }
-        .hover-link:hover svg {
-          color: #fce4e4;
+          background-color: rgba(100, 116, 139, 0.08);
         }
       `}</style>
       </aside>
@@ -352,7 +347,7 @@ function Header({
           aria-label="Sign out"
           title="Sign out"
           className="inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-slate-100"
-          style={{ color: "#B91C1C" }}
+          style={{ color: "#030213" }}
         >
           <LogOut size={18} />
         </button>

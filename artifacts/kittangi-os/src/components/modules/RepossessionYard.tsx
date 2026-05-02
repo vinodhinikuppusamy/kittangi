@@ -281,9 +281,9 @@ export default function RepossessionYard() {
           className="flex items-center gap-3 rounded-xl border bg-white px-4 py-2.5 text-sm"
           style={{ borderColor: "rgba(74,111,165,0.18)" }}
         >
-          <Layers className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
+          <Layers className="h-4 w-4" style={{ color: "#000000" }} />
           <span className="text-slate-500">Showing</span>
-          <span className="font-semibold" style={{ color: "var(--brand-primary)" }}>
+          <span className="font-semibold" style={{ color: "#000000" }}>
             {filtered.length}
           </span>
           <span className="text-slate-500">of {seizedVehicles.length} units</span>
@@ -435,7 +435,7 @@ function StatCard({
             </p>
             <p
               className="mt-1.5 truncate text-2xl font-bold leading-tight"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "#000000" }}
               title={value}
             >
               {value}
@@ -532,7 +532,7 @@ function YardVehicleCard({ vehicle }: { vehicle: SeizedVehicle }) {
         {/* yard bay tag (absolute, bottom-left) */}
         <span
           className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-md bg-white/85 px-2 py-0.5 text-[11px] font-semibold backdrop-blur"
-          style={{ color: "var(--brand-primary)" }}
+          style={{ color: "#000000" }}
         >
           <Warehouse className="h-3 w-3" />
           {vehicle.yardBay}
@@ -570,7 +570,7 @@ function YardVehicleCard({ vehicle }: { vehicle: SeizedVehicle }) {
 
         <div className="flex items-center justify-between rounded-md px-1 text-[11px]">
           <span className="text-slate-500">Est. Recovery</span>
-          <span className="font-semibold" style={{ color: "var(--brand-primary)" }}>
+          <span className="font-semibold" style={{ color: "#000000" }}>
             {inr(vehicle.estimatedRecovery)}
           </span>
         </div>
@@ -584,7 +584,7 @@ function YardVehicleCard({ vehicle }: { vehicle: SeizedVehicle }) {
             className="h-9 flex-1 gap-1.5 text-xs"
             style={{
               borderColor: "rgba(74,111,165,0.30)",
-              color: "var(--brand-primary)",
+              color: "#000000",
             }}
             onClick={() => setDocsOpen(true)}
             title={
@@ -647,7 +647,7 @@ function YardVehicleCard({ vehicle }: { vehicle: SeizedVehicle }) {
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2 text-base font-semibold"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "#000000" }}
             >
               <FileText size={16} />
               Legal Documents — {vehicle.loanId}
@@ -716,7 +716,7 @@ function YardVehicleCard({ vehicle }: { vehicle: SeizedVehicle }) {
                       className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium hover:bg-slate-50"
                       style={{
                         borderColor: "rgba(74,111,165,0.35)",
-                        color: "var(--brand-primary)",
+                        color: "#000000",
                       }}
                     >
                       <Download size={12} />
@@ -758,7 +758,7 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-start gap-1.5">
-      <Icon className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "var(--brand-primary)" }} />
+      <Icon className="mt-0.5 h-3 w-3 shrink-0" style={{ color: "#000000" }} />
       <div className="min-w-0">
         <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
         <div
@@ -780,7 +780,7 @@ function EmptyYardState({ onClear }: { onClear: () => void }) {
           className="flex h-14 w-14 items-center justify-center rounded-full"
           style={{ background: "var(--brand-light)" }}
         >
-          <Wrench className="h-7 w-7" style={{ color: "var(--brand-primary)" }} />
+          <Wrench className="h-7 w-7" style={{ color: "#000000" }} />
         </div>
         <div>
           <p className="text-base font-semibold text-slate-800">No seized vehicles match these filters</p>
@@ -793,7 +793,7 @@ function EmptyYardState({ onClear }: { onClear: () => void }) {
           variant="outline"
           size="sm"
           onClick={onClear}
-          style={{ borderColor: "rgba(74,111,165,0.30)", color: "var(--brand-primary)" }}
+          style={{ borderColor: "rgba(74,111,165,0.30)", color: "#000000" }}
         >
           Clear filters
         </Button>
@@ -801,4 +801,3 @@ function EmptyYardState({ onClear }: { onClear: () => void }) {
     </Card>
   );
 }
- 

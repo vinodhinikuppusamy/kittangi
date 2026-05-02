@@ -216,8 +216,7 @@ function openChittaPrintWindow(args: {
         <tr>
           <td class="num">${i + 1}</td>
           <td>${safeText(e.time)}</td>
-          <td>${safeText(e.particulars)}${
-            e.refId ? `<div class="ref">${safeText(e.refId)}</div>` : ""
+          <td>${safeText(e.particulars)}${e.refId ? `<div class="ref">${safeText(e.refId)}</div>` : ""
           }</td>
           <td>${safeText(accountName(e.account))}</td>
           <td class="amt">₹ ${fmtINR(e.amount)}</td>
@@ -509,7 +508,7 @@ function accountChip(account: DaybookAccount, accounts: Account[]) {
       className="inline-flex items-center gap-1.5 rounded-md border bg-white px-2 py-0.5 text-[11px] font-medium"
       style={{
         borderColor: "rgba(74,111,165,0.18)",
-        color: "var(--brand-primary)",
+        color: "#000000",
       }}
     >
       <Wallet size={11} />
@@ -543,10 +542,10 @@ function SummaryCard({
       style={
         emphasis
           ? {
-              borderColor: "rgba(74,111,165,0.25)",
-              background:
-                "linear-gradient(135deg, #FFFFFF 0%, rgba(191,221,245,0.30) 100%)",
-            }
+            borderColor: "rgba(74,111,165,0.25)",
+            background:
+              "linear-gradient(135deg, #FFFFFF 0%, rgba(191,221,245,0.30) 100%)",
+          }
           : { borderColor: "rgba(74,111,165,0.12)" }
       }
     >
@@ -557,9 +556,8 @@ function SummaryCard({
               {label}
             </div>
             <div
-              className={`mt-2 tracking-tight text-slate-900 ${
-                emphasis ? "text-3xl font-extrabold" : "text-2xl font-bold"
-              }`}
+              className={`mt-2 tracking-tight text-slate-900 ${emphasis ? "text-3xl font-extrabold" : "text-2xl font-bold"
+                }`}
             >
               {value}
             </div>
@@ -737,9 +735,8 @@ export default function Daybook() {
       }
       toast.success("Other income recorded", {
         icon: <CheckCircle2 size={16} />,
-        description: `${inr(incomeAmountNum)} into ${
-          accounts.find((a) => a.id === incomeAccount)?.name ?? incomeAccount
-        }`,
+        description: `${inr(incomeAmountNum)} into ${accounts.find((a) => a.id === incomeAccount)?.name ?? incomeAccount
+          }`,
       });
       resetIncomeForm();
       setIncomeOpen(false);
@@ -796,18 +793,16 @@ export default function Daybook() {
         logActivity({
           actor: getCurrentActor(),
           kind: "DAYBOOK",
-          summary: `Expense ₹${expenseAmountNum.toLocaleString("en-IN")} — ${expenseCategory} (${
-            accounts.find((a) => a.id === expenseAccount)?.name ?? expenseAccount
-          })`,
+          summary: `Expense ₹${expenseAmountNum.toLocaleString("en-IN")} — ${expenseCategory} (${accounts.find((a) => a.id === expenseAccount)?.name ?? expenseAccount
+            })`,
         });
       } catch {
         /* best effort */
       }
       toast.success("Expense recorded", {
         icon: <CheckCircle2 size={16} />,
-        description: `${expenseCategory} · ${inr(expenseAmountNum)} from ${
-          accounts.find((a) => a.id === expenseAccount)?.name ?? expenseAccount
-        }`,
+        description: `${expenseCategory} · ${inr(expenseAmountNum)} from ${accounts.find((a) => a.id === expenseAccount)?.name ?? expenseAccount
+          }`,
       });
       resetExpenseForm();
       setExpenseDialogOpen(false);
@@ -890,14 +885,14 @@ export default function Daybook() {
             className="flex items-center gap-2 rounded-lg border bg-white px-2.5 py-1.5"
             style={{ borderColor: "rgba(74,111,165,0.18)" }}
           >
-            <Calendar size={14} style={{ color: "var(--brand-primary)" }} />
+            <Calendar size={14} style={{ color: "var(--text-main)" }} />
             <Input
               type="date"
               value={date}
               max={todayIso()}
               onChange={(e) => setDate(e.target.value)}
               className="h-7 w-40 border-0 p-0 text-sm focus-visible:ring-0"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "var(--text-main)" }}
             />
           </div>
           <Button
@@ -906,7 +901,7 @@ export default function Daybook() {
             className="h-9 px-3 text-xs"
             style={{
               borderColor: "rgba(74,111,165,0.25)",
-              color: "var(--brand-primary)",
+              color: "#000000",
             }}
             onClick={() => {
               // Open a brand-new window with a self-contained, B/W A4-friendly
@@ -934,7 +929,7 @@ export default function Daybook() {
                 className="h-9 px-3 text-xs"
                 style={{
                   borderColor: "rgba(74,111,165,0.25)",
-                  color: "var(--brand-primary)",
+                  color: "#000000",
                 }}
                 onClick={() => {
                   resetTransferForm();
@@ -951,7 +946,7 @@ export default function Daybook() {
                 className="h-9 px-3 text-xs"
                 style={{
                   borderColor: "rgba(74,111,165,0.25)",
-                  color: "var(--brand-primary)",
+                  color: "#000000",
                 }}
                 onClick={() => {
                   resetIncomeForm();
@@ -968,7 +963,7 @@ export default function Daybook() {
                 className="h-9 px-3 text-xs"
                 style={{
                   borderColor: "rgba(74,111,165,0.25)",
-                  color: "var(--brand-primary)",
+                  color: "#000000",
                 }}
                 onClick={() => {
                   resetExpenseForm();
@@ -1046,7 +1041,7 @@ export default function Daybook() {
             <div>
               <div
                 className="text-sm font-semibold"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "var(--text-main)" }}
               >
                 Day Closed · {prettyDate(date)}
               </div>
@@ -1072,7 +1067,7 @@ export default function Daybook() {
             </span>
             <span className="text-slate-600">
               Cash Out{" "}
-              <span className="font-semibold text-red-700">
+              <span className="font-semibold text-slate-900">
                 {inr(existingLock.totalCashOut)}
               </span>
             </span>
@@ -1124,346 +1119,346 @@ export default function Daybook() {
           </div>
         </div>
 
-      {/* Summary Metrics */}
-      <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <SummaryCard
-          label="Opening Balance"
-          hint="Cash carried from yesterday"
-          value={inr(OPENING_BALANCE)}
-          icon={Wallet}
-          iconBg="var(--brand-light)"
-          iconColor="var(--brand-primary)"
-        />
-        <SummaryCard
-          label="Total Inflows (Credit)"
-          hint={`${inflows.length} receipt entries`}
-          value={inr(totalInflows)}
-          icon={TrendingUp}
-          iconBg="rgba(34,197,94,0.12)"
-          iconColor="rgb(21,128,61)"
-        />
-        <SummaryCard
-          label="Total Outflows (Debit)"
-          hint={`${outflows.length} payment entries`}
-          value={inr(totalOutflows)}
-          icon={TrendingDown}
-          iconBg="rgba(220,38,38,0.10)"
-          iconColor="rgb(185,28,28)"
-        />
-        <SummaryCard
-          label="Closing Balance"
-          hint="Opening + Inflows − Outflows"
-          value={inr(closing)}
-          icon={Scale}
-          iconBg="var(--brand-light)"
-          iconColor="var(--brand-primary)"
-          emphasis
-        />
-      </div>
+        {/* Summary Metrics */}
+        <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <SummaryCard
+            label="Opening Balance"
+            hint="Cash carried from yesterday"
+            value={inr(OPENING_BALANCE)}
+            icon={Wallet}
+            iconBg="var(--brand-light)"
+            iconColor="var(--text-main)"
+          />
+          <SummaryCard
+            label="Total Inflows (Credit)"
+            hint={`${inflows.length} receipt entries`}
+            value={inr(totalInflows)}
+            icon={TrendingUp}
+            iconBg="rgba(34,197,94,0.12)"
+            iconColor="rgb(21,128,61)"
+          />
+          <SummaryCard
+            label="Total Outflows (Debit)"
+            hint={`${outflows.length} payment entries`}
+            value={inr(totalOutflows)}
+            icon={TrendingDown}
+            iconBg="rgba(220,38,38,0.10)"
+            iconColor="rgb(185,28,28)"
+          />
+          <SummaryCard
+            label="Closing Balance"
+            hint="Opening + Inflows − Outflows"
+            value={inr(closing)}
+            icon={Scale}
+            iconBg="var(--brand-light)"
+            iconColor="var(--text-main)"
+            emphasis
+          />
+        </div>
 
-      {/* Reconciliation strip */}
-      <div
-        className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3"
-        style={{ borderColor: "rgba(74,111,165,0.15)" }}
-      >
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <div className="flex items-center gap-1.5 text-slate-500">
-            <Scale size={14} style={{ color: "var(--brand-primary)" }} />
-            <span className="font-semibold text-slate-700">Reconciliation</span>
-          </div>
-          <span className="text-slate-400">|</span>
-          <span className="text-slate-600">
-            Opening{" "}
-            <span className="font-semibold" style={{ color: "var(--brand-primary)" }}>
-              {inr(OPENING_BALANCE)}
+        {/* Reconciliation strip */}
+        <div
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3"
+          style={{ borderColor: "rgba(74,111,165,0.15)" }}
+        >
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <div className="flex items-center gap-1.5 text-slate-500">
+              <Scale size={14} style={{ color: "var(--text-main)" }} />
+              <span className="font-semibold text-slate-700">Reconciliation</span>
+            </div>
+            <span className="text-slate-400">|</span>
+            <span className="text-slate-600">
+              Opening{" "}
+              <span className="font-semibold text-slate-800">
+                {inr(OPENING_BALANCE)}
+              </span>
             </span>
-          </span>
-          <span className="text-slate-400">+</span>
-          <span className="text-emerald-700">
-            Credits{" "}
-            <span className="font-semibold">{inr(totalInflows)}</span>
-          </span>
-          <span className="text-slate-400">−</span>
-          <span className="text-red-700">
-            Debits <span className="font-semibold">{inr(totalOutflows)}</span>
-          </span>
-          <span className="text-slate-400">=</span>
-          <span style={{ color: "var(--brand-primary)" }}>
-            Closing{" "}
-            <span className="font-bold">{inr(closing)}</span>
+            <span className="text-slate-400">+</span>
+            <span className="text-emerald-700">
+              Credits{" "}
+              <span className="font-semibold">{inr(totalInflows)}</span>
+            </span>
+            <span className="text-slate-400">−</span>
+            <span className="text-slate-900">
+              Debits <span className="font-semibold">{inr(totalOutflows)}</span>
+            </span>
+            <span className="text-slate-400">=</span>
+            <span className="text-slate-800">
+              Closing{" "}
+              <span className="font-bold">{inr(closing)}</span>
+            </span>
+          </div>
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium"
+            style={{
+              backgroundColor: isBalanced
+                ? "rgba(34,197,94,0.14)"
+                : "rgba(220,38,38,0.10)",
+              color: isBalanced ? "rgb(21,128,61)" : "rgb(185,28,28)",
+            }}
+          >
+            {isBalanced ? "Books balanced" : "Negative liquidity — review!"}
           </span>
         </div>
-        <span
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium"
-          style={{
-            backgroundColor: isBalanced
-              ? "rgba(34,197,94,0.14)"
-              : "rgba(220,38,38,0.10)",
-            color: isBalanced ? "rgb(21,128,61)" : "rgb(185,28,28)",
-          }}
-        >
-          {isBalanced ? "Books balanced" : "Negative liquidity — review!"}
-        </span>
-      </div>
 
-      {/* T-Account Ledger */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* CREDIT / Inflows */}
-        <Card
-          className="border bg-white shadow-sm"
-          style={{ borderColor: "rgba(74,111,165,0.12)" }}
-        >
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div
-                  className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: "rgba(34,197,94,0.12)" }}
+        {/* T-Account Ledger */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {/* CREDIT / Inflows */}
+          <Card
+            className="border bg-white shadow-sm"
+            style={{ borderColor: "rgba(74,111,165,0.12)" }}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div
+                    className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
+                    style={{ backgroundColor: "rgba(34,197,94,0.12)" }}
+                  >
+                    <ArrowDownLeft
+                      size={16}
+                      style={{ color: "rgb(21,128,61)" }}
+                    />
+                  </div>
+                  <div>
+                    <CardTitle
+                      className="text-base font-semibold"
+                      style={{ color: "var(--text-main)" }}
+                    >
+                      Receipts &amp; Income
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Credit entries — money flowing in.
+                    </CardDescription>
+                  </div>
+                </div>
+                <span
+                  className="rounded-md px-2.5 py-1 text-xs font-semibold"
+                  style={{
+                    backgroundColor: "rgba(34,197,94,0.14)",
+                    color: "rgb(21,128,61)",
+                  }}
                 >
-                  <ArrowDownLeft
-                    size={16}
-                    style={{ color: "rgb(21,128,61)" }}
-                  />
-                </div>
-                <div>
-                  <CardTitle
-                    className="text-base font-semibold"
-                    style={{ color: "var(--brand-primary)" }}
-                  >
-                    Receipts &amp; Income
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Credit entries — money flowing in.
-                  </CardDescription>
-                </div>
+                  {inr(totalInflows)}
+                </span>
               </div>
-              <span
-                className="rounded-md px-2.5 py-1 text-xs font-semibold"
-                style={{
-                  backgroundColor: "rgba(34,197,94,0.14)",
-                  color: "rgb(21,128,61)",
-                }}
+            </CardHeader>
+            <CardContent>
+              <div
+                className="overflow-hidden rounded-lg border"
+                style={{ borderColor: "rgba(74,111,165,0.12)" }}
               >
-                {inr(totalInflows)}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div
-              className="overflow-hidden rounded-lg border"
-              style={{ borderColor: "rgba(74,111,165,0.12)" }}
-            >
-              <Table>
-                <TableHeader>
-                  <TableRow
-                    style={{ backgroundColor: "rgba(34,197,94,0.06)" }}
-                  >
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
-                      Time
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
-                      Particulars
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
-                      Account
-                    </TableHead>
-                    <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wider">
-                      Amount
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {inflows.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={4}
-                        className="py-8 text-center text-xs text-slate-500"
-                      >
-                        No credits recorded for this date.
-                      </TableCell>
+                <Table>
+                  <TableHeader>
+                    <TableRow
+                      style={{ backgroundColor: "rgba(34,197,94,0.06)" }}
+                    >
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
+                        Time
+                      </TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
+                        Particulars
+                      </TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
+                        Account
+                      </TableHead>
+                      <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wider">
+                        Amount
+                      </TableHead>
                     </TableRow>
-                  ) : (
-                    inflows.map((row) => (
-                      <TableRow key={row.id} className="hover:bg-emerald-50/40">
-                        <TableCell className="text-xs text-slate-600">
-                          {row.time}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm font-medium text-slate-800">
-                            {row.particulars}
-                          </div>
-                          {row.refId && (
-                            <div className="text-[11px] text-slate-500">
-                              {row.refId}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>{accountChip(row.account, accounts)}</TableCell>
-                        <TableCell className="text-right text-sm font-semibold text-emerald-700">
-                          + {inr(row.amount)}
-                          {isAdmin &&
-                            (row.legalInterestPortion ?? 0) +
-                              (row.companyInterestPortion ?? 0) >
-                              0 && (
-                              <div
-                                className="mt-0.5 text-[10px] font-medium text-slate-500"
-                                data-testid={`split-credit-${row.id}`}
-                              >
-                                Legal {inr(row.legalInterestPortion ?? 0)} ·
-                                Co. {inr(row.companyInterestPortion ?? 0)}
-                              </div>
-                            )}
+                  </TableHeader>
+                  <TableBody>
+                    {inflows.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={4}
+                          className="py-8 text-center text-xs text-slate-500"
+                        >
+                          No credits recorded for this date.
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                  <TableRow
-                    style={{
-                      backgroundColor: "rgba(34,197,94,0.06)",
-                      borderTop: "2px solid rgba(34,197,94,0.25)",
-                    }}
-                  >
-                    <TableCell colSpan={3} className="text-xs font-semibold uppercase tracking-wider text-slate-600">
-                      Total Credits
-                    </TableCell>
-                    <TableCell className="text-right text-sm font-bold text-emerald-700">
-                      {inr(totalInflows)}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* DEBIT / Outflows */}
-        <Card
-          className="border bg-white shadow-sm"
-          style={{ borderColor: "rgba(74,111,165,0.12)" }}
-        >
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div
-                  className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: "rgba(220,38,38,0.10)" }}
-                >
-                  <ArrowUpRight
-                    size={16}
-                    style={{ color: "rgb(185,28,28)" }}
-                  />
-                </div>
-                <div>
-                  <CardTitle
-                    className="text-base font-semibold"
-                    style={{ color: "var(--brand-primary)" }}
-                  >
-                    Payments &amp; Expenses
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Debit entries — money flowing out.
-                  </CardDescription>
-                </div>
-              </div>
-              <span
-                className="rounded-md px-2.5 py-1 text-xs font-semibold"
-                style={{
-                  backgroundColor: "rgba(220,38,38,0.10)",
-                  color: "rgb(185,28,28)",
-                }}
-              >
-                {inr(totalOutflows)}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div
-              className="overflow-hidden rounded-lg border"
-              style={{ borderColor: "rgba(74,111,165,0.12)" }}
-            >
-              <Table>
-                <TableHeader>
-                  <TableRow
-                    style={{ backgroundColor: "rgba(220,38,38,0.05)" }}
-                  >
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
-                      Time
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
-                      Particulars
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
-                      Account
-                    </TableHead>
-                    <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wider">
-                      Amount
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {outflows.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={4}
-                        className="py-8 text-center text-xs text-slate-500"
-                      >
-                        No debits recorded for this date.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    outflows.map((row) => (
-                      <TableRow key={row.id} className="hover:bg-red-50/40">
-                        <TableCell className="text-xs text-slate-600">
-                          {row.time}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm font-medium text-slate-800">
-                            {row.particulars}
-                          </div>
-                          {row.refId && (
-                            <div className="text-[11px] text-slate-500">
-                              {row.refId}
+                    ) : (
+                      inflows.map((row) => (
+                        <TableRow key={row.id} className="hover:bg-emerald-50/40">
+                          <TableCell className="text-xs text-slate-600">
+                            {row.time}
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm font-medium text-slate-800">
+                              {row.particulars}
                             </div>
-                          )}
-                        </TableCell>
-                        <TableCell>{accountChip(row.account, accounts)}</TableCell>
-                        <TableCell className="text-right text-sm font-semibold text-red-700">
-                          − {inr(row.amount)}
-                          {isAdmin &&
-                            (row.legalInterestPortion ?? 0) +
-                              (row.companyInterestPortion ?? 0) >
-                              0 && (
-                              <div
-                                className="mt-0.5 text-[10px] font-medium text-slate-500"
-                                data-testid={`split-debit-${row.id}`}
-                              >
-                                Legal {inr(row.legalInterestPortion ?? 0)} ·
-                                Co. {inr(row.companyInterestPortion ?? 0)}
+                            {row.refId && (
+                              <div className="text-[11px] text-slate-500">
+                                {row.refId}
                               </div>
                             )}
+                          </TableCell>
+                          <TableCell>{accountChip(row.account, accounts)}</TableCell>
+                          <TableCell className="text-right text-sm font-semibold text-emerald-700">
+                            + {inr(row.amount)}
+                            {isAdmin &&
+                              (row.legalInterestPortion ?? 0) +
+                              (row.companyInterestPortion ?? 0) >
+                              0 && (
+                                <div
+                                  className="mt-0.5 text-[10px] font-medium text-slate-500"
+                                  data-testid={`split-credit-${row.id}`}
+                                >
+                                  Legal {inr(row.legalInterestPortion ?? 0)} ·
+                                  Co. {inr(row.companyInterestPortion ?? 0)}
+                                </div>
+                              )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                    <TableRow
+                      style={{
+                        backgroundColor: "rgba(34,197,94,0.06)",
+                        borderTop: "2px solid rgba(34,197,94,0.25)",
+                      }}
+                    >
+                      <TableCell colSpan={3} className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+                        Total Credits
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-bold text-emerald-700">
+                        {inr(totalInflows)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* DEBIT / Outflows */}
+          <Card
+            className="border bg-white shadow-sm"
+            style={{ borderColor: "rgba(74,111,165,0.12)" }}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div
+                    className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
+                    style={{ backgroundColor: "rgba(220,38,38,0.10)" }}
+                  >
+                    <ArrowUpRight
+                      size={16}
+                      style={{ color: "rgb(185,28,28)" }}
+                    />
+                  </div>
+                  <div>
+                    <CardTitle
+                      className="text-base font-semibold"
+                      style={{ color: "var(--text-main)" }}
+                    >
+                      Payments &amp; Expenses
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Debit entries — money flowing out.
+                    </CardDescription>
+                  </div>
+                </div>
+                <span
+                  className="rounded-md px-2.5 py-1 text-xs font-semibold"
+                  style={{
+                    backgroundColor: "rgba(220,38,38,0.10)",
+                    color: "rgb(185,28,28)",
+                  }}
+                >
+                  {inr(totalOutflows)}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div
+                className="overflow-hidden rounded-lg border"
+                style={{ borderColor: "rgba(74,111,165,0.12)" }}
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow
+                      style={{ backgroundColor: "rgba(220,38,38,0.05)" }}
+                    >
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
+                        Time
+                      </TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
+                        Particulars
+                      </TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wider">
+                        Account
+                      </TableHead>
+                      <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wider">
+                        Amount
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {outflows.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={4}
+                          className="py-8 text-center text-xs text-slate-500"
+                        >
+                          No debits recorded for this date.
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                  <TableRow
-                    style={{
-                      backgroundColor: "rgba(220,38,38,0.05)",
-                      borderTop: "2px solid rgba(220,38,38,0.25)",
-                    }}
-                  >
-                    <TableCell colSpan={3} className="text-xs font-semibold uppercase tracking-wider text-slate-600">
-                      Total Debits
-                    </TableCell>
-                    <TableCell className="text-right text-sm font-bold text-red-700">
-                      {inr(totalOutflows)}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                    ) : (
+                      outflows.map((row) => (
+                        <TableRow key={row.id} className="hover:bg-red-50/40">
+                          <TableCell className="text-xs text-slate-600">
+                            {row.time}
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm font-medium text-slate-800">
+                              {row.particulars}
+                            </div>
+                            {row.refId && (
+                              <div className="text-[11px] text-slate-500">
+                                {row.refId}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>{accountChip(row.account, accounts)}</TableCell>
+                          <TableCell className="text-right text-sm font-semibold text-slate-900">
+                            − {inr(row.amount)}
+                            {isAdmin &&
+                              (row.legalInterestPortion ?? 0) +
+                              (row.companyInterestPortion ?? 0) >
+                              0 && (
+                                <div
+                                  className="mt-0.5 text-[10px] font-medium text-slate-500"
+                                  data-testid={`split-debit-${row.id}`}
+                                >
+                                  Legal {inr(row.legalInterestPortion ?? 0)} ·
+                                  Co. {inr(row.companyInterestPortion ?? 0)}
+                                </div>
+                              )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                    <TableRow
+                      style={{
+                        backgroundColor: "rgba(220,38,38,0.05)",
+                        borderTop: "2px solid rgba(220,38,38,0.25)",
+                      }}
+                    >
+                      <TableCell colSpan={3} className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+                        Total Debits
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-bold text-slate-900">
+                        {inr(totalOutflows)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Print-only signature block — appears at the bottom of the
             paper Chitta only. */}
@@ -1497,7 +1492,7 @@ export default function Daybook() {
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2 text-base font-semibold"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "var(--text-main)" }}
             >
               <Lock size={16} />
               Confirm Day Closure
@@ -1519,7 +1514,7 @@ export default function Daybook() {
               </div>
               <div>
                 <span className="text-slate-500">Day Closed:</span>{" "}
-                <span style={{ color: "var(--brand-primary)" }}>
+                <span style={{ color: "var(--text-main)" }}>
                   {prettyDate(pendingLock.dateIso)}
                 </span>
               </div>
@@ -1531,7 +1526,7 @@ export default function Daybook() {
               </div>
               <div>
                 <span className="text-slate-500">Total Cash Out:</span>{" "}
-                <span className="font-semibold text-red-700">
+                <span className="font-semibold text-slate-900">
                   {inr(pendingLock.totalCashOut)}
                 </span>
               </div>
@@ -1570,9 +1565,8 @@ export default function Daybook() {
                   pendingLock.totalCashIn,
                 )}, Total Cash Out: ${inr(
                   pendingLock.totalCashOut,
-                )}, Net Change: ${
-                  pendingLock.netChange >= 0 ? "+" : "−"
-                }${inr(Math.abs(pendingLock.netChange))}.`;
+                )}, Net Change: ${pendingLock.netChange >= 0 ? "+" : "−"
+                  }${inr(Math.abs(pendingLock.netChange))}.`;
                 navigator.clipboard
                   ?.writeText(text)
                   .then(() => toast.success("Report copied to clipboard"))
@@ -1604,9 +1598,8 @@ export default function Daybook() {
                   if (!pendingLock) return;
                   lockDay(pendingLock);
                   toast.success("Day locked", {
-                    description: `Net change ${
-                      pendingLock.netChange >= 0 ? "+" : "−"
-                    }${inr(Math.abs(pendingLock.netChange))} frozen.`,
+                    description: `Net change ${pendingLock.netChange >= 0 ? "+" : "−"
+                      }${inr(Math.abs(pendingLock.netChange))} frozen.`,
                     icon: <CheckCircle2 size={16} />,
                   });
                   setLockDialogOpen(false);

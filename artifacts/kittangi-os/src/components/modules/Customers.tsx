@@ -86,7 +86,7 @@ const CUSTOMER_ICON_TONES = [
   { bg: "rgba(59,130,246,0.14)", fg: "#1d4ed8" },
   { bg: "rgba(16,185,129,0.14)", fg: "#047857" },
   { bg: "rgba(245,158,11,0.14)", fg: "#b45309" },
-  { bg: "rgba(239,68,68,0.14)", fg: "#b91c1c" },
+  { bg: "rgba(239,68,68,0.14)", fg: "#030213" },
   { bg: "rgba(168,85,247,0.14)", fg: "#7e22ce" },
 ] as const;
 
@@ -110,7 +110,7 @@ function StatusBadge({ status }: { status: KycStatus }) {
     },
     Rejected: {
       bg: "rgba(239, 68, 68, 0.12)",
-      color: "#B91C1C",
+      color: "#030213",
       border: "rgba(239, 68, 68, 0.30)",
     },
   };
@@ -192,7 +192,7 @@ function FieldGroup({
       >
         {label}
         {required ? (
-          <span style={{ color: "#B91C1C" }} className="ml-0.5">
+          <span style={{ color: "#030213" }} className="ml-0.5">
             *
           </span>
         ) : null}
@@ -237,7 +237,7 @@ function FileDropzone({
       {fileName ? (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-main)" }}>
-            <FileText size={16} style={{ color: "var(--brand-primary)" }} />
+            <FileText size={16} style={{ color: "#000000" }} />
             <span className="font-medium">{fileName}</span>
             <span style={{ color: "var(--text-muted)" }}>· uploaded</span>
           </div>
@@ -256,10 +256,10 @@ function FileDropzone({
             className="flex h-9 w-9 items-center justify-center rounded-full"
             style={{ backgroundColor: "var(--brand-light)" }}
           >
-            <Upload size={16} style={{ color: "var(--brand-primary)" }} />
+            <Upload size={16} style={{ color: "#000000" }} />
           </div>
           <div className="text-xs">
-            <span className="font-semibold" style={{ color: "var(--brand-primary)" }}>
+            <span className="font-semibold" style={{ color: "#000000" }}>
               Click to upload
             </span>{" "}
             <span style={{ color: "var(--text-muted)" }}>or drag and drop</span>
@@ -446,15 +446,15 @@ function CustomerDrawer({
               style={{ backgroundColor: "var(--brand-light)" }}
             >
               {isEdit ? (
-                <Pencil size={18} style={{ color: "var(--brand-primary)" }} />
+                <Pencil size={18} style={{ color: "#000000" }} />
               ) : (
-                <UserPlus size={18} style={{ color: "var(--brand-primary)" }} />
+                <UserPlus size={18} style={{ color: "#000000" }} />
               )}
             </div>
             <div>
               <SheetTitle
                 className="text-lg font-bold"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "#000000" }}
               >
                 {isEdit ? "Edit Customer" : "Add New Customer"}
               </SheetTitle>
@@ -504,7 +504,7 @@ function CustomerDrawer({
                   {...register("firstName", { required: true })}
                 />
                 {errors.firstName ? (
-                  <p className="text-[11px]" style={{ color: "#B91C1C" }}>
+                  <p className="text-[11px]" style={{ color: "#030213" }}>
                     First name is required.
                   </p>
                 ) : null}
@@ -518,7 +518,7 @@ function CustomerDrawer({
                   {...register("lastName", { required: true })}
                 />
                 {errors.lastName ? (
-                  <p className="text-[11px]" style={{ color: "#B91C1C" }}>
+                  <p className="text-[11px]" style={{ color: "#030213" }}>
                     Last name is required.
                   </p>
                 ) : null}
@@ -552,7 +552,7 @@ function CustomerDrawer({
                   {...register("email", { required: true })}
                 />
                 {errors.email ? (
-                  <p className="text-[11px]" style={{ color: "#B91C1C" }}>
+                  <p className="text-[11px]" style={{ color: "#030213" }}>
                     Email is required.
                   </p>
                 ) : null}
@@ -953,7 +953,7 @@ export default function Customers() {
                       <CustomerAvatar customer={c} />
                       <span
                         className="text-left text-sm font-semibold"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "#000000" }}
                       >
                         {c.fullName}
                       </span>
@@ -961,7 +961,7 @@ export default function Customers() {
                   </TableCell>
                   <TableCell
                     className="font-mono text-xs"
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "#000000" }}
                   >
                     {c.id}
                   </TableCell>
@@ -978,7 +978,7 @@ export default function Customers() {
                         className="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-semibold"
                         style={{
                           backgroundColor: "var(--brand-light)",
-                          color: "var(--brand-primary)",
+                          color: "#000000",
                         }}
                       >
                         {c.activeLoans}
@@ -1006,7 +1006,7 @@ export default function Customers() {
                           openEdit(c);
                         }}
                         className="h-8 w-8 p-0"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "#000000" }}
                         aria-label={`Edit ${c.fullName}`}
                       >
                         <Pencil size={14} />

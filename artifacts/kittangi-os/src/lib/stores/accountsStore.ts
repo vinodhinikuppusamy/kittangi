@@ -28,46 +28,9 @@ export type Account = {
 
 const STORAGE_KEY = "kittangi:accounts:v1";
 
-// ---------------------------------------------------------------------------
-// Seed data
-// ---------------------------------------------------------------------------
-//
-// IMPORTANT: The seed account ids ("CASH", "HDFC", "SBI") match the
-// literal strings written into the existing Daybook seed (and into
-// hydrated datasets from returning devices) so balance computations work
-// correctly out of the box without any data migration.
-// ---------------------------------------------------------------------------
-
-const SEED_ACCOUNTS: Account[] = [
-  {
-    id: "CASH",
-    name: "Cash in Hand",
-    type: "CASH",
-    subtitle: "Branch cash drawer",
-    openingBalance: 218430,
-    openedAtIso: "2025-04-01",
-  },
-  {
-    id: "HDFC",
-    name: "HDFC Bank",
-    type: "BANK",
-    subtitle: "Current A/c ••• 4521",
-    openingBalance: 1250000,
-    openedAtIso: "2025-04-01",
-  },
-  {
-    id: "SBI",
-    name: "SBI Bank",
-    type: "BANK",
-    subtitle: "Overdraft A/c ••• 8870",
-    openingBalance: 875000,
-    openedAtIso: "2025-04-01",
-  },
-];
-
 const accountsStore = createPersistentStore<Account[]>(
   STORAGE_KEY,
-  SEED_ACCOUNTS,
+  [],
 );
 
 let nextSeq = 0;
@@ -120,7 +83,7 @@ export function deleteAccount(id: string): void {
 }
 
 export function resetAccounts(): void {
-  accountsStore.set(SEED_ACCOUNTS);
+  accountsStore.set([]);
 }
 
 // ---------------------------------------------------------------------------

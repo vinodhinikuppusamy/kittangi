@@ -493,11 +493,11 @@ export default function VehicleOrigination() {
           className="flex items-center gap-3 rounded-xl border bg-white px-4 py-2.5 text-sm"
           style={{ borderColor: "rgba(74,111,165,0.18)" }}
         >
-          <Gauge className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
+          <Gauge className="h-4 w-4" style={{ color: "var(--text-main)" }} />
           <span className="text-slate-500">Live LTV</span>
           <span
             className="font-bold"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "var(--text-main)" }}
           >
             {ltv.toFixed(1)}%
           </span>
@@ -505,7 +505,7 @@ export default function VehicleOrigination() {
           <span className="text-slate-500">Net Disbursement</span>
           <span
             className="font-semibold"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "var(--text-main)" }}
           >
             {inr(netDisbursement)}
           </span>
@@ -524,7 +524,7 @@ export default function VehicleOrigination() {
                     className="flex h-9 w-9 items-center justify-center rounded-lg"
                     style={{ background: "var(--brand-light)" }}
                   >
-                    <UserRoundCheck className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+                    <UserRoundCheck className="h-5 w-5" style={{ color: "var(--text-main)" }} />
                   </div>
                   <div>
                     <CardTitle className="text-base font-semibold text-slate-900">
@@ -649,7 +649,7 @@ export default function VehicleOrigination() {
                     className="flex h-9 w-9 items-center justify-center rounded-lg"
                     style={{ background: "var(--brand-light)" }}
                   >
-                    <Car className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+                    <Car className="h-5 w-5" style={{ color: "var(--text-main)" }} />
                   </div>
                   <div>
                     <CardTitle className="text-base font-semibold text-slate-900">
@@ -684,7 +684,7 @@ export default function VehicleOrigination() {
                         return (
                           <SelectItem key={vt.value} value={vt.value}>
                             <div className="flex items-center gap-2.5">
-                              <Icon className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
+                              <Icon className="h-4 w-4" style={{ color: "var(--text-main)" }} />
                               <div className="flex flex-col">
                                 <span className="text-sm font-medium">{vt.label}</span>
                                 <span className="text-xs text-slate-500">{vt.sub}</span>
@@ -772,7 +772,7 @@ export default function VehicleOrigination() {
                     className="flex h-9 w-9 items-center justify-center rounded-lg"
                     style={{ background: "var(--brand-light)" }}
                   >
-                    <Calculator className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+                    <Calculator className="h-5 w-5" style={{ color: "var(--text-main)" }} />
                   </div>
                   <div>
                     <CardTitle className="text-base font-semibold text-slate-900">
@@ -834,7 +834,7 @@ export default function VehicleOrigination() {
                       </p>
                       <p
                         className="mt-1 text-2xl font-bold leading-tight"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "var(--text-main)" }}
                       >
                         {ltv.toFixed(1)}
                         <span className="ml-1 text-base font-semibold text-slate-500">%</span>
@@ -870,7 +870,7 @@ export default function VehicleOrigination() {
                       </span>
                       <span
                         className="text-sm font-semibold"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "#000000" }}
                       >
                         {inr(rtoFee)}
                       </span>
@@ -905,14 +905,14 @@ export default function VehicleOrigination() {
                   <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <Wallet className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
+                        <Wallet className="h-4 w-4" style={{ color: "#000000" }} />
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-600">
                           Net Disbursement Amount
                         </p>
                       </div>
                       <p
                         className="mt-1 text-3xl font-extrabold leading-tight tracking-tight"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "#000000" }}
                       >
                         {inr(netDisbursement)}
                       </p>
@@ -941,7 +941,7 @@ export default function VehicleOrigination() {
                 className="flex h-9 w-9 items-center justify-center rounded-lg"
                 style={{ background: "var(--brand-light)" }}
               >
-                <CalendarClock className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+                <CalendarClock className="h-5 w-5" style={{ color: "#000000" }} />
               </div>
               <div>
                 <CardTitle className="text-base font-semibold text-slate-900">
@@ -1063,7 +1063,7 @@ export default function VehicleOrigination() {
               >
                 <Paperclip
                   className="h-5 w-5"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "#000000" }}
                 />
               </div>
               <div>
@@ -1173,7 +1173,7 @@ export default function VehicleOrigination() {
                 className="flex h-9 w-9 items-center justify-center rounded-lg"
                 style={{ background: "var(--brand-light)" }}
               >
-                <ShieldCheck className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+                <ShieldCheck className="h-5 w-5" style={{ color: "#000000" }} />
               </div>
               <div>
                 <CardTitle className="text-base font-semibold text-slate-900">
@@ -1236,7 +1236,7 @@ export default function VehicleOrigination() {
           {successTicket && (
             <div className="grid gap-4 py-2 sm:grid-cols-[1fr_auto] sm:items-center">
               <div className="space-y-1.5 text-sm">
-                <p className="font-mono text-base font-bold" style={{ color: "var(--brand-primary)" }}>
+                <p className="font-mono text-base font-bold" style={{ color: "#000000" }}>
                   {successTicket.loanId}
                 </p>
                 <p className="text-slate-700">{successTicket.customer}</p>
@@ -1342,7 +1342,7 @@ function Field({
         {label}
       </Label>
       {children}
-      {error && <p className="text-xs font-medium text-rose-600">{error}</p>}
+      {error && <p className="text-xs font-medium text-slate-900">{error}</p>}
     </div>
   );
 }
@@ -1359,7 +1359,7 @@ const RupeeInput = ({
       className="flex h-full items-center justify-center px-3"
       style={{
         background: "rgba(191,221,245,0.35)",
-        color: "var(--brand-primary)",
+        color: "#000000",
         borderRight: "1px solid rgba(74,111,165,0.18)",
       }}
     >

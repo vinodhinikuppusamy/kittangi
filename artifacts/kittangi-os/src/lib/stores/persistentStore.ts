@@ -22,8 +22,9 @@ export function hydratePersistentStore<T>(key: string, snapshot: T): void {
 
 /**
  * Lightweight module-scope store that any number of React components can
- * subscribe to via `usePersistentStore`. This is intentionally in-memory only;
- * durable state now lives on backend APIs.
+ * subscribe to via `usePersistentStore`. This is purely in-memory;
+ * all durable state resides in the MongoDB backend and is synchronized
+ * via the API server.
  */
 export function createPersistentStore<T>(
   key: string,

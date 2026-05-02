@@ -168,7 +168,7 @@ function paymentTypeBadge(type: PaymentType) {
           className="border-transparent font-medium"
           style={{
             backgroundColor: "rgba(74,111,165,0.12)",
-            color: "var(--brand-primary)",
+            color: "#000000",
           }}
         >
           Interest Only
@@ -208,7 +208,7 @@ function accountBadge(accountId: string) {
       className="inline-flex items-center gap-1.5 rounded-md border bg-white px-2 py-0.5 text-[11px] font-medium"
       style={{
         borderColor: "rgba(74,111,165,0.18)",
-        color: "var(--brand-primary)",
+        color: "#000000",
       }}
     >
       <Wallet size={11} />
@@ -356,13 +356,13 @@ export default function ReceiptsLedger() {
       // cashier sees so re-prints stay consistent with the dues panel.
       const accrued = loan
         ? accruedInterestFor(
-            {
-              principal: loan.principal,
-              ratePctPerAnnum: loan.ratePctPerAnnum,
-              startedAtIso: loan.startedAtIso,
-            },
-            fullEntry.dateIso,
-          )
+          {
+            principal: loan.principal,
+            ratePctPerAnnum: loan.ratePctPerAnnum,
+            startedAtIso: loan.startedAtIso,
+          },
+          fullEntry.dateIso,
+        )
         : 0;
       interestPortion = Math.min(accrued, fullEntry.amount);
       principalPortion = fullEntry.amount - interestPortion;
@@ -412,9 +412,8 @@ export default function ReceiptsLedger() {
         getAccount(pendingDelete.accountId)?.name ?? pendingDelete.accountId;
       toast.success(`Receipt ${pendingDelete.receiptId} deleted`, {
         icon: <Trash2 size={16} />,
-        description: `${inr(reversedTotal)} reversed from ${accountName} • ${removed.length} ledger ${
-          removed.length === 1 ? "entry" : "entries"
-        } removed.`,
+        description: `${inr(reversedTotal)} reversed from ${accountName} • ${removed.length} ledger ${removed.length === 1 ? "entry" : "entries"
+          } removed.`,
       });
     } catch (err) {
       toast.error("Could not delete receipt", {
@@ -564,9 +563,8 @@ export default function ReceiptsLedger() {
           time,
           side: "CREDIT",
           category: interestCategory,
-          particulars: `${selectedLoan.customer} — ${
-            selectedLoan.product === "VEHICLE" ? "EMI Received" : "Interest Paid"
-          }`,
+          particulars: `${selectedLoan.customer} — ${selectedLoan.product === "VEHICLE" ? "EMI Received" : "Interest Paid"
+            }`,
           refId,
           account: accountId,
           amount: interestPortion,
@@ -653,7 +651,7 @@ export default function ReceiptsLedger() {
           className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 text-xs font-medium"
           style={{
             borderColor: "rgba(74,111,165,0.18)",
-            color: "var(--brand-primary)",
+            color: "#000000",
           }}
         >
           <History size={14} />
@@ -678,13 +676,13 @@ export default function ReceiptsLedger() {
                   >
                     <Search
                       size={16}
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "#000000" }}
                     />
                   </div>
                   <div>
                     <CardTitle
                       className="text-base font-semibold"
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "#000000" }}
                     >
                       Select Active Loan
                     </CardTitle>
@@ -777,7 +775,7 @@ export default function ReceiptsLedger() {
                       className="rounded-full px-2.5 py-0.5 text-[11px] font-medium"
                       style={{
                         backgroundColor: "rgba(74,111,165,0.12)",
-                        color: "var(--brand-primary)",
+                        color: "#000000",
                       }}
                     >
                       {selectedLoan.product === "PAWN" ? "Pawn" : "Vehicle"} •{" "}
@@ -801,13 +799,13 @@ export default function ReceiptsLedger() {
                   >
                     <CircleDollarSign
                       size={16}
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "#000000" }}
                     />
                   </div>
                   <div>
                     <CardTitle
                       className="text-base font-semibold"
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "#000000" }}
                     >
                       Outstanding Dues
                     </CardTitle>
@@ -845,13 +843,13 @@ export default function ReceiptsLedger() {
                 >
                   <IndianRupee
                     size={16}
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "#000000" }}
                   />
                 </div>
                 <div>
                   <CardTitle
                     className="text-base font-semibold"
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "#000000" }}
                   >
                     Record Payment
                   </CardTitle>
@@ -992,13 +990,13 @@ export default function ReceiptsLedger() {
                 >
                   <History
                     size={16}
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "#000000" }}
                   />
                 </div>
                 <div>
                   <CardTitle
                     className="text-base font-semibold"
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "#000000" }}
                   >
                     Today’s Receipts
                   </CardTitle>
@@ -1017,7 +1015,7 @@ export default function ReceiptsLedger() {
                   className="rounded-md px-2.5 py-1 text-sm font-bold"
                   style={{
                     backgroundColor: "var(--brand-light)",
-                    color: "var(--brand-primary)",
+                    color: "#000000",
                   }}
                 >
                   {inr(todayTotal)}
@@ -1076,7 +1074,7 @@ export default function ReceiptsLedger() {
                       >
                         <TableCell
                           className="font-mono text-xs"
-                          style={{ color: "var(--brand-primary)" }}
+                          style={{ color: "#000000" }}
                         >
                           {row.receiptId}
                         </TableCell>
@@ -1107,7 +1105,7 @@ export default function ReceiptsLedger() {
                                 handleViewReceipt(row);
                               }}
                               className="h-8 px-2 text-xs font-medium"
-                              style={{ color: "var(--brand-primary)" }}
+                              style={{ color: "#000000" }}
                               aria-label={`View ${row.receiptId}`}
                             >
                               <Eye size={13} className="mr-1" />
@@ -1173,7 +1171,7 @@ export default function ReceiptsLedger() {
               <strong>
                 {pendingDelete
                   ? getAccount(pendingDelete.accountId)?.name ??
-                    pendingDelete.accountId
+                  pendingDelete.accountId
                   : "—"}
               </strong>{" "}
               and remove every Daybook entry tied to{" "}
@@ -1210,7 +1208,7 @@ function DueRow({ label, value }: { label: string; value: string }) {
       </div>
       <div
         className="mt-1 text-xl font-bold tracking-tight"
-        style={{ color: "var(--brand-primary)" }}
+        style={{ color: "#000000" }}
       >
         {value}
       </div>

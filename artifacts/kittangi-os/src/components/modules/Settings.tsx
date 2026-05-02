@@ -301,7 +301,7 @@ function BranchProfileTab() {
             className="flex h-9 w-9 items-center justify-center rounded-lg"
             style={{ background: "var(--brand-light)" }}
           >
-            <Building2 className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+            <Building2 className="h-5 w-5" style={{ color: "#000000" }} />
           </div>
           <div>
             <CardTitle className="text-base font-semibold text-slate-900">
@@ -433,7 +433,7 @@ function UserManagementTab() {
                 className="flex h-9 w-9 items-center justify-center rounded-lg"
                 style={{ background: "var(--brand-light)" }}
               >
-                <ShieldCheck className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+                <ShieldCheck className="h-5 w-5" style={{ color: "#000000" }} />
               </div>
               <div>
                 <CardTitle className="text-base font-semibold text-slate-900">
@@ -529,7 +529,7 @@ function UserManagementTab() {
                             onClick={() => toggleStatus(u.id)}
                             data-testid={`button-toggle-status-${u.id}`}
                             className="h-8 px-3 text-xs font-semibold"
-                            style={{ color: "var(--brand-primary)" }}
+                            style={{ color: "#000000" }}
                           >
                             {u.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
                           </Button>
@@ -628,7 +628,7 @@ function AddUserDialog({
               {...register("name", { required: "Required" })}
             />
             {errors.name && (
-              <p className="text-xs text-rose-600">{errors.name.message}</p>
+              <p className="text-xs text-slate-900">{errors.name.message}</p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -646,7 +646,7 @@ function AddUserDialog({
               })}
             />
             {errors.username && (
-              <p className="text-xs text-rose-600">{errors.username.message}</p>
+              <p className="text-xs text-slate-900">{errors.username.message}</p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -665,7 +665,7 @@ function AddUserDialog({
               })}
             />
             {errors.email && (
-              <p className="text-xs text-rose-600">{errors.email.message}</p>
+              <p className="text-xs text-slate-900">{errors.email.message}</p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -758,10 +758,10 @@ function DangerZoneTab() {
       <CardHeader>
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-50">
-            <ShieldAlert className="h-5 w-5 text-rose-600" />
+            <ShieldAlert className="h-5 w-5 text-slate-900" />
           </div>
           <div>
-            <CardTitle className="text-base font-semibold text-rose-700">
+            <CardTitle className="text-base font-semibold text-slate-900">
               Danger Zone
             </CardTitle>
             <CardDescription className="text-sm text-slate-500">
@@ -777,7 +777,7 @@ function DangerZoneTab() {
           style={{ borderColor: "rgba(244,63,94,0.30)", background: "rgba(254,242,242,0.50)" }}
         >
           <div className="max-w-xl space-y-1">
-            <div className="flex items-center gap-2 text-sm font-semibold text-rose-700">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
               <AlertTriangle className="h-4 w-4" /> Wipe All Transactional Data
             </div>
             <p className="text-xs text-slate-600">
@@ -809,7 +809,7 @@ function DangerZoneTab() {
       <Dialog open={confirmOpen} onOpenChange={(v) => !v && setConfirmOpen(false)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-rose-700">
+            <DialogTitle className="text-slate-900">
               Confirm: Wipe All Transactional Data
             </DialogTitle>
             <DialogDescription>
@@ -825,7 +825,7 @@ function DangerZoneTab() {
               placeholder="Type WIPE to confirm"
               data-testid="input-system-reset-confirm"
             />
-            <div className="rounded-md bg-rose-50 p-3 text-xs text-rose-700">
+            <div className="rounded-md bg-rose-50 p-3 text-xs text-slate-900">
               <p className="font-semibold">Will be wiped:</p>
               <p>
                 Loans · Receipts (Daybook) · Pledged items · Customers ·
@@ -930,7 +930,7 @@ function AccountsTab() {
             >
               <Landmark
                 className="h-5 w-5"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "#000000" }}
               />
             </div>
             <div>
@@ -1040,7 +1040,7 @@ function AccountsTab() {
                             ) : (
                               <Landmark
                                 size={14}
-                                style={{ color: "var(--brand-primary)" }}
+                                style={{ color: "#000000" }}
                               />
                             )}
                           </div>
@@ -1087,7 +1087,7 @@ function AccountsTab() {
                             size="sm"
                             onClick={() => openEdit(a)}
                             className="h-8 w-8 p-0"
-                            style={{ color: "var(--brand-primary)" }}
+                            style={{ color: "#000000" }}
                             aria-label={`Edit ${a.name}`}
                           >
                             <Pencil size={14} />
@@ -1237,7 +1237,7 @@ function AccountDrawer({
         <DialogHeader>
           <DialogTitle
             className="text-base font-semibold"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "#000000" }}
           >
             {editing ? `Edit ${editing.name}` : "Add a new account"}
           </DialogTitle>
@@ -1282,8 +1282,8 @@ function AccountDrawer({
                   type="button"
                   onClick={() => setValue("type", "CASH")}
                   className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${typeValue === "CASH"
-                      ? "bg-brand-light text-brand-primary"
-                      : "bg-white text-slate-600"
+                    ? "bg-brand-light text-brand-primary"
+                    : "bg-white text-slate-600"
                     }`}
                   style={{ borderColor: "rgba(74,111,165,0.20)" }}
                 >
@@ -1293,8 +1293,8 @@ function AccountDrawer({
                   type="button"
                   onClick={() => setValue("type", "BANK")}
                   className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${typeValue === "BANK"
-                      ? "bg-brand-light text-brand-primary"
-                      : "bg-white text-slate-600"
+                    ? "bg-brand-light text-brand-primary"
+                    : "bg-white text-slate-600"
                     }`}
                   style={{ borderColor: "rgba(74,111,165,0.20)" }}
                 >
@@ -1415,7 +1415,7 @@ function RatesAndFeesTab() {
             className="flex h-9 w-9 items-center justify-center rounded-lg"
             style={{ background: "var(--brand-light)" }}
           >
-            <Percent className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+            <Percent className="h-5 w-5" style={{ color: "#000000" }} />
           </div>
           <div>
             <CardTitle className="text-base font-semibold text-slate-900">
@@ -1596,7 +1596,7 @@ function VaultConfigurationTab() {
               className="flex h-9 w-9 items-center justify-center rounded-lg"
               style={{ background: "var(--brand-light)" }}
             >
-              <Vault className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+              <Vault className="h-5 w-5" style={{ color: "#000000" }} />
             </div>
             <div>
               <CardTitle className="text-base font-semibold text-slate-900">
@@ -1696,7 +1696,7 @@ function VaultConfigurationTab() {
                         className="rounded-md border bg-white px-2 py-1"
                         style={{
                           borderColor: "rgba(74,111,165,0.18)",
-                          color: "var(--brand-primary)",
+                          color: "#000000",
                         }}
                       >
                         {lockerRangeLabel(s)}
@@ -1707,7 +1707,7 @@ function VaultConfigurationTab() {
                         className="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-semibold"
                         style={{
                           backgroundColor: "var(--brand-light)",
-                          color: "var(--brand-primary)",
+                          color: "#000000",
                         }}
                       >
                         {s.lockerCount}
@@ -1721,7 +1721,7 @@ function VaultConfigurationTab() {
                           size="sm"
                           onClick={() => openEdit(s)}
                           className="h-8 w-8 p-0"
-                          style={{ color: "var(--brand-primary)" }}
+                          style={{ color: "#000000" }}
                           aria-label={`Edit ${s.name}`}
                         >
                           <Pencil size={14} />
@@ -1802,7 +1802,7 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
       </div>
       <div
         className="mt-0.5 text-base font-bold"
-        style={{ color: "var(--brand-primary)" }}
+        style={{ color: "#000000" }}
       >
         {value}
       </div>
@@ -1876,7 +1876,7 @@ function SafeDrawer({
         <DialogHeader>
           <DialogTitle
             className="text-base font-semibold"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "#000000" }}
           >
             {editing ? `Edit ${editing.name}` : "Add a new safe"}
           </DialogTitle>
@@ -2006,7 +2006,7 @@ function FieldGroup({
       </Label>
       {children}
       {error && (
-        <p className="text-xs font-medium text-rose-600">{error}</p>
+        <p className="text-xs font-medium text-slate-900">{error}</p>
       )}
     </div>
   );
@@ -2032,7 +2032,7 @@ const RateInput = ({
           className="flex h-full items-center justify-center px-3 text-sm font-semibold"
           style={{
             background: "rgba(191,221,245,0.35)",
-            color: "var(--brand-primary)",
+            color: "#000000",
             borderRight: "1px solid rgba(74,111,165,0.18)",
           }}
         >
@@ -2049,7 +2049,7 @@ const RateInput = ({
           className="flex h-full items-center justify-center px-3 text-sm font-semibold"
           style={{
             background: "rgba(191,221,245,0.35)",
-            color: "var(--brand-primary)",
+            color: "#000000",
             borderLeft: "1px solid rgba(74,111,165,0.18)",
           }}
         >

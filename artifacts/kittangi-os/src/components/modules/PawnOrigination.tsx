@@ -435,7 +435,7 @@ export default function PawnOrigination() {
           className="hidden items-center gap-2 rounded-full border bg-white px-3 py-1.5 text-xs font-medium md:flex"
           style={{
             borderColor: "rgba(74,111,165,0.18)",
-            color: "var(--brand-primary)",
+            color: "var(--text-main)",
           }}
         >
           <Sparkles size={14} />
@@ -457,12 +457,12 @@ export default function PawnOrigination() {
                   className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
                   style={{ backgroundColor: "var(--brand-light)" }}
                 >
-                  <User size={16} style={{ color: "var(--brand-primary)" }} />
+                  <User size={16} style={{ color: "var(--text-main)" }} />
                 </div>
                 <div>
                   <CardTitle
                     className="text-base font-semibold"
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "var(--text-main)" }}
                   >
                     Customer &amp; Vault Details
                   </CardTitle>
@@ -576,10 +576,10 @@ export default function PawnOrigination() {
               {/* Vault Assignment */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Lock size={14} style={{ color: "var(--brand-primary)" }} />
+                  <Lock size={14} style={{ color: "var(--text-main)" }} />
                   <h3
                     className="text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "var(--text-main)" }}
                   >
                     Vault Assignment
                   </h3>
@@ -647,7 +647,7 @@ export default function PawnOrigination() {
                     className="flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs"
                     style={{
                       borderColor: "rgba(74,111,165,0.30)",
-                      color: "var(--brand-primary)",
+                      color: "var(--text-main)",
                       backgroundColor: "rgba(191,221,245,0.20)",
                     }}
                   >
@@ -681,13 +681,13 @@ export default function PawnOrigination() {
                   >
                     <Scale
                       size={16}
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "var(--text-main)" }}
                     />
                   </div>
                   <div>
                     <CardTitle
                       className="text-base font-semibold"
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "var(--text-main)" }}
                     >
                       Item Valuation
                     </CardTitle>
@@ -803,7 +803,7 @@ export default function PawnOrigination() {
                     <div>
                       <div
                         className="text-[11px] font-semibold uppercase tracking-wider"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "var(--text-main)" }}
                       >
                         Maximum Loan Value
                       </div>
@@ -813,7 +813,7 @@ export default function PawnOrigination() {
                     </div>
                     <div
                       className="text-2xl font-bold tracking-tight"
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "var(--text-main)" }}
                     >
                       {inr(maxLoanValue)}
                     </div>
@@ -845,13 +845,13 @@ export default function PawnOrigination() {
                   >
                     <IndianRupee
                       size={16}
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "var(--text-main)" }}
                     />
                   </div>
                   <div>
                     <CardTitle
                       className="text-base font-semibold"
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "var(--text-main)" }}
                     >
                       Disbursement Details
                     </CardTitle>
@@ -891,7 +891,7 @@ export default function PawnOrigination() {
                     </div>
                     <p
                       className={`text-[11px] ${
-                        exceedsMax ? "text-red-600" : "text-slate-500"
+                        exceedsMax ? "text-slate-900" : "text-slate-500"
                       }`}
                     >
                       {exceedsMax
@@ -914,7 +914,7 @@ export default function PawnOrigination() {
                       </span>
                       <span
                         className="text-sm font-semibold"
-                        style={{ color: "var(--brand-primary)" }}
+                        style={{ color: "var(--text-main)" }}
                       >
                         {inr(processingFee)}
                       </span>
@@ -1018,7 +1018,7 @@ export default function PawnOrigination() {
                     </div>
                     <div
                       className="text-4xl font-extrabold tracking-tight"
-                      style={{ color: "var(--brand-primary)" }}
+                      style={{ color: "var(--text-main)" }}
                     >
                       {inr(netDisbursement)}
                     </div>
@@ -1045,12 +1045,12 @@ export default function PawnOrigination() {
                 className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
                 style={{ backgroundColor: "var(--brand-light)" }}
               >
-                <Camera size={16} style={{ color: "var(--brand-primary)" }} />
+                <Camera size={16} style={{ color: "var(--text-main)" }} />
               </div>
               <div>
                 <CardTitle
                   className="text-base font-semibold"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "var(--text-main)" }}
                 >
                   Item Photographs
                 </CardTitle>
@@ -1082,12 +1082,12 @@ export default function PawnOrigination() {
                 className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg"
                 style={{ backgroundColor: "var(--brand-light)" }}
               >
-                <Wallet size={16} style={{ color: "var(--brand-primary)" }} />
+                <Wallet size={16} style={{ color: "var(--text-main)" }} />
               </div>
               <div>
                 <CardTitle
                   className="text-base font-semibold"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "var(--text-main)" }}
                 >
                   Payment Source
                 </CardTitle>
@@ -1132,7 +1132,7 @@ export default function PawnOrigination() {
                 style={{
                   borderColor: "rgba(74,111,165,0.18)",
                   backgroundColor: "var(--bg-main)",
-                  color: "var(--brand-primary)",
+                  color: "var(--text-main)",
                 }}
               >
                 <Banknote size={14} />
@@ -1171,7 +1171,7 @@ export default function PawnOrigination() {
         </div>
 
         {Object.keys(errors).length > 0 && (
-          <p className="text-xs text-red-600">
+          <p className="text-xs text-slate-900">
             Please fix the highlighted fields above.
           </p>
         )}
@@ -1187,7 +1187,7 @@ export default function PawnOrigination() {
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2 text-base font-semibold"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "var(--text-main)" }}
             >
               <CheckCircle2 size={18} />
               Pawn Ticket Generated
@@ -1208,7 +1208,7 @@ export default function PawnOrigination() {
                   </div>
                   <div
                     className="mt-0.5 font-mono text-sm font-semibold"
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "var(--text-main)" }}
                   >
                     {successTicket.loanId}
                   </div>
@@ -1238,7 +1238,7 @@ export default function PawnOrigination() {
                   </div>
                   <div
                     className="mt-0.5 text-sm font-semibold"
-                    style={{ color: "var(--brand-primary)" }}
+                    style={{ color: "var(--text-main)" }}
                   >
                     {successTicket.vaultLoc}
                   </div>

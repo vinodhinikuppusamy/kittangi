@@ -158,7 +158,7 @@ export default function PledgedItems() {
           <div className="flex items-center gap-2">
             <PackageSearch
               className="h-4 w-4"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "#000000" }}
             />
             <span className="text-slate-500">Showing</span>
             <span className="font-semibold text-slate-900">{totals.count}</span>
@@ -169,7 +169,7 @@ export default function PledgedItems() {
             <span className="text-slate-500">Vaulted value</span>
             <span
               className="font-semibold"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "#000000" }}
             >
               {inr(totals.value)}
             </span>
@@ -374,7 +374,7 @@ function ItemCard({
           </p>
           <p
             className="text-xl font-bold leading-tight"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "#000000" }}
           >
             {inr(item.pledgedValue)}
           </p>
@@ -415,7 +415,7 @@ function ItemCard({
             className="h-7 gap-1 px-2 text-[11px] font-semibold"
             style={{
               borderColor: "var(--brand-primary)",
-              color: "var(--brand-primary)",
+              color: "#000000",
               background: "white",
             }}
             onClick={(e) => {
@@ -512,12 +512,12 @@ function ManageItemDialog({
               className="flex h-10 w-10 items-center justify-center rounded-lg"
               style={{ backgroundColor: "var(--brand-light)" }}
             >
-              <ShieldCheck size={18} style={{ color: "var(--brand-primary)" }} />
+              <ShieldCheck size={18} style={{ color: "#000000" }} />
             </div>
             <div className="min-w-0 flex-1">
               <DialogTitle
                 className="text-lg font-bold"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "#000000" }}
               >
                 Manage Item · {item.id}
               </DialogTitle>
@@ -533,7 +533,7 @@ function ManageItemDialog({
           <div className="space-y-3">
             <div
               className="text-xs font-semibold uppercase tracking-wide"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "#000000" }}
             >
               Origination Photographs
             </div>
@@ -622,7 +622,7 @@ function ManageItemDialog({
               <Label
                 htmlFor="manage-status"
                 className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "#000000" }}
               >
                 Status
               </Label>
@@ -653,7 +653,7 @@ function ManageItemDialog({
                 <Label
                   htmlFor="manage-gross"
                   className="text-xs font-semibold uppercase tracking-wide"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "#000000" }}
                 >
                   Gross Weight (g)
                 </Label>
@@ -672,7 +672,7 @@ function ManageItemDialog({
                 <Label
                   htmlFor="manage-net"
                   className="text-xs font-semibold uppercase tracking-wide"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "#000000" }}
                 >
                   Net Weight (g)
                 </Label>
@@ -700,7 +700,7 @@ function ManageItemDialog({
                 <span className="text-slate-500">Pledged value</span>
                 <span
                   className="font-semibold"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "#000000" }}
                 >
                   {inr(item.pledgedValue)}
                 </span>
@@ -747,4 +747,3 @@ function ManageItemDialog({
     </Dialog>
   );
 }
- 

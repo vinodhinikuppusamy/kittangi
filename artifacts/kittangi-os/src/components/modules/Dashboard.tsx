@@ -91,7 +91,7 @@ const TONE_MAP: Record<Tone, { bg: string; fg: string; border: string }> = {
   },
   rose: {
     bg: "rgba(239,68,68,0.12)",
-    fg: "#b91c1c",
+    fg: "#030213",
     border: "rgba(239,68,68,0.32)",
   },
   violet: {

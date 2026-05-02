@@ -48,46 +48,7 @@ export const DEFAULT_SEED_PASSWORD = "kittangi123";
 //   const buf = await crypto.subtle.digest("SHA-256", enc.encode(salt + "kittangi123"));
 //   Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
 
-const SEED_USERS: User[] = [
-  {
-    id: "U-01",
-    name: "Anita Krishnan",
-    username: "anita",
-    email: "anita.k@kittangi.in",
-    role: "ADMIN",
-    status: "ACTIVE",
-    passwordSalt: "ktg-salt-anita-001",
-    passwordHash:
-      "8d41a8a40d0f7e0a3a82e54a5fc78f3e5e0b4a9b2f3c8d7e1f9a0b6c2d8e4f5a",
-    createdAtIso: "2026-01-15T09:00:00.000Z",
-  },
-  {
-    id: "U-02",
-    name: "Rahul Subramaniam",
-    username: "rahul",
-    email: "rahul.s@kittangi.in",
-    role: "STAFF",
-    status: "ACTIVE",
-    passwordSalt: "ktg-salt-rahul-002",
-    passwordHash:
-      "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-    createdAtIso: "2026-01-15T09:00:00.000Z",
-  },
-  {
-    id: "U-03",
-    name: "Priya Devarajan",
-    username: "priya",
-    email: "priya.d@kittangi.in",
-    role: "STAFF",
-    status: "ACTIVE",
-    passwordSalt: "ktg-salt-priya-003",
-    passwordHash:
-      "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-    createdAtIso: "2026-01-15T09:00:00.000Z",
-  },
-];
-
-const usersStore = createPersistentStore<User[]>(STORAGE_KEY, SEED_USERS);
+const usersStore = createPersistentStore<User[]>(STORAGE_KEY, []);
 
 export function useUsers(): User[] {
   return usePersistentStore(usersStore);
