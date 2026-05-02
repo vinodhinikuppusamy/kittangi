@@ -8,7 +8,7 @@ import {
   UserCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-
+ 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth/AuthContext";
-
+ 
 /**
  * Profile Hub. Displays the signed-in user's identity + role, lets them
  * change their password, and provides the global Sign-Out action. The page
@@ -35,9 +35,9 @@ export default function Profile() {
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
+ 
   if (!user) return null; // Guarded by RequireAuth — defensive fallback only.
-
+ 
   const handlePasswordChange = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (newPwd !== confirmPwd) {
@@ -56,13 +56,13 @@ export default function Profile() {
     setNewPwd("");
     setConfirmPwd("");
   };
-
+ 
   const handleSignOut = () => {
     signOut();
     toast.success("Signed out");
     navigate("/login", { replace: true });
   };
-
+ 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6 lg:p-8">
       {/* Identity card */}
@@ -112,7 +112,7 @@ export default function Profile() {
               </div>
             </div>
           </div>
-
+ 
           <Button
             type="button"
             variant="outline"
@@ -125,7 +125,7 @@ export default function Profile() {
           </Button>
         </CardContent>
       </Card>
-
+ 
       {/* Password change */}
       <Card
         className="border bg-white"
@@ -135,11 +135,14 @@ export default function Profile() {
           <div className="flex items-start gap-3">
             <div
               className="flex h-9 w-9 items-center justify-center rounded-lg"
-              style={{ background: "var(--brand-light)" }}
+              style={{
+                background: "rgba(245,158,11,0.14)",
+                boxShadow: "inset 0 0 0 1px rgba(245,158,11,0.32)",
+              }}
             >
               <KeyRound
                 className="h-5 w-5"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "#b45309" }}
               />
             </div>
             <div>

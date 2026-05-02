@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LogOut, Search, UserCircle } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Menu, Search, UserCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   ADMIN_NAV,
@@ -10,6 +10,14 @@ import {
   type Vertical,
 } from "@/lib/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 function AppSwitcher({
   value,
@@ -22,34 +30,30 @@ function AppSwitcher({
     <div className="px-4 pt-4 pb-3">
       <label
         htmlFor="vertical-switcher"
-        className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5"
+        className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider"
         style={{ color: "var(--text-muted)" }}
       >
         Active Vertical
       </label>
-      <div className="relative">
-        <select
+      <Select value={value} onValueChange={(next) => onChange(next as Vertical)}>
+        <SelectTrigger
           id="vertical-switcher"
-          value={value}
-          onChange={(e) => onChange(e.target.value as Vertical)}
-          className="w-full appearance-none rounded-lg border-2 bg-white px-3 py-2.5 pr-9 text-sm font-semibold cursor-pointer outline-none transition-colors focus:ring-4"
+          className="h-11 w-full border-2 text-sm font-semibold transition-colors"
           style={{
-            borderColor: "var(--brand-primary)",
-            color: "var(--brand-primary)",
-            backgroundColor: "#fff",
+            borderColor: "rgba(227,30,36,0.16)",
+            color: "var(--text-main)",
+            // backgroundColor: "rgba(227,30,36,0.08)",
             // @ts-expect-error custom CSS var for ring color via Tailwind ring utility fallback
-            "--tw-ring-color": "var(--brand-light)",
+            "--tw-ring-color": "rgba(227,30,36,0.12)",
           }}
         >
-          <option value="PAWN">Pawn Broking</option>
-          <option value="VEHICLE">Vehicle Finance</option>
-        </select>
-        <ChevronDown
-          size={16}
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
-          style={{ color: "var(--brand-primary)" }}
-        />
-      </div>
+          <SelectValue placeholder="Select Vertical" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="PAWN">Pawn Broking</SelectItem>
+          <SelectItem value="VEHICLE">Vehicle Finance</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -57,9 +61,11 @@ function AppSwitcher({
 function SidebarLinkList({
   items,
   isAdmin,
+  onItemClick,
 }: {
   items: NavItem[];
   isAdmin: boolean;
+  onItemClick?: () => void;
 }) {
   // Admin-only links are filtered OUT for staff users so the sidebar matches
   // what's actually reachable. The route layer enforces the same gate so a
@@ -77,6 +83,7 @@ function SidebarLinkList({
           <li key={item.to}>
             <NavLink
               to={item.to}
+              onClick={onItemClick}
               className={({ isActive }) =>
                 [
                   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
@@ -86,8 +93,8 @@ function SidebarLinkList({
               style={({ isActive }) =>
                 isActive
                   ? {
-                      backgroundColor: "var(--brand-light)",
-                      color: "var(--brand-primary)",
+                      backgroundColor: "var(--brand-primary)",
+                      color: "#ffffff",
                     }
                   : { color: "var(--text-main)" }
               }
@@ -97,9 +104,7 @@ function SidebarLinkList({
                   <Icon
                     size={18}
                     style={{
-                      color: isActive
-                        ? "var(--brand-primary)"
-                        : "var(--text-muted)",
+                      color: isActive ? "#ffffff" : "var(--text-muted)",
                     }}
                   />
                   <span>{item.label}</span>
@@ -117,53 +122,64 @@ function Sidebar({
   vertical,
   onChangeVertical,
   isAdmin,
+  isOpen,
+  onClose,
 }: {
   vertical: Vertical;
   onChangeVertical: (v: Vertical) => void;
   isAdmin: boolean;
+  isOpen: boolean;
+  onClose: () => void;
 }) {
   const items = getNavForVertical(vertical);
 
   return (
-    <aside
-      className="fixed inset-y-0 left-0 z-30 flex flex-col border-r"
-      style={{
-        width: 256,
-        backgroundColor: "var(--sidebar-bg)",
-        borderColor: "rgba(74, 111, 165, 0.12)",
-      }}
-    >
+    <>
+      <div
+        className={[
+          "fixed inset-0 z-30 bg-black/30 transition-opacity md:hidden",
+          isOpen ? "opacity-100" : "pointer-events-none opacity-0",
+        ].join(" ")}
+        onClick={onClose}
+        aria-hidden={!isOpen}
+      />
+
+      <aside
+        className={[
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r transition-transform duration-200 ease-out",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+          "md:z-30 md:translate-x-0",
+        ].join(" ")}
+        style={{
+          backgroundColor: "var(--sidebar-bg)",
+          borderColor: "rgba(74, 111, 165, 0.12)",
+        }}
+      >
       {/* Brand */}
       <div
-        className="flex items-center gap-2.5 px-5"
-        style={{ height: 64, borderBottom: "1px solid rgba(74,111,165,0.10)" }}
+        className="relative flex items-center justify-center px-5"
+        style={{ height: 96, borderBottom: "1px solid rgba(74,111,165,0.08)" }}
       >
-        <div
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-white font-bold text-sm"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 100%)",
-          }}
+        <img
+          src="/kittangi.webp"
+          alt="Kittangi Logo"
+          className="h-16 w-44 object-contain"
+        />
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-slate-100 md:hidden"
+          aria-label="Close sidebar"
         >
-          K
-        </div>
-        <div className="flex flex-col leading-tight">
-          <span
-            className="text-base font-bold"
-            style={{ color: "var(--brand-primary)" }}
-          >
-            Kittangi OS
-          </span>
-          <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-            Financial Suite
-          </span>
-        </div>
+          <X size={18} />
+        </button>
       </div>
 
       <AppSwitcher value={vertical} onChange={onChangeVertical} />
 
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
-        <SidebarLinkList items={items} isAdmin={isAdmin} />
+        <SidebarLinkList items={items} isAdmin={isAdmin} onItemClick={onClose} />
 
         {/* Capital section — admin-only, hidden entirely from staff. */}
         {isAdmin && (
@@ -177,7 +193,11 @@ function Sidebar({
               </p>
             </div>
             <div className="mt-2">
-              <SidebarLinkList items={CAPITAL_NAV} isAdmin={isAdmin} />
+              <SidebarLinkList
+                items={CAPITAL_NAV}
+                isAdmin={isAdmin}
+                onItemClick={onClose}
+              />
             </div>
           </>
         )}
@@ -194,7 +214,11 @@ function Sidebar({
               </p>
             </div>
             <div className="mt-2">
-              <SidebarLinkList items={ADMIN_NAV} isAdmin={isAdmin} />
+              <SidebarLinkList
+                items={ADMIN_NAV}
+                isAdmin={isAdmin}
+                onItemClick={onClose}
+              />
             </div>
           </>
         )}
@@ -212,18 +236,23 @@ function Sidebar({
 
       <style>{`
         .hover-link:hover {
-          background-color: var(--brand-light);
-          color: var(--brand-primary);
+          background-color: #fce4e4;
+          color: #fce4e4;
         }
         .hover-link:hover svg {
-          color: var(--brand-primary);
+          color: #fce4e4;
         }
       `}</style>
-    </aside>
+      </aside>
+    </>
   );
 }
 
-function Header() {
+function Header({
+  onToggleSidebar,
+}: {
+  onToggleSidebar: () => void;
+}) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -238,14 +267,24 @@ function Header() {
       className="fixed top-0 right-0 z-20 flex items-center justify-between border-b bg-white px-6"
       style={{
         height: 64,
-        left: 256,
+        left: 0,
         borderColor: "rgba(74,111,165,0.10)",
       }}
     >
       {/* Global search */}
-      <div className="flex max-w-xl flex-1 items-center">
+      <div className="flex max-w-xl flex-1 items-center gap-3 md:ml-64">
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border bg-white text-slate-700 transition-colors hover:bg-slate-50 md:hidden"
+          style={{ borderColor: "rgba(74,111,165,0.18)" }}
+          aria-label="Open sidebar"
+        >
+          <Menu size={18} />
+        </button>
+
         <div
-          className="flex w-full items-center gap-2 rounded-lg border bg-white px-3 py-2 transition-colors focus-within:ring-4"
+          className="hidden w-full items-center gap-2 rounded-lg border bg-white px-3 py-2 transition-colors focus-within:ring-4 sm:flex"
           style={{
             borderColor: "rgba(74,111,165,0.18)",
             // @ts-expect-error CSS var
@@ -267,10 +306,10 @@ function Header() {
           type="button"
           aria-label="Notifications"
           className="relative inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors"
-          style={{ color: "var(--brand-primary)" }}
+          style={{ color: "var(--text-muted)" }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-              "var(--brand-light)";
+              "rgba(100,116,139,0.08)";
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLButtonElement).style.backgroundColor =
@@ -278,10 +317,6 @@ function Header() {
           }}
         >
           <Bell size={20} />
-          <span
-            className="absolute top-2 right-2 inline-block h-2 w-2 rounded-full"
-            style={{ backgroundColor: "#EF4444" }}
-          />
         </button>
 
         {/* Identity pill — clicking it routes to the Profile Hub. The role
@@ -294,11 +329,11 @@ function Header() {
           style={{ backgroundColor: "var(--brand-light)" }}
           aria-label="Open profile"
         >
-          <UserCircle size={28} style={{ color: "var(--brand-primary)" }} />
+          <UserCircle size={28} style={{ color: "var(--text-main)" }} />
           <div className="leading-tight text-left">
             <div
               className="text-xs font-semibold"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "var(--text-main)" }}
             >
               {user?.name ?? "—"}
             </div>
@@ -328,6 +363,7 @@ function Header() {
 
 export default function Layout({ children }: { children?: ReactNode }) {
   const [activeVertical, setActiveVertical] = useState<Vertical>("PAWN");
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
 
@@ -337,10 +373,14 @@ export default function Layout({ children }: { children?: ReactNode }) {
         vertical={activeVertical}
         onChangeVertical={setActiveVertical}
         isAdmin={isAdmin}
+        isOpen={isMobileSidebarOpen}
+        onClose={() => setIsMobileSidebarOpen(false)}
       />
-      <Header />
+      <Header
+        onToggleSidebar={() => setIsMobileSidebarOpen(true)}
+      />
       <main
-        className="pt-16 pl-64"
+        className="pt-16 md:pl-64"
         style={{ minHeight: "100vh" }}
       >
         <div className="p-8">

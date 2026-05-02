@@ -18,7 +18,7 @@ import {
   Vault,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-
+ 
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -55,9 +55,9 @@ import {
   usePledgedItems,
 } from "@/lib/stores/pledgedItemsStore";
 import { useIsAdmin } from "@/lib/stores/userRoleStore";
-
+ 
 type LockerStatus = "OCCUPIED" | "AVAILABLE";
-
+ 
 type Locker = {
   id: string;
   status: LockerStatus;
@@ -68,12 +68,12 @@ type Locker = {
   dateStored?: string;
   vaultLoc?: string;
 };
-
+ 
 type ResolvedSafe = {
   config: SafeConfig;
   lockers: Locker[];
 };
-
+ 
 const formatStoredDate = (iso?: string): string | undefined => {
   if (!iso) return undefined;
   const d = new Date(iso);
@@ -84,7 +84,7 @@ const formatStoredDate = (iso?: string): string | undefined => {
     year: "numeric",
   });
 };
-
+ 
 type StatCardProps = {
   label: string;
   value: number;
@@ -92,7 +92,7 @@ type StatCardProps = {
   icon: React.ComponentType<{ size?: number; className?: string }>;
   accent?: "primary" | "green" | "amber";
 };
-
+ 
 function StatCard({ label, value, hint, icon: Icon, accent = "primary" }: StatCardProps) {
   const accentColors: Record<NonNullable<StatCardProps["accent"]>, { bg: string; fg: string }> = {
     primary: { bg: "var(--brand-light)", fg: "var(--brand-primary)" },
@@ -130,12 +130,12 @@ function StatCard({ label, value, hint, icon: Icon, accent = "primary" }: StatCa
     </Card>
   );
 }
-
+ 
 export default function VaultManagement() {
   const safesConfig = useVaultConfig();
   const pledgedItems = usePledgedItems();
   const isAdmin = useIsAdmin();
-
+ 
   // Build an occupancy map keyed by `<normalizedSafeName>::<lockerId>` so we
   // can join pledged items to their configured locker even if the admin has
   // renamed a safe (whitespace, hyphenation, casing all normalised).
@@ -156,7 +156,7 @@ export default function VaultManagement() {
         vaultLoc: item.vaultLoc,
       });
     }
-
+ 
     return safesConfig.map((cfg) => {
       const safeKey = normalizeSafeKey(cfg.name);
       const lockers: Locker[] = generateLockerIds(cfg).map((lockerId) => {
@@ -167,16 +167,16 @@ export default function VaultManagement() {
       return { config: cfg, lockers };
     });
   }, [safesConfig, pledgedItems]);
-
+ 
   const [activeSafeId, setActiveSafeId] = useState<string>("");
   const [selectedLocker, setSelectedLocker] = useState<Locker | null>(null);
   const [activeSafeName, setActiveSafeName] = useState<string>("");
-
+ 
   // Transfer dialog state
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferTargetSafeId, setTransferTargetSafeId] = useState<string>("");
   const [transferTargetLockerId, setTransferTargetLockerId] = useState<string>("");
-
+ 
   // Keep the active tab in range as safes are added/removed in Settings.
   useEffect(() => {
     if (resolvedSafes.length === 0) {
@@ -187,7 +187,7 @@ export default function VaultManagement() {
       setActiveSafeId(resolvedSafes[0].config.id);
     }
   }, [resolvedSafes, activeSafeId]);
-
+ 
   const stats = useMemo(() => {
     const totalSafes = resolvedSafes.length;
     const totalLockers = resolvedSafes.reduce((s, x) => s + x.lockers.length, 0);
@@ -198,18 +198,18 @@ export default function VaultManagement() {
     const available = totalLockers - occupied;
     return { totalSafes, totalLockers, occupied, available };
   }, [resolvedSafes]);
-
+ 
   const occupancyPct =
     stats.totalLockers > 0
       ? Math.round((stats.occupied / stats.totalLockers) * 100)
       : 0;
-
+ 
   const handleLockerClick = (locker: Locker, safeName: string) => {
     if (locker.status !== "OCCUPIED") return;
     setSelectedLocker(locker);
     setActiveSafeName(safeName);
   };
-
+ 
   const handlePrintTag = () => {
     if (!selectedLocker) return;
     openLockerTagPrintWindow({
@@ -220,7 +220,7 @@ export default function VaultManagement() {
       packageId: selectedLocker.packageId ?? "—",
     });
   };
-
+ 
   // Targets available for transfer — every AVAILABLE locker across all safes,
   // grouped by safe so the cashier can see the destination context.
   const transferTargetSafe = useMemo(
@@ -233,14 +233,14 @@ export default function VaultManagement() {
       .filter((l) => l.status === "AVAILABLE")
       .map((l) => l.id);
   }, [transferTargetSafe]);
-
+ 
   const openTransferDialog = () => {
     if (!selectedLocker?.packageId) return;
     setTransferTargetSafeId(activeSafeId);
     setTransferTargetLockerId("");
     setTransferOpen(true);
   };
-
+ 
   const handleConfirmTransfer = () => {
     if (!selectedLocker?.packageId) return;
     if (!transferTargetSafe || !transferTargetLockerId) {
@@ -274,7 +274,7 @@ export default function VaultManagement() {
       toast.error(msg);
     }
   };
-
+ 
   return (
     <div className="mx-auto max-w-7xl pb-10">
       {/* Page header */}
@@ -282,14 +282,16 @@ export default function VaultManagement() {
         <div className="flex items-center gap-3">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ backgroundColor: "var(--brand-light)" }}
+            style={{
+              backgroundColor: "rgba(168,85,247,0.14)",
+              boxShadow: "inset 0 0 0 1px rgba(168,85,247,0.30)",
+            }}
           >
-            <Shield size={22} style={{ color: "var(--brand-primary)" }} />
+            <Shield size={22} style={{ color: "#7e22ce" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold text-slate-900"
             >
               Vault Management
             </h1>
@@ -300,7 +302,7 @@ export default function VaultManagement() {
             </p>
           </div>
         </div>
-
+ 
         <div
           className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5 text-xs font-medium"
           style={{
@@ -312,7 +314,7 @@ export default function VaultManagement() {
           {occupancyPct}% Occupancy
         </div>
       </div>
-
+ 
       {/* Stat cards */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
@@ -355,7 +357,7 @@ export default function VaultManagement() {
           accent="green"
         />
       </div>
-
+ 
       {/* Safe Visualizer */}
       <Card
         className="border bg-white shadow-sm"
@@ -373,7 +375,7 @@ export default function VaultManagement() {
               <div>
                 <CardTitle
                   className="text-base font-semibold"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "var(--text-main)" }}
                 >
                   Safe Visualizer
                 </CardTitle>
@@ -382,7 +384,7 @@ export default function VaultManagement() {
                 </CardDescription>
               </div>
             </div>
-
+ 
             <Button
               asChild
               variant="outline"
@@ -430,20 +432,19 @@ export default function VaultManagement() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <TabsList
                   className="bg-slate-100 p-1"
-                  style={{ backgroundColor: "rgba(191,221,245,0.30)" }}
+                  style={{ backgroundColor: "rgba(227,30,36,0.08)" }}
                 >
                   {resolvedSafes.map((s) => (
                     <TabsTrigger
                       key={s.config.id}
                       value={s.config.id}
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
                     >
                       <Vault size={14} className="mr-1.5" />
                       {s.config.name}
                     </TabsTrigger>
                   ))}
                 </TabsList>
-
+ 
                 {/* Legend */}
                 <div className="flex items-center gap-4 text-xs text-slate-500">
                   <div className="flex items-center gap-1.5">
@@ -468,7 +469,7 @@ export default function VaultManagement() {
                   </div>
                 </div>
               </div>
-
+ 
               {resolvedSafes.map((safe) => (
                 <TabsContent key={safe.config.id} value={safe.config.id} className="mt-5">
                   <div className="mb-3 flex items-center justify-between">
@@ -493,7 +494,7 @@ export default function VaultManagement() {
                       {safe.config.startNumber}…
                     </div>
                   </div>
-
+ 
                   {safe.lockers.length === 0 ? (
                     <div
                       className="rounded-lg border bg-white py-8 text-center text-xs text-slate-500"
@@ -543,7 +544,7 @@ export default function VaultManagement() {
                                   />
                                 )}
                               </div>
-
+ 
                               {isOccupied ? (
                                 <div className="space-y-0.5">
                                   <div className="truncate text-xs font-semibold text-slate-800">
@@ -578,7 +579,7 @@ export default function VaultManagement() {
           )}
         </CardContent>
       </Card>
-
+ 
       {/* Locker Details Modal */}
       <Dialog
         open={!!selectedLocker}
@@ -591,12 +592,12 @@ export default function VaultManagement() {
                 className="flex h-10 w-10 items-center justify-center rounded-lg"
                 style={{ backgroundColor: "var(--brand-light)" }}
               >
-                <Package size={18} style={{ color: "var(--brand-primary)" }} />
+                <Package size={18} style={{ color: "var(--text-main)" }} />
               </div>
               <div>
                 <DialogTitle
                   className="text-base font-semibold"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "var(--text-main)" }}
                 >
                   Locker {selectedLocker?.id}
                 </DialogTitle>
@@ -606,7 +607,7 @@ export default function VaultManagement() {
               </div>
             </div>
           </DialogHeader>
-
+ 
           {selectedLocker && (
             <div
               className="mt-2 space-y-3 rounded-lg border p-4"
@@ -630,13 +631,13 @@ export default function VaultManagement() {
               />
             </div>
           )}
-
+ 
           <p className="text-[11px] text-slate-500">
             <Lock size={11} className="-mt-0.5 mr-1 inline" />
             This locker can only become Empty when the linked loan is Closed
             from Loan Management.
           </p>
-
+ 
           <DialogFooter className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
@@ -673,7 +674,7 @@ export default function VaultManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
+ 
       {/* Internal Transfer dialog */}
       <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
         <DialogContent className="sm:max-w-md">
@@ -702,7 +703,7 @@ export default function VaultManagement() {
                 {selectedLocker?.vaultLoc ?? "—"}
               </div>
             </div>
-
+ 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -730,7 +731,7 @@ export default function VaultManagement() {
                   </SelectContent>
                 </Select>
               </div>
-
+ 
               <div className="space-y-1">
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                   Target Locker
@@ -762,7 +763,7 @@ export default function VaultManagement() {
                 </Select>
               </div>
             </div>
-
+ 
             <p className="text-[11px] text-slate-500">
               Only Available (Empty) lockers can be picked. The pledged item
               keeps its loan link; only the physical location changes.
@@ -793,7 +794,7 @@ export default function VaultManagement() {
     </div>
   );
 }
-
+ 
 function DetailRow({
   label,
   value,

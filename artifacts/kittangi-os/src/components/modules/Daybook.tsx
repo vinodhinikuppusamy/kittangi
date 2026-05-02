@@ -557,10 +557,9 @@ function SummaryCard({
               {label}
             </div>
             <div
-              className={`mt-2 tracking-tight ${
+              className={`mt-2 tracking-tight text-slate-900 ${
                 emphasis ? "text-3xl font-extrabold" : "text-2xl font-bold"
               }`}
-              style={{ color: "var(--brand-primary)" }}
             >
               {value}
             </div>
@@ -863,14 +862,16 @@ export default function Daybook() {
         <div className="flex items-center gap-3">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ backgroundColor: "var(--brand-light)" }}
+            style={{
+              backgroundColor: "rgba(59,130,246,0.14)",
+              boxShadow: "inset 0 0 0 1px rgba(59,130,246,0.30)",
+            }}
           >
-            <BookOpen size={22} style={{ color: "var(--brand-primary)" }} />
+            <BookOpen size={22} style={{ color: "#1d4ed8" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold text-slate-900"
             >
               Daily Chitta / Daybook
             </h1>
@@ -895,7 +896,7 @@ export default function Daybook() {
               value={date}
               max={todayIso()}
               onChange={(e) => setDate(e.target.value)}
-              className="h-7 w-[160px] border-0 p-0 text-sm focus-visible:ring-0"
+              className="h-7 w-40 border-0 p-0 text-sm focus-visible:ring-0"
               style={{ color: "var(--brand-primary)" }}
             />
           </div>
@@ -1628,7 +1629,7 @@ export default function Daybook() {
           setTransferOpen(o);
         }}
       >
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent className="sm:max-w-130">
           <DialogHeader>
             <DialogTitle>Internal Transfer (Contra)</DialogTitle>
             <DialogDescription>
@@ -1785,7 +1786,7 @@ export default function Daybook() {
           setIncomeOpen(o);
         }}
       >
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent className="sm:max-w-130">
           <DialogHeader>
             <DialogTitle>Add Other Income</DialogTitle>
             <DialogDescription>
@@ -1908,7 +1909,7 @@ export default function Daybook() {
           setExpenseDialogOpen(o);
         }}
       >
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent className="sm:max-w-130">
           <DialogHeader>
             <DialogTitle>Add Expense Entry</DialogTitle>
             <DialogDescription>

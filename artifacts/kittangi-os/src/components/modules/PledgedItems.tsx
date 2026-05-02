@@ -131,14 +131,16 @@ export default function PledgedItems() {
         <div className="flex items-start gap-4">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ background: "var(--brand-light)" }}
+            style={{
+              background: "rgba(168,85,247,0.14)",
+              boxShadow: "inset 0 0 0 1px rgba(168,85,247,0.30)",
+            }}
           >
-            <Gem className="h-6 w-6" style={{ color: "var(--brand-primary)" }} />
+            <Gem className="h-6 w-6" style={{ color: "#7e22ce" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold tracking-tight"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold tracking-tight text-slate-900"
             >
               Pledged Inventory
             </h1>
@@ -314,7 +316,7 @@ function ItemCard({
       }}
     >
       {/* Top half — photo or placeholder */}
-      <div className="relative h-48 w-full overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200">
+      <div className="relative h-48 w-full overflow-hidden bg-linear-to-br from-slate-100 to-slate-200">
         {cover ? (
           <img
             src={cover}
@@ -745,3 +747,4 @@ function ManageItemDialog({
     </Dialog>
   );
 }
+ 

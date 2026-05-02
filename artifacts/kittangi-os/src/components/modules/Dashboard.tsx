@@ -73,13 +73,42 @@ function isInterestCategory(cat: string): boolean {
   );
 }
 
-const TONE_MAP: Record<Tone, { bg: string; fg: string }> = {
-  brand: { bg: "var(--brand-light)", fg: "var(--brand-primary)" },
-  amber: { bg: "rgba(234,179,8,0.16)", fg: "#a16207" },
-  rose: { bg: "rgba(244,63,94,0.14)", fg: "#be123c" },
-  emerald: { bg: "rgba(16,185,129,0.14)", fg: "#047857" },
-  sky: { bg: "rgba(56,189,248,0.16)", fg: "#0369a1" },
-  violet: { bg: "rgba(139,92,246,0.14)", fg: "#6d28d9" },
+const TONE_MAP: Record<Tone, { bg: string; fg: string; border: string }> = {
+  brand: {
+    bg: "rgba(59,130,246,0.12)",
+    fg: "#1d4ed8",
+    border: "rgba(59,130,246,0.34)",
+  },
+  emerald: {
+    bg: "rgba(16,185,129,0.12)",
+    fg: "#047857",
+    border: "rgba(16,185,129,0.34)",
+  },
+  amber: {
+    bg: "rgba(245,158,11,0.14)",
+    fg: "#b45309",
+    border: "rgba(245,158,11,0.34)",
+  },
+  rose: {
+    bg: "rgba(239,68,68,0.12)",
+    fg: "#b91c1c",
+    border: "rgba(239,68,68,0.32)",
+  },
+  violet: {
+    bg: "rgba(168,85,247,0.12)",
+    fg: "#7e22ce",
+    border: "rgba(168,85,247,0.32)",
+  },
+  sky: {
+    bg: "rgba(14,165,233,0.12)",
+    fg: "#0369a1",
+    border: "rgba(14,165,233,0.30)",
+  },
+};
+
+const DASH_CARD_STYLE: React.CSSProperties = {
+  borderColor: "rgba(148,163,184,0.24)",
+  boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 10px 24px rgba(15,23,42,0.05)",
 };
 
 const ACTIVITY_TONE: Record<ActivityKind, Tone> = {
@@ -248,30 +277,29 @@ export default function Dashboard() {
         <div className="flex items-start gap-4">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ background: "var(--brand-light)" }}
+            style={{ background: "rgba(59,130,246,0.10)" }}
           >
             <LayoutDashboard
               className="h-6 w-6"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "#1d4ed8" }}
             />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold tracking-tight"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-3xl font-extrabold tracking-tight text-slate-900"
             >
-              Dashboard
+              Operations Dashboard
             </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Live operational snapshot — loans, customers, collections, and
+            <p className="mt-1 text-sm text-slate-500">
+              Industrial-grade branch snapshot for loans, customers, collections, and
               activity across the branch.
             </p>
           </div>
         </div>
 
         <div
-          className="flex items-center gap-2 rounded-xl border bg-white p-1 text-sm shadow-sm"
-          style={{ borderColor: "rgba(74,111,165,0.18)" }}
+          className="flex items-center gap-2 rounded-xl border bg-white p-1 text-sm"
+          style={DASH_CARD_STYLE}
           role="group"
           aria-label="Switch vertical"
         >
@@ -291,7 +319,7 @@ export default function Dashboard() {
       </div>
 
       {/* 6 KPI cards */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <KpiCard
           tone="brand"
           icon={Banknote}
@@ -319,14 +347,14 @@ export default function Dashboard() {
 
         {/* Upcoming maturities — wider card with mini list */}
         <Card
-          className="border bg-white sm:col-span-2 lg:col-span-2"
-          style={{ borderColor: "rgba(74,111,165,0.12)" }}
+          className="rounded-2xl border bg-white sm:col-span-2 lg:col-span-2"
+          style={DASH_CARD_STYLE}
         >
           <CardHeader className="pb-2">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
                 <div
-                  className="flex h-9 w-9 items-center justify-center rounded-lg"
+                  className="flex h-10 w-10 items-center justify-center rounded-full"
                   style={{ background: TONE_MAP.amber.bg }}
                 >
                   <CalendarClock
@@ -344,10 +372,10 @@ export default function Dashboard() {
                 </div>
               </div>
               <span
-                className="rounded-md px-2 py-0.5 text-xs font-bold"
+                className="rounded-full px-2.5 py-0.5 text-xs font-bold"
                 style={{
-                  background: "var(--brand-light)",
-                  color: "var(--brand-primary)",
+                  background: "rgba(245,158,11,0.14)",
+                  color: "#b45309",
                 }}
               >
                 {upcoming.length}
@@ -362,7 +390,7 @@ export default function Dashboard() {
             ) : (
               <ul
                 className="divide-y rounded-md border"
-                style={{ borderColor: "rgba(74,111,165,0.10)" }}
+                style={{ borderColor: "rgba(148,163,184,0.26)" }}
               >
                 {upcoming.map((l) => {
                   const due = new Date((l.maturityIso ?? "") + "T00:00:00");
@@ -375,7 +403,7 @@ export default function Dashboard() {
                         <Link
                           to={`/loans/${l.id}`}
                           className="font-mono text-xs font-semibold hover:underline"
-                          style={{ color: "var(--brand-primary)" }}
+                          style={{ color: "#1d4ed8" }}
                         >
                           {l.id}
                         </Link>
@@ -404,18 +432,18 @@ export default function Dashboard() {
 
         {/* Recent Activity */}
         <Card
-          className="border bg-white"
-          style={{ borderColor: "rgba(74,111,165,0.12)" }}
+          className="rounded-2xl border bg-white"
+          style={DASH_CARD_STYLE}
         >
           <CardHeader className="pb-2">
             <div className="flex items-start gap-3">
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-lg"
-                style={{ background: TONE_MAP.sky.bg }}
+                className="flex h-10 w-10 items-center justify-center rounded-full"
+                style={{ background: TONE_MAP.rose.bg }}
               >
                 <Activity
                   className="h-5 w-5"
-                  style={{ color: TONE_MAP.sky.fg }}
+                  style={{ color: TONE_MAP.rose.fg }}
                 />
               </div>
               <div>
@@ -447,19 +475,19 @@ export default function Dashboard() {
 
       {/* Revenue bar chart */}
       <Card
-        className="border bg-white"
-        style={{ borderColor: "rgba(74,111,165,0.12)" }}
+        className="rounded-2xl border bg-white"
+        style={DASH_CARD_STYLE}
       >
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-lg"
-                style={{ background: "var(--brand-light)" }}
+                className="flex h-10 w-10 items-center justify-center rounded-full"
+                style={{ background: TONE_MAP.brand.bg }}
               >
                 <TrendingUp
                   className="h-5 w-5"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: TONE_MAP.brand.fg }}
                 />
               </div>
               <div>
@@ -477,7 +505,7 @@ export default function Dashboard() {
               </p>
               <p
                 className="text-xl font-bold tabular-nums"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "#0f172a" }}
               >
                 {inr(totalRevenue6mo)}
               </p>
@@ -493,28 +521,28 @@ export default function Dashboard() {
               >
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="rgba(74,111,165,0.10)"
+                  stroke="rgba(148,163,184,0.24)"
                 />
                 <XAxis
                   dataKey="label"
                   tick={{ fontSize: 11, fill: "#64748b" }}
-                  axisLine={{ stroke: "rgba(74,111,165,0.20)" }}
+                  axisLine={{ stroke: "rgba(148,163,184,0.30)" }}
                   tickLine={false}
                 />
                 <YAxis
                   tick={{ fontSize: 11, fill: "#64748b" }}
                   tickFormatter={(v) => inrCompact(Number(v))}
-                  axisLine={{ stroke: "rgba(74,111,165,0.20)" }}
+                  axisLine={{ stroke: "rgba(148,163,184,0.30)" }}
                   tickLine={false}
                   width={56}
                 />
                 <Tooltip
-                  cursor={{ fill: "rgba(74,111,165,0.06)" }}
+                  cursor={{ fill: "rgba(148,163,184,0.10)" }}
                   formatter={(v: number) => inr(v)}
                   contentStyle={{
                     background: "white",
-                    border: "1px solid rgba(74,111,165,0.20)",
-                    borderRadius: 8,
+                    border: "1px solid rgba(148,163,184,0.30)",
+                    borderRadius: 12,
                     fontSize: 12,
                   }}
                 />
@@ -522,22 +550,22 @@ export default function Dashboard() {
                   dataKey="pawn"
                   stackId="rev"
                   name="Pawn"
-                  fill="var(--brand-primary)"
+                  fill="#2563eb"
                   radius={[0, 0, 0, 0]}
                 />
                 <Bar
                   dataKey="vehicle"
                   stackId="rev"
                   name="Vehicle"
-                  fill="#86b7e5"
+                  fill="#22c55e"
                   radius={[6, 6, 0, 0]}
                 />
               </BarChart>
             </ResponsiveContainer>
           </div>
           <div className="mt-3 flex items-center justify-center gap-4 text-xs text-slate-600">
-            <LegendDot color="var(--brand-primary)" label="Pawn Interest" />
-            <LegendDot color="#86b7e5" label="Vehicle Interest" />
+            <LegendDot color="#2563eb" label="Pawn Interest" />
+            <LegendDot color="#22c55e" label="Vehicle Interest" />
           </div>
         </CardContent>
       </Card>
@@ -565,8 +593,12 @@ function KpiCard({
   const t = TONE_MAP[tone];
   return (
     <Card
-      className="border bg-white"
-      style={{ borderColor: "rgba(74,111,165,0.12)" }}
+      className="rounded-2xl border bg-white"
+      style={{
+        ...DASH_CARD_STYLE,
+        borderLeftColor: t.border,
+        borderLeftWidth: 3,
+      }}
       data-testid={testId}
     >
       <CardContent className="p-5">
@@ -576,8 +608,7 @@ function KpiCard({
               {label}
             </p>
             <p
-              className="mt-1.5 truncate text-2xl font-bold leading-tight tabular-nums"
-              style={{ color: "var(--brand-primary)" }}
+              className="mt-2 truncate text-3xl font-extrabold leading-tight tabular-nums text-slate-900"
               title={value}
             >
               {value}
@@ -585,8 +616,11 @@ function KpiCard({
             <p className="mt-1 text-xs text-slate-500">{sub}</p>
           </div>
           <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-            style={{ background: t.bg }}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+            style={{
+              background: t.bg,
+              boxShadow: `inset 0 0 0 1px ${t.border}`,
+            }}
           >
             <Icon className="h-5 w-5" style={{ color: t.fg }} />
           </div>
@@ -670,7 +704,7 @@ function VerticalPill({
       }`}
       style={
         active
-          ? { background: "var(--brand-light)", color: "var(--brand-primary)" }
+          ? { background: "rgba(59,130,246,0.12)", color: "#1d4ed8" }
           : undefined
       }
     >

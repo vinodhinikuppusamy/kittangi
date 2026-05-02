@@ -411,14 +411,16 @@ export default function PawnOrigination() {
         <div className="flex items-center gap-3">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ backgroundColor: "var(--brand-light)" }}
+            style={{
+              backgroundColor: "rgba(245,158,11,0.14)",
+              boxShadow: "inset 0 0 0 1px rgba(245,158,11,0.32)",
+            }}
           >
-            <Landmark size={22} style={{ color: "var(--brand-primary)" }} />
+            <Landmark size={22} style={{ color: "#b45309" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold text-slate-900"
             >
               Pawn Origination
             </h1>
@@ -1181,7 +1183,7 @@ export default function PawnOrigination() {
           if (!o) setSuccessTicket(null);
         }}
       >
-        <DialogContent className="sm:max-w-[460px]">
+        <DialogContent className="sm:max-w-115">
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2 text-base font-semibold"

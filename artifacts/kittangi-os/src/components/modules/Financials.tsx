@@ -706,14 +706,16 @@ export default function Financials() {
         <div className="flex items-center gap-3">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ backgroundColor: "var(--brand-light)" }}
+            style={{
+              backgroundColor: "rgba(59,130,246,0.14)",
+              boxShadow: "inset 0 0 0 1px rgba(59,130,246,0.30)",
+            }}
           >
-            <LineChart size={22} style={{ color: "var(--brand-primary)" }} />
+            <LineChart size={22} style={{ color: "#1d4ed8" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold text-slate-900"
             >
               Financials &mdash; P&amp;L and Balance Sheet
             </h1>
@@ -733,7 +735,7 @@ export default function Financials() {
           </span>
           <Select value={selectedFyKey} onValueChange={setSelectedFyKey}>
             <SelectTrigger
-              className="h-9 w-[180px] bg-white text-sm"
+              className="h-9 w-45 bg-white text-sm"
               style={{
                 borderColor: "rgba(74,111,165,0.25)",
                 color: "var(--brand-primary)",

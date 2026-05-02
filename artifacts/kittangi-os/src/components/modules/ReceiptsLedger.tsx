@@ -629,14 +629,16 @@ export default function ReceiptsLedger() {
         <div className="flex items-center gap-3">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ backgroundColor: "var(--brand-light)" }}
+            style={{
+              backgroundColor: "rgba(16,185,129,0.14)",
+              boxShadow: "inset 0 0 0 1px rgba(16,185,129,0.30)",
+            }}
           >
-            <Receipt size={22} style={{ color: "var(--brand-primary)" }} />
+            <Receipt size={22} style={{ color: "#047857" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold text-slate-900"
             >
               Receipts &amp; Ledger
             </h1>

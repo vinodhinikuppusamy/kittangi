@@ -163,17 +163,19 @@ export default function Settings() {
       <div className="mb-6 flex items-start gap-4">
         <div
           className="flex h-12 w-12 items-center justify-center rounded-xl"
-          style={{ background: "var(--brand-light)" }}
+          style={{
+            background: "rgba(245,158,11,0.14)",
+            boxShadow: "inset 0 0 0 1px rgba(245,158,11,0.32)",
+          }}
         >
           <SettingsIcon
             className="h-6 w-6"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "#b45309" }}
           />
         </div>
         <div>
           <h1
-            className="text-2xl font-bold tracking-tight"
-            style={{ color: "var(--brand-primary)" }}
+            className="text-2xl font-bold tracking-tight text-slate-900"
           >
             System Settings
           </h1>
@@ -190,35 +192,35 @@ export default function Settings() {
         >
           <TabsTrigger
             value="branch"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <Building2 className="h-4 w-4" />
             Branch Profile
           </TabsTrigger>
           <TabsTrigger
             value="users"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <UsersIcon className="h-4 w-4" />
             User Management
           </TabsTrigger>
           <TabsTrigger
             value="rates"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <Percent className="h-4 w-4" />
             Rates &amp; Fees
           </TabsTrigger>
           <TabsTrigger
             value="accounts"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <Landmark className="h-4 w-4" />
             Accounts
           </TabsTrigger>
           <TabsTrigger
             value="vault"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <Vault className="h-4 w-4" />
             Vault Configuration
@@ -226,7 +228,7 @@ export default function Settings() {
           <TabsTrigger
             value="danger"
             data-testid="tab-danger-zone"
-            className="data-[state=active]:bg-rose-50 data-[state=active]:text-rose-700 data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium text-rose-600"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <ShieldAlert className="h-4 w-4" />
             Danger Zone
@@ -458,93 +460,93 @@ function UserManagementTab() {
         </CardHeader>
 
         <CardContent>
-        <div
-          className="overflow-hidden rounded-lg border"
-          style={{ borderColor: "rgba(74,111,165,0.12)" }}
-        >
-          <Table>
-            <TableHeader>
-              <TableRow style={{ background: "rgba(191,221,245,0.25)" }}>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                  Name
-                </TableHead>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                  Email
-                </TableHead>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                  Role
-                </TableHead>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                  Status
-                </TableHead>
-                <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                  Actions
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((u) => {
-                const role = ROLE_META[u.role];
-                const status = STATUS_META[u.status];
-                return (
-                  <TableRow key={u.id} className="hover:bg-slate-50/60">
-                    <TableCell className="py-3 font-medium text-slate-900">
-                      {u.name}
-                    </TableCell>
-                    <TableCell className="py-3 text-sm text-slate-600">
-                      {u.email}
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <Badge
-                        className="border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
-                        style={{
-                          background: role.bg,
-                          color: role.fg,
-                          borderColor: role.border,
-                        }}
-                      >
-                        {role.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                        style={{ background: status.bg, color: status.fg }}
-                      >
-                        <span
-                          className="h-1.5 w-1.5 rounded-full"
-                          style={{ background: status.dot }}
-                        />
-                        {status.label}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3 text-right">
-                      {isAdmin ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleStatus(u.id)}
-                          data-testid={`button-toggle-status-${u.id}`}
-                          className="h-8 px-3 text-xs font-semibold"
-                          style={{ color: "var(--brand-primary)" }}
+          <div
+            className="overflow-hidden rounded-lg border"
+            style={{ borderColor: "rgba(74,111,165,0.12)" }}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow style={{ background: "rgba(191,221,245,0.25)" }}>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Name
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Email
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Role
+                  </TableHead>
+                  <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Status
+                  </TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((u) => {
+                  const role = ROLE_META[u.role];
+                  const status = STATUS_META[u.status];
+                  return (
+                    <TableRow key={u.id} className="hover:bg-slate-50/60">
+                      <TableCell className="py-3 font-medium text-slate-900">
+                        {u.name}
+                      </TableCell>
+                      <TableCell className="py-3 text-sm text-slate-600">
+                        {u.email}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <Badge
+                          className="border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+                          style={{
+                            background: role.bg,
+                            color: role.fg,
+                            borderColor: role.border,
+                          }}
                         >
-                          {u.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+                          {role.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                          style={{ background: status.bg, color: status.fg }}
+                        >
+                          <span
+                            className="h-1.5 w-1.5 rounded-full"
+                            style={{ background: status.dot }}
+                          />
+                          {status.label}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3 text-right">
+                        {isAdmin ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleStatus(u.id)}
+                            data-testid={`button-toggle-status-${u.id}`}
+                            className="h-8 px-3 text-xs font-semibold"
+                            style={{ color: "var(--brand-primary)" }}
+                          >
+                            {u.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
-    <AddUserDialog open={addOpen} onClose={() => setAddOpen(false)} />
+      <AddUserDialog open={addOpen} onClose={() => setAddOpen(false)} />
     </div>
   );
 }
@@ -671,7 +673,7 @@ function AddUserDialog({
             <select
               id="new-user-role"
               data-testid="select-new-user-role"
-              className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-light)]"
+              className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-light"
               {...register("role", { required: true })}
             >
               <option value="STAFF">Staff (Cashier/Appraiser)</option>
@@ -780,8 +782,8 @@ function DangerZoneTab() {
             </div>
             <p className="text-xs text-slate-600">
               Production launch reset. Permanently deletes <strong>all
-              loans, receipts (daybook entries), pledged items, customers,
-              investor capital and the activity log</strong>, and prunes the
+                loans, receipts (daybook entries), pledged items, customers,
+                investor capital and the activity log</strong>, and prunes the
               user list down to your current admin account so you can rebuild
               the staff roster from scratch.{" "}
               <strong>
@@ -1279,11 +1281,10 @@ function AccountDrawer({
                 <button
                   type="button"
                   onClick={() => setValue("type", "CASH")}
-                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${
-                    typeValue === "CASH"
-                      ? "bg-[var(--brand-light)] text-[color:var(--brand-primary)]"
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${typeValue === "CASH"
+                      ? "bg-brand-light text-brand-primary"
                       : "bg-white text-slate-600"
-                  }`}
+                    }`}
                   style={{ borderColor: "rgba(74,111,165,0.20)" }}
                 >
                   Cash
@@ -1291,11 +1292,10 @@ function AccountDrawer({
                 <button
                   type="button"
                   onClick={() => setValue("type", "BANK")}
-                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${
-                    typeValue === "BANK"
-                      ? "bg-[var(--brand-light)] text-[color:var(--brand-primary)]"
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${typeValue === "BANK"
+                      ? "bg-brand-light text-brand-primary"
                       : "bg-white text-slate-600"
-                  }`}
+                    }`}
                   style={{ borderColor: "rgba(74,111,165,0.20)" }}
                 >
                   Bank

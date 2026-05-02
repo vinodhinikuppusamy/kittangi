@@ -10,6 +10,7 @@ import {
   Landmark,
   PieChart,
   TrendingUp,
+  Users,
 } from "lucide-react";
 
 import { downloadCsv, type CsvColumn } from "@/lib/csv";
@@ -137,6 +138,14 @@ function thirtyDaysAgoIso() {
 }
 
 type ReportTab = "register" | "collections" | "defaults" | "weekly";
+
+const ICON_TONE = {
+  blue: { bg: "rgba(59,130,246,0.12)", fg: "#1d4ed8", ring: "rgba(59,130,246,0.30)" },
+  green: { bg: "rgba(16,185,129,0.12)", fg: "#047857", ring: "rgba(16,185,129,0.30)" },
+  amber: { bg: "rgba(245,158,11,0.12)", fg: "#b45309", ring: "rgba(245,158,11,0.30)" },
+  red: { bg: "rgba(239,68,68,0.12)", fg: "#b91c1c", ring: "rgba(239,68,68,0.30)" },
+  purple: { bg: "rgba(168,85,247,0.12)", fg: "#7e22ce", ring: "rgba(168,85,247,0.30)" },
+} as const;
 
 /* Returns Sunday 00:00 of the current week and Saturday 23:59 (ISO yyyy-mm-dd). */
 function currentWeekRange(): { startIso: string; endIso: string } {
@@ -433,9 +442,8 @@ export default function Reports() {
     }
     toast.success("Downloaded", {
       icon: <CheckCircle2 className="h-4 w-4" />,
-      description: `${
-        activeTab === "register" ? "Loan Register" : "Maturity & Defaults"
-      } CSV for ${fmtDate(from)} → ${fmtDate(to)}.`,
+      description: `${activeTab === "register" ? "Loan Register" : "Maturity & Defaults"
+        } CSV for ${fmtDate(from)} → ${fmtDate(to)}.`,
     });
   };
 
@@ -446,14 +454,16 @@ export default function Reports() {
         <div className="flex items-start gap-4">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ background: "var(--brand-light)" }}
+            style={{
+              background: ICON_TONE.purple.bg,
+              boxShadow: `inset 0 0 0 1px ${ICON_TONE.purple.ring}`,
+            }}
           >
-            <PieChart className="h-6 w-6" style={{ color: "var(--brand-primary)" }} />
+            <PieChart className="h-6 w-6" style={{ color: ICON_TONE.purple.fg }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold tracking-tight"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold tracking-tight text-slate-900"
             >
               Reports &amp; Analytics
             </h1>
@@ -468,7 +478,7 @@ export default function Reports() {
             className="flex items-center gap-2 rounded-xl border bg-white px-3 py-2"
             style={{ borderColor: "rgba(74,111,165,0.18)" }}
           >
-            <CalendarRange className="h-4 w-4" style={{ color: "var(--brand-primary)" }} />
+            <CalendarRange className="h-4 w-4" style={{ color: ICON_TONE.amber.fg }} />
             <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
               Date Range
             </span>
@@ -477,7 +487,7 @@ export default function Reports() {
               value={from}
               max={to}
               onChange={(e) => setFrom(e.target.value)}
-              className="h-9 w-[148px] border-0 px-2 text-sm shadow-none focus-visible:ring-0"
+              className="h-9 w-37 border-0 px-2 text-sm shadow-none focus-visible:ring-0"
               aria-label="From date"
             />
             <span className="text-xs text-slate-400">→</span>
@@ -487,7 +497,7 @@ export default function Reports() {
               min={from}
               max={todayIso()}
               onChange={(e) => setTo(e.target.value)}
-              className="h-9 w-[148px] border-0 px-2 text-sm shadow-none focus-visible:ring-0"
+              className="h-9 w-37 border-0 px-2 text-sm shadow-none focus-visible:ring-0"
               aria-label="To date"
             />
           </div>
@@ -520,28 +530,28 @@ export default function Reports() {
         >
           <TabsTrigger
             value="register"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <Landmark className="h-4 w-4" />
             Loan Register
           </TabsTrigger>
           <TabsTrigger
             value="collections"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <Coins className="h-4 w-4" />
             Interest Collections
           </TabsTrigger>
           <TabsTrigger
             value="defaults"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <AlertTriangle className="h-4 w-4" />
             Maturity &amp; Defaults
           </TabsTrigger>
           <TabsTrigger
             value="weekly"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
             data-testid="tab-weekly"
           >
             <TrendingUp className="h-4 w-4" />
@@ -586,9 +596,12 @@ function LoanRegisterTab({ rows }: { rows: LoanRow[] }) {
           <div className="flex items-start gap-3">
             <div
               className="flex h-9 w-9 items-center justify-center rounded-lg"
-              style={{ background: "var(--brand-light)" }}
+              style={{
+                background: ICON_TONE.blue.bg,
+                boxShadow: `inset 0 0 0 1px ${ICON_TONE.blue.ring}`,
+              }}
             >
-              <Landmark className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+              <Landmark className="h-5 w-5" style={{ color: ICON_TONE.blue.fg }} />
             </div>
             <div>
               <CardTitle className="text-base font-semibold text-slate-900">
@@ -733,9 +746,12 @@ function CollectionsTab({ rows }: { rows: CollectionRow[] }) {
           <div className="flex items-start gap-3">
             <div
               className="flex h-9 w-9 items-center justify-center rounded-lg"
-              style={{ background: "var(--brand-light)" }}
+              style={{
+                background: ICON_TONE.green.bg,
+                boxShadow: `inset 0 0 0 1px ${ICON_TONE.green.ring}`,
+              }}
             >
-              <Coins className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
+              <Coins className="h-5 w-5" style={{ color: ICON_TONE.green.fg }} />
             </div>
             <div>
               <CardTitle className="text-base font-semibold text-slate-900">
@@ -1085,11 +1101,14 @@ function WeeklyTab({
           <div className="flex items-start gap-3">
             <div
               className="flex h-9 w-9 items-center justify-center rounded-lg"
-              style={{ background: "var(--brand-light)" }}
+              style={{
+                background: ICON_TONE.purple.bg,
+                boxShadow: `inset 0 0 0 1px ${ICON_TONE.purple.ring}`,
+              }}
             >
               <TrendingUp
                 className="h-5 w-5"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: ICON_TONE.purple.fg }}
               />
             </div>
             <div>
@@ -1121,21 +1140,25 @@ function WeeklyTab({
             label="Loans Originated"
             value={String(loansThisWeek.length)}
             tone="brand"
+            icon={Landmark}
           />
           <WeeklyMetricCard
             label="Principal Disbursed"
             value={inr(principalDisbursed)}
             tone="brand"
+            icon={TrendingUp}
           />
           <WeeklyMetricCard
             label="Interest Collected"
             value={inr(interestCollected)}
             tone="emerald"
+            icon={Coins}
           />
           <WeeklyMetricCard
             label="Customers Added"
             value={String(customersAdded)}
             tone="amber"
+            icon={Users}
           />
         </div>
 
@@ -1206,15 +1229,15 @@ function WeeklyTab({
                         style={
                           l.product === "PAWN"
                             ? {
-                                background: "rgba(245,158,11,0.12)",
-                                color: "#b45309",
-                                borderColor: "rgba(245,158,11,0.35)",
-                              }
+                              background: "rgba(245,158,11,0.12)",
+                              color: "#b45309",
+                              borderColor: "rgba(245,158,11,0.35)",
+                            }
                             : {
-                                background: "rgba(74,111,165,0.12)",
-                                color: "#1d4ed8",
-                                borderColor: "rgba(74,111,165,0.35)",
-                              }
+                              background: "rgba(74,111,165,0.12)",
+                              color: "#1d4ed8",
+                              borderColor: "rgba(74,111,165,0.35)",
+                            }
                         }
                       >
                         {l.product}
@@ -1241,22 +1264,33 @@ function WeeklyMetricCard({
   label,
   value,
   tone,
+  icon: Icon,
 }: {
   label: string;
   value: string;
   tone: "brand" | "emerald" | "amber";
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
 }) {
   const colors =
     tone === "emerald"
-      ? { bg: "rgba(16,185,129,0.08)", fg: "#047857", border: "rgba(16,185,129,0.25)" }
+      ? { bg: "rgba(16,185,129,0.08)", fg: "#047857", border: "rgba(16,185,129,0.25)", iconBg: ICON_TONE.green.bg, iconFg: ICON_TONE.green.fg }
       : tone === "amber"
-        ? { bg: "rgba(245,158,11,0.08)", fg: "#b45309", border: "rgba(245,158,11,0.25)" }
-        : { bg: "var(--brand-light)", fg: "var(--brand-primary)", border: "rgba(74,111,165,0.18)" };
+        ? { bg: "rgba(245,158,11,0.08)", fg: "#b45309", border: "rgba(245,158,11,0.25)", iconBg: ICON_TONE.amber.bg, iconFg: ICON_TONE.amber.fg }
+        : { bg: "rgba(59,130,246,0.08)", fg: "#1d4ed8", border: "rgba(59,130,246,0.25)", iconBg: ICON_TONE.blue.bg, iconFg: ICON_TONE.blue.fg };
   return (
     <div
       className="rounded-xl border p-4"
       style={{ background: colors.bg, borderColor: colors.border }}
     >
+      <div
+        className="mb-2 flex h-9 w-9 items-center justify-center rounded-full"
+        style={{
+          background: colors.iconBg,
+          boxShadow: `inset 0 0 0 1px ${colors.border}`,
+        }}
+      >
+        <Icon className="h-4 w-4" style={{ color: colors.iconFg }} />
+      </div>
       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
         {label}
       </p>
