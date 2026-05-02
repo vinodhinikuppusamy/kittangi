@@ -69,6 +69,7 @@ import {
 } from "@/lib/stores/daybookStore";
 import { isDateLocked } from "@/lib/stores/dayLocksStore";
 import { useAccounts } from "@/lib/stores/accountsStore";
+import { useCustomers } from "@/lib/stores/customersStore";
 import { useSettings } from "@/lib/stores/settingsStore";
 import { computeProcessingFee } from "@/lib/interest";
 
@@ -123,14 +124,6 @@ function addMonthsIso(startIso: string, months: number): string {
   ].join("-");
 }
 
-const VERIFIED_CUSTOMERS = [
-  { id: "KTG-10042", name: "Aanya Sharma", phone: "+91 98212 44510" },
-  { id: "KTG-10044", name: "Meera Iyer", phone: "+91 99450 11236" },
-  { id: "KTG-10047", name: "Kunal Mehta", phone: "+91 98990 23311" },
-  { id: "KTG-10051", name: "Rohan Verma", phone: "+91 98456 77810" },
-  { id: "KTG-10059", name: "Priya Menon", phone: "+91 99878 21006" },
-];
-
 const LEGAL_DOC_LABELS: Record<LegalDocType, string> = {
   RC: "RC Book",
   INSURANCE: "Insurance Policy",
@@ -177,6 +170,14 @@ const inputBaseStyle: React.CSSProperties = {
 
 export default function VehicleOrigination() {
   const settings = useSettings();
+  const allCustomers = useCustomers();
+  const verifiedCustomers = useMemo(
+    () =>
+      allCustomers
+        .filter((c) => c.kycStatus === "Verified")
+        .map((c) => ({ id: c.id, name: c.fullName, phone: c.phone })),
+    [allCustomers],
+  );
   const {
     register,
     handleSubmit,
@@ -271,8 +272,8 @@ export default function VehicleOrigination() {
       return next;
     });
   const selectedCustomer = useMemo(
-    () => VERIFIED_CUSTOMERS.find((c) => c.id === values.customerId),
-    [values.customerId],
+    () => verifiedCustomers.find((c) => c.id === values.customerId),
+    [values.customerId, verifiedCustomers],
   );
 
   const marketValue = toNum(values.marketValue);
@@ -542,16 +543,23 @@ export default function VehicleOrigination() {
                   <Select
                     value={values.customerId || ""}
                     onValueChange={(v) => setValue("customerId", v, { shouldDirty: true })}
+                    disabled={verifiedCustomers.length === 0}
                   >
                     <SelectTrigger
                       className="h-11 w-full bg-white"
                       style={inputBaseStyle}
                       aria-label="Customer Search"
                     >
-                      <SelectValue placeholder="Select KYC-verified customer..." />
+                      <SelectValue
+                        placeholder={
+                          verifiedCustomers.length === 0
+                            ? "No verified customers found"
+                            : "Select KYC-verified customer..."
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {VERIFIED_CUSTOMERS.map((c) => (
+                      {verifiedCustomers.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           <div className="flex flex-col">
                             <span className="text-sm font-medium">{c.name}</span>
@@ -563,6 +571,31 @@ export default function VehicleOrigination() {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  {verifiedCustomers.length === 0 && (
+                    <div
+                      className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2 text-xs"
+                      style={{
+                        borderColor: "rgba(234,179,8,0.45)",
+                        backgroundColor: "rgba(234,179,8,0.08)",
+                        color: "#92400E",
+                      }}
+                    >
+                      <span>
+                        No KYC-verified customers found. Verify a customer in
+                        Global Customers before disbursing a vehicle loan.
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => navigate("/customers")}
+                      >
+                        Open KYC
+                      </Button>
+                    </div>
+                  )}
 
                   {selectedCustomer && (
                     <div
