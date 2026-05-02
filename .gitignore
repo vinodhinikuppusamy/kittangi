@@ -13,11 +13,9 @@ build/
 
 # environment
 .env
-.env.example
 .env.local
 .env.development
 .env.staging
-*.env
 .env.production
 
 # dependencies
