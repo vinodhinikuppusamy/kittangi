@@ -86,8 +86,8 @@ function SidebarLinkList({
               style={({ isActive }) =>
                 isActive
                   ? {
-                      backgroundColor: "var(--brand-light)",
-                      color: "var(--brand-primary)",
+                      backgroundColor: "var(--brand-primary)",
+                      color: "#ffffff",
                     }
                   : { color: "var(--text-main)" }
               }
@@ -97,9 +97,7 @@ function SidebarLinkList({
                   <Icon
                     size={18}
                     style={{
-                      color: isActive
-                        ? "var(--brand-primary)"
-                        : "var(--text-muted)",
+                      color: isActive ? "#ffffff" : "var(--text-muted)",
                     }}
                   />
                   <span>{item.label}</span>
@@ -135,26 +133,22 @@ function Sidebar({
     >
       {/* Brand */}
       <div
-        className="flex items-center gap-2.5 px-5"
-        style={{ height: 64, borderBottom: "1px solid rgba(74,111,165,0.10)" }}
+        className="flex items-center gap-3 px-5"
+        style={{ height: 80, borderBottom: "1px solid rgba(74,111,165,0.08)" }}
       >
-        <div
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-white font-bold text-sm"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 100%)",
-          }}
-        >
-          K
-        </div>
+        <img
+          src="/kittangi.webp"
+          alt="Kittangi Logo"
+          className="h-12 w-auto object-contain"
+        />
         <div className="flex flex-col leading-tight">
           <span
-            className="text-base font-bold"
+            className="text-lg font-bold tracking-tight"
             style={{ color: "var(--brand-primary)" }}
           >
             Kittangi OS
           </span>
-          <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+          <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
             Financial Suite
           </span>
         </div>

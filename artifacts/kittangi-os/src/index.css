@@ -6,16 +6,19 @@
 
 :root {
   /* Brand palette */
-  --bg-main: #FFF5F5;
+  --bg-main: #F9FAFB;
   --sidebar-bg: #FFFFFF;
-  --brand-primary: #ff3a4c;
-  --brand-accent: #ff8a95;
+  --brand-primary: #e31e24;
+  --brand-accent: #e31e24;
   --brand-light: #ffd0d4;
   --text-main: #030213;
   --text-muted: #64748B;
 
   --radius: 0.5rem;
   --app-font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --background: #FFFFFF;
+  --ring: var(--brand-primary);
+  --input: rgba(74,111,165,0.20);
 }
 
 @theme inline {
@@ -26,6 +29,9 @@
   --color-brand-light: var(--brand-light);
   --color-text-main: var(--text-main);
   --color-text-muted: var(--text-muted);
+  --color-background: var(--background);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
 
   --font-sans: var(--app-font-sans);
 

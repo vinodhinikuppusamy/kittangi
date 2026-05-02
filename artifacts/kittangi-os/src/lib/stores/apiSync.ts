@@ -32,7 +32,8 @@ async function apiFetch<T>(
   body?: unknown,
 ): Promise<T | null> {
   try {
-    const resp = await fetch(`${API_BASE}${path}`, {
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    const resp = await fetch(`${API_BASE}${normalizedPath}`, {
       method,
       headers: authHeaders(),
       credentials: "include",

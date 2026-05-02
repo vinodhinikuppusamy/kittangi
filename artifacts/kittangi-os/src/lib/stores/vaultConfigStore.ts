@@ -19,26 +19,7 @@ export type SafeConfig = {
 
 const STORAGE_KEY = "kittangi:vault-config:v1";
 
-const SEED: SafeConfig[] = [
-  {
-    id: "SAFE_1",
-    name: "Safe A",
-    subtitle: "Main Vault • Ground Floor",
-    prefix: "L-",
-    startNumber: 101,
-    lockerCount: 16,
-  },
-  {
-    id: "SAFE_2",
-    name: "Safe B",
-    subtitle: "Secondary Vault • First Floor",
-    prefix: "L-",
-    startNumber: 201,
-    lockerCount: 12,
-  },
-];
-
-const store = createPersistentStore<SafeConfig[]>(STORAGE_KEY, SEED);
+const store = createPersistentStore<SafeConfig[]>(STORAGE_KEY, []);
 
 let nextSeq = 0;
 function nextSafeId(existing: SafeConfig[]): string {
@@ -47,7 +28,7 @@ function nextSafeId(existing: SafeConfig[]): string {
     if (!match) return m;
     const n = Number(match[1]);
     return Number.isFinite(n) && n > m ? n : m;
-  }, 2);
+  }, 0);
   if (nextSeq <= max) nextSeq = max + 1;
   else nextSeq += 1;
   return `SAFE_${nextSeq}`;
@@ -65,6 +46,7 @@ export function addSafe(
     id: draft.id ?? nextSafeId(store.get()),
   };
   store.set((prev) => [...prev, created]);
+  void import("@/lib/stores/apiSync").then(({ apiCreate }) => apiCreate("/vault-config", created));
   return created;
 }
 
@@ -72,14 +54,16 @@ export function updateSafe(id: string, patch: Partial<SafeConfig>): void {
   store.set((prev) =>
     prev.map((s) => (s.id === id ? { ...s, ...patch, id: s.id } : s)),
   );
+  void import("@/lib/stores/apiSync").then(({ apiUpdate }) => apiUpdate("/vault-config", id, patch));
 }
 
 export function deleteSafe(id: string): void {
   store.set((prev) => prev.filter((s) => s.id !== id));
+  void import("@/lib/stores/apiSync").then(({ apiDelete }) => apiDelete("/vault-config", id));
 }
 
 export function resetVaultConfig(): void {
-  store.set(SEED);
+  store.set([]);
 }
 
 /** Generate the ordered list of locker IDs for a given safe. */
@@ -102,8 +86,7 @@ export function lockerRangeLabel(safe: SafeConfig): string {
 /**
  * Normalise a free-form safe name so "Safe A", "Safe-A", and "safe a" all
  * collapse to the same key. Used when matching pledged items' `vaultLoc`
- * strings (which were captured before vault config was dynamic) back to a
- * configured safe.
+ * strings back to a configured safe.
  */
 export function normalizeSafeKey(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -118,7 +101,6 @@ export function parseVaultLoc(
   loc: string | undefined,
 ): { safeKey: string; lockerId: string } | null {
   if (!loc) return null;
-  // Split on the bullet/dot separators commonly used in seed data.
   const parts = loc.split(/[·•|]/).map((p) => p.trim()).filter(Boolean);
   if (parts.length < 2) return null;
   return {

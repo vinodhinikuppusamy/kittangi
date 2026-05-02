@@ -7,15 +7,8 @@ import { getSeedAdminConfig } from "./lib/env.js";
 
 const DEFAULT_SEED_PASSWORD = "kittangi123";
 
-async function sha256Hex(salt: string, password: string): Promise<string> {
-  const enc = new TextEncoder();
-  const buf = await crypto.subtle.digest(
-    "SHA-256",
-    enc.encode(salt + password),
-  );
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+function sha256Hex(salt: string, password: string): string {
+  return createHash("sha256").update(salt + password).digest("hex");
 }
 
 export async function seedIfEmpty(): Promise<void> {
@@ -40,29 +33,9 @@ export async function seedIfEmpty(): Promise<void> {
         email: adminEmail,
         role: "ADMIN",
         status: "ACTIVE",
-        passwordSalt: "ktg-salt-anita-001",
-        passwordHash: anitaHash,
-        createdAtIso: "2026-01-01T00:00:00.000Z",
-      },
-      {
-        username: "rahul",
-        name: "Rahul Mehta",
-        email: "rahul.m@kittangi.in",
-        role: "STAFF",
-        status: "ACTIVE",
-        passwordSalt: "ktg-salt-rahul-002",
-        passwordHash: rahulHash,
-        createdAtIso: "2026-01-10T09:00:00.000Z",
-      },
-      {
-        username: "priya",
-        name: "Priya Dubey",
-        email: "priya.d@kittangi.in",
-        role: "STAFF",
-        status: "ACTIVE",
-        passwordSalt: "ktg-salt-priya-003",
-        passwordHash: priyaHash,
-        createdAtIso: "2026-01-15T09:00:00.000Z",
+        passwordSalt: "seed-salt-admin-001",
+        passwordHash: adminHash,
+        createdAtIso: new Date().toISOString(),
       },
     ]);
   }
@@ -71,19 +44,28 @@ export async function seedIfEmpty(): Promise<void> {
   if (accountCount === 0) {
     await Account.insertMany([
       {
-        id: "ACC-001",
-        name: "Main Cash",
+        id: "CASH",
+        name: "Cash in Hand",
         type: "CASH",
-        openingBalance: 100000,
-        openedAtIso: "2026-01-01T00:00:00.000Z",
+        subtitle: "Branch cash drawer",
+        openingBalance: 218430,
+        openedAtIso: "2025-04-01",
       },
       {
-        id: "ACC-002",
-        name: "HDFC Current",
+        id: "HDFC",
+        name: "HDFC Bank",
         type: "BANK",
-        subtitle: "A/c ending 4521",
-        openingBalance: 500000,
-        openedAtIso: "2026-01-01T00:00:00.000Z",
+        subtitle: "Current A/c ••• 4521",
+        openingBalance: 1250000,
+        openedAtIso: "2025-04-01",
+      },
+      {
+        id: "SBI",
+        name: "SBI Bank",
+        type: "BANK",
+        subtitle: "Overdraft A/c ••• 8870",
+        openingBalance: 875000,
+        openedAtIso: "2025-04-01",
       },
     ]);
   }
@@ -91,10 +73,11 @@ export async function seedIfEmpty(): Promise<void> {
   const branchCount = await BranchProfile.countDocuments();
   if (branchCount === 0) {
     await BranchProfile.create({
-      branchName: "Kittangi Finance",
-      address: "123 Main Street, City",
-      phone: "+91 9999999999",
-      email: "info@kittangi.in",
+      branchName: "Kittangi Main",
+      branchCode: "KTG-001",
+      gstin: "29ABCDE1234F1Z5",
+      address: "No. 14, MG Road, Bengaluru, Karnataka — 560001",
+      contact: "+91 98450 12345",
     });
   }
 

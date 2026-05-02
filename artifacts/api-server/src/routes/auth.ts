@@ -18,8 +18,6 @@ function authCookieOptions() {
     maxAge: 8 * 60 * 60 * 1000,
     path: "/",
   };
-
-  return cookieDomain ? { ...options, domain: cookieDomain } : options;
 }
 
 async function sha256Hex(salt: string, password: string): Promise<string> {
@@ -61,7 +59,7 @@ router.post("/login", async (req, res) => {
     return;
   }
 
-  const hashed = await sha256Hex(user.passwordSalt, password);
+  const hashed = sha256Hex(user.passwordSalt, password);
   if (hashed !== user.passwordHash) {
     res.status(401).json({ message: "Incorrect password." });
     return;

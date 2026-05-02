@@ -10,6 +10,7 @@
 
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { setUserRole } from "@/lib/stores/userRoleStore";
+import { API_BASE } from "@/lib/stores/apiSync";
 import type { UserRole } from "@/lib/stores/usersStore";
 import { buildApiUrl } from "@/lib/apiBase";
 

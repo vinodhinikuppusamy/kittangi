@@ -42,12 +42,12 @@ export type GlobalSettings = {
 const STORAGE_KEY = "kittangi:settings:v1";
 
 const DEFAULT_SETTINGS: GlobalSettings = {
-  pawnRatePctPerMonth: 2.5,
-  vehicleRatePctPerAnnum: 11.25,
-  penaltyRatePctPerMonth: 2.0,
-  processingFeeFlat: 500,
-  processingFeePer1000: 15,
-  globalLegalInterestRatePct: 18,
+  pawnRatePctPerMonth: 0,
+  vehicleRatePctPerAnnum: 0,
+  penaltyRatePctPerMonth: 0,
+  processingFeeFlat: 0,
+  processingFeePer1000: 0,
+  globalLegalInterestRatePct: 0,
 };
 
 const settingsStore = createPersistentStore<GlobalSettings>(

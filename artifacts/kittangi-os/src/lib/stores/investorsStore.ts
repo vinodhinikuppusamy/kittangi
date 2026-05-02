@@ -95,10 +95,7 @@ const SEED_INVESTORS: Investor[] = [
   },
 ];
 
-const investorsStore = createPersistentStore<Investor[]>(
-  STORAGE_KEY,
-  SEED_INVESTORS,
-);
+const investorsStore = createPersistentStore<Investor[]>(STORAGE_KEY, []);
 
 let nextSeq = 0;
 function nextInvestorId(existing: Investor[]): string {
@@ -153,18 +150,22 @@ export function recordPayout(
     ...payout,
     id: `INV-PAY-${investorId}-${Date.now()}`,
   };
+  let nextPayouts: InvestorPayout[] = [];
   investorsStore.set((prev) =>
-    prev.map((i) =>
-      i.id === investorId
-        ? { ...i, payouts: [created, ...i.payouts] }
-        : i,
-    ),
+    prev.map((i) => {
+      if (i.id !== investorId) return i;
+      nextPayouts = [created, ...i.payouts];
+      return { ...i, payouts: nextPayouts };
+    }),
+  );
+  void import("@/lib/stores/apiSync").then(({ apiUpdate }) =>
+    apiUpdate("/investors", investorId, { payouts: nextPayouts }),
   );
   return created;
 }
 
 export function resetInvestors(): void {
-  investorsStore.set(SEED_INVESTORS);
+  investorsStore.set([]);
 }
 
 /**

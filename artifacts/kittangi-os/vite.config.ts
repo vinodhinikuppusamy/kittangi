@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
-const port = Number(process.env.PORT) || 5173;
 const basePath = process.env.BASE_PATH || "/";
 const apiProxyTarget =
   process.env.API_PROXY_TARGET ||

@@ -213,7 +213,7 @@ const SEED_LOANS: Loan[] = [
   },
 ];
 
-const loansStore = createPersistentStore<Loan[]>(STORAGE_KEY, SEED_LOANS);
+const loansStore = createPersistentStore<Loan[]>(STORAGE_KEY, []);
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -246,7 +246,7 @@ export function deleteLoan(id: string): void {
 }
 
 export function resetLoans(): void {
-  loansStore.set(SEED_LOANS);
+  loansStore.set([]);
 }
 
 export function wipeLoans(): void {

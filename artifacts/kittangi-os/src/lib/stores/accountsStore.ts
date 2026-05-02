@@ -65,10 +65,7 @@ const SEED_ACCOUNTS: Account[] = [
   },
 ];
 
-const accountsStore = createPersistentStore<Account[]>(
-  STORAGE_KEY,
-  SEED_ACCOUNTS,
-);
+const accountsStore = createPersistentStore<Account[]>(STORAGE_KEY, []);
 
 let nextSeq = 0;
 function nextAccountId(existing: Account[]): string {
@@ -120,7 +117,7 @@ export function deleteAccount(id: string): void {
 }
 
 export function resetAccounts(): void {
-  accountsStore.set(SEED_ACCOUNTS);
+  accountsStore.set([]);
 }
 
 // ---------------------------------------------------------------------------
