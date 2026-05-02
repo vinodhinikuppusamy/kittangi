@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { ActivityLog } from "../models/ActivityLog.js";
-import { createHash } from "node:crypto";
+import crypto from "node:crypto";
+import { getCookieDomain, getJwtSecret, isProductionEnv } from "../lib/env.js";
 
 const router = Router();
 const AUTH_COOKIE_NAME = "ktg_access";
@@ -17,8 +18,6 @@ function authCookieOptions() {
     maxAge: 8 * 60 * 60 * 1000,
     path: "/",
   };
-
-  return cookieDomain ? { ...options, domain: cookieDomain } : options;
 }
 
 async function sha256Hex(salt: string, password: string): Promise<string> {

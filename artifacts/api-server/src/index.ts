@@ -1,11 +1,16 @@
+<<<<<<< HEAD
 import dotenv from "dotenv";
 import { existsSync } from "node:fs";
 import path from "node:path";
+=======
+import "./lib/load-env.js";
+>>>>>>> 219d30d (fix: build scripts and deployment debug)
 import app from "./app.js";
 import { connectDB } from "./db.js";
 import { seedIfEmpty } from "./seed.js";
 import { logger } from "./lib/logger.js";
 import { getPort, validateRuntimeConfig } from "./lib/env.js";
+<<<<<<< HEAD
 
 // Load environment files in order of precedence without overriding already-set values:
 // 1) ENV_FILE (if provided by host/PM2)
@@ -45,20 +50,11 @@ for (const candidate of envCandidates) {
     }
   }
 }
+=======
+>>>>>>> 219d30d (fix: build scripts and deployment debug)
 
-const rawPort = process.env["PORT"];
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
+validateRuntimeConfig();
+const port = getPort();
 
 (async () => {
   try {
