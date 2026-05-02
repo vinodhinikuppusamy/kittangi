@@ -4,9 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
 const basePath = process.env.BASE_PATH || "/";
-const apiProxyTarget =
-  process.env.API_PROXY_TARGET ||
-  `http://localhost:${Number(process.env.API_PORT) || 8080}`;
+const apiPort = Number(process.env.API_PORT) || 8000;
 
 export default defineConfig({
   base: basePath,
@@ -34,10 +32,19 @@ export default defineConfig({
     fs: {
       strict: true,
     },
-    proxy: {
-      "/api": {
-        target: apiProxyTarget,
-        changeOrigin: true,
+    server: {
+      port,
+      strictPort: false,
+      host: "0.0.0.0",
+      allowedHosts: true,
+      fs: {
+        strict: true,
+      },
+      proxy: {
+        "/api": {
+          target: `http://localhost:${apiPort}`,
+          changeOrigin: true,
+        },
       },
     },
   },

@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development node --enable-source-maps --watch ./dist/index.mjs",
+    "dev": "cross-env NODE_ENV=development ENV_FILE=.env.development node --enable-source-maps --watch ./dist/index.cjs",
     "build": "node ./build.mjs",
     "build:dev": "node ./build.mjs && pnpm run dev",
-    "start": "cross-env NODE_ENV=production node --enable-source-maps ./dist/index.mjs",
+    "start": "cross-env NODE_ENV=production ENV_FILE=.env.production node --enable-source-maps ./dist/index.cjs",
+    "start:staging": "cross-env NODE_ENV=staging ENV_FILE=.env.staging node --enable-source-maps ./dist/index.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
