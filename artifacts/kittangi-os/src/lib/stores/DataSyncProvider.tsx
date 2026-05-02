@@ -19,9 +19,10 @@ const STORE_KEYS = {
   investors: "kittangi:investors:v1",
   dayLocks: "kittangi:dayLocks:v1",
   activityLog: "kittangi:activityLog:v1",
-  branchProfile: "kittangi:branchProfile:v1",
+  branchProfile: "kittangi:branch-profile:v1",
   users: "kittangi:users:v1",
   settings: "kittangi:settings:v1",
+  vaultConfig: "kittangi:vault-config:v1",
 };
 
 function hydrateKey(key: string, data: unknown): void {
@@ -44,6 +45,7 @@ async function syncAllFromApi(token: string | null): Promise<void> {
     branchProfile,
     users,
     settings,
+    vaultConfig,
   ] = await Promise.allSettled([
     fetchAll("/customers"),
     fetchAll("/loans"),
@@ -56,6 +58,7 @@ async function syncAllFromApi(token: string | null): Promise<void> {
     fetchOne("/branch-profile"),
     fetchAll("/users"),
     fetchOne("/settings"),
+    fetchAll("/vault-config"),
   ]);
 
   if (customers.status === "fulfilled" && customers.value) {
@@ -89,10 +92,11 @@ async function syncAllFromApi(token: string | null): Promise<void> {
     hydrateKey(STORE_KEYS.users, users.value);
   }
   if (settings.status === "fulfilled" && settings.value) {
-    // Merge API-fetched settings on top of the in-memory defaults so that any
-    // key the backend doesn't know about yet falls back to the frontend default.
     const merged = { ...getSettings(), ...(settings.value as Record<string, unknown>) };
     hydrateKey(STORE_KEYS.settings, merged);
+  }
+  if (vaultConfig.status === "fulfilled" && vaultConfig.value) {
+    hydrateKey(STORE_KEYS.vaultConfig, vaultConfig.value);
   }
 }
 

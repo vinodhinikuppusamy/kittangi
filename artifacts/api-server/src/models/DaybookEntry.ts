@@ -8,13 +8,18 @@ export interface IDaybookEntry extends Document {
   side: "CREDIT" | "DEBIT";
   category: string;
   particulars: string;
+  refId?: string;
   account: string;
   amount: number;
   customerName?: string;
   customerId?: string;
   loanId?: string;
-  note?: string;
-  reference?: string;
+  paymentMode?: "CASH" | "UPI" | "BANK";
+  outstandingAfter?: number;
+  notes?: string;
+  legalInterestPortion?: number;
+  companyInterestPortion?: number;
+  pairId?: string;
 }
 
 const daybookEntrySchema = new Schema<IDaybookEntry>(
@@ -25,13 +30,18 @@ const daybookEntrySchema = new Schema<IDaybookEntry>(
     side: { type: String, enum: ["CREDIT", "DEBIT"], required: true },
     category: { type: String, required: true },
     particulars: { type: String, required: true },
+    refId: String,
     account: { type: String, required: true },
     amount: { type: Number, required: true },
     customerName: String,
     customerId: String,
     loanId: String,
-    note: String,
-    reference: String,
+    paymentMode: { type: String, enum: ["CASH", "UPI", "BANK"] },
+    outstandingAfter: Number,
+    notes: String,
+    legalInterestPortion: Number,
+    companyInterestPortion: Number,
+    pairId: String,
   },
   { collection: "daybookEntries" },
 );

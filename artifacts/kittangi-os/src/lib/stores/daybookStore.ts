@@ -439,7 +439,7 @@ const SEED_HISTORY: DaybookEntry[] = [
 
 const SEED: DaybookEntry[] = [...SEED_TODAY, ...SEED_HISTORY];
 
-const daybookStore = createPersistentStore<DaybookEntry[]>(STORAGE_KEY, SEED);
+const daybookStore = createPersistentStore<DaybookEntry[]>(STORAGE_KEY, []);
 
 let nextSeq = 1000;
 function nextEntryId(existing: DaybookEntry[]): string {
@@ -599,7 +599,7 @@ export function addInternalTransfer(args: {
 }
 
 export function resetDaybook(): void {
-  daybookStore.set(SEED);
+  daybookStore.set([]);
 }
 
 export function wipeDaybook(): void {

@@ -5,10 +5,18 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "build": "pnpm run build:client && pnpm run build:server",
+    "build:client": "tsx ./src/build-client.ts && tsx ./src/post-build-client.ts",
+    "build:server": "tsx ./src/build-server.ts && tsx ./src/post-build-server.ts",
+    "build:staging": "pnpm run build:client:staging && pnpm run build:server:staging",
+    "build:client:staging": "tsx ./src/build-client-staging.ts && tsx ./src/post-build-client-staging.ts",
+    "build:server:staging": "tsx ./src/build-server-staging.ts && tsx ./src/post-build-server-staging.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "esbuild": "^0.27.3",
+    "esbuild-plugin-pino": "^2.3.3",
     "tsx": "catalog:"
   }
 }

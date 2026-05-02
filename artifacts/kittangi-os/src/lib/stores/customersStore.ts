@@ -81,10 +81,7 @@ const SEED_CUSTOMERS: Customer[] = [
   },
 ];
 
-const customersStore = createPersistentStore<Customer[]>(
-  STORAGE_KEY,
-  SEED_CUSTOMERS,
-);
+const customersStore = createPersistentStore<Customer[]>(STORAGE_KEY, []);
 
 let nextSeq = 0;
 function nextCustomerId(existing: Customer[]): string {
@@ -143,7 +140,7 @@ export function deleteCustomer(id: string): void {
 
 /** Reset to the seed data. Useful for the debug "reset demo" affordance. */
 export function resetCustomers(): void {
-  customersStore.set(SEED_CUSTOMERS);
+  customersStore.set([]);
 }
 
 /**

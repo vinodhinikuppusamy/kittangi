@@ -168,10 +168,7 @@ const SEED_ITEMS: PledgedItem[] = [
   },
 ];
 
-const pledgedItemsStore = createPersistentStore<PledgedItem[]>(
-  STORAGE_KEY,
-  SEED_ITEMS,
-);
+const pledgedItemsStore = createPersistentStore<PledgedItem[]>(STORAGE_KEY, []);
 
 let nextSeq = 0;
 function nextItemId(existing: PledgedItem[]): string {
@@ -264,7 +261,7 @@ export function transferPledgedItem(id: string, newVaultLoc: string): void {
 }
 
 export function resetPledgedItems(): void {
-  pledgedItemsStore.set(SEED_ITEMS);
+  pledgedItemsStore.set([]);
 }
 
 export function wipePledgedItems(): void {

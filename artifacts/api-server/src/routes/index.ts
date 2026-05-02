@@ -12,6 +12,7 @@ import dayLocksRouter from "./dayLocks.js";
 import branchProfileRouter from "./branchProfile.js";
 import settingsRouter from "./settings.js";
 import activityLogRouter from "./activityLog.js";
+import vaultConfigRouter from "./vaultConfig.js";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use("/day-locks", dayLocksRouter);
 router.use("/branch-profile", branchProfileRouter);
 router.use("/settings", settingsRouter);
 router.use("/activity-log", activityLogRouter);
+router.use("/vault-config", vaultConfigRouter);
 
 export default router;

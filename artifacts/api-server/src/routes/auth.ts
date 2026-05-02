@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { ActivityLog } from "../models/ActivityLog.js";
-import crypto from "node:crypto";
+import { createHash } from "node:crypto";
 
 const router = Router();
 const AUTH_COOKIE_NAME = "ktg_access";
@@ -19,15 +19,8 @@ function authCookieOptions() {
   };
 }
 
-async function sha256Hex(salt: string, password: string): Promise<string> {
-  const enc = new TextEncoder();
-  const buf = await crypto.subtle.digest(
-    "SHA-256",
-    enc.encode(salt + password),
-  );
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+function sha256Hex(salt: string, password: string): string {
+  return createHash("sha256").update(salt + password).digest("hex");
 }
 
 // POST /api/auth/login
@@ -58,7 +51,7 @@ router.post("/login", async (req, res) => {
     return;
   }
 
-  const hashed = await sha256Hex(user.passwordSalt, password);
+  const hashed = sha256Hex(user.passwordSalt, password);
   if (hashed !== user.passwordHash) {
     res.status(401).json({ message: "Incorrect password." });
     return;

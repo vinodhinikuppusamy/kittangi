@@ -4,7 +4,12 @@
   "license": "MIT",
   "scripts": {
     "preinstall": "node -e \"if (!process.env.npm_config_user_agent?.startsWith('pnpm')) { console.error('Use pnpm instead'); process.exit(1); }\"",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "build": "pnpm --filter @workspace/scripts run build",
+    "build:client": "pnpm --filter @workspace/scripts run build:client",
+    "build:server": "pnpm --filter @workspace/scripts run build:server",
+    "build:staging": "pnpm --filter @workspace/scripts run build:staging",
+    "build:client:staging": "pnpm --filter @workspace/scripts run build:client:staging",
+    "build:server:staging": "pnpm --filter @workspace/scripts run build:server:staging",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },

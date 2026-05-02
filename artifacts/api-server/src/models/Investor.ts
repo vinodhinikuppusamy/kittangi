@@ -3,9 +3,9 @@ import { Schema, model, type Document, type Types } from "mongoose";
 const payoutSchema = new Schema(
   {
     id: String,
-    paidAtIso: String,
+    dateIso: String,
+    period: String,
     amount: Number,
-    note: String,
   },
   { _id: false },
 );
