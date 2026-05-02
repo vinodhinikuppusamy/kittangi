@@ -4,7 +4,9 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
 const basePath = process.env.BASE_PATH || "/";
-const apiPort = Number(process.env.API_PORT) || 8000;
+const apiProxyTarget =
+  process.env.API_PROXY_TARGET ||
+  `http://localhost:${Number(process.env.API_PORT) || 8080}`;
 
 function parsePort(raw: string | undefined, fallback: number): number {
   if (!raw) return fallback;
@@ -40,19 +42,10 @@ export default defineConfig(({ command }) => {
       outDir: path.resolve(import.meta.dirname, "dist/public"),
       emptyOutDir: true,
     },
-    server: {
-      port,
-      strictPort: false,
-      host: "0.0.0.0",
-      allowedHosts: true,
-      fs: {
-        strict: true,
-      },
-      proxy: {
-        "/api": {
-          target: `http://localhost:${apiPort}`,
-          changeOrigin: true,
-        },
+    proxy: {
+      "/api": {
+        target: apiProxyTarget,
+        changeOrigin: true,
       },
     },
     preview: {

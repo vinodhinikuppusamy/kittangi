@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+<<<<<<< HEAD
     "build": "pnpm run build:client && pnpm run build:server",
     "build:client": "tsx ./src/build-client.ts && tsx ./src/post-build-client.ts",
     "build:server": "tsx ./src/build-server.ts && tsx ./src/post-build-server.ts",
@@ -12,11 +13,15 @@
     "build:client:staging": "tsx ./src/build-client-staging.ts && tsx ./src/post-build-client-staging.ts",
     "build:server:staging": "tsx ./src/build-server-staging.ts && tsx ./src/post-build-server-staging.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+=======
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "package-deploy": "node ./src/package-deploy.mjs"
+>>>>>>> 219d30d (fix: build scripts and deployment debug)
   },
   "devDependencies": {
+    "@types/archiver": "^6.0.3",
     "@types/node": "catalog:",
-    "esbuild": "^0.27.3",
-    "esbuild-plugin-pino": "^2.3.3",
+    "archiver": "^7.0.1",
     "tsx": "catalog:"
   }
 }

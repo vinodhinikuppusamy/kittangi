@@ -5,6 +5,7 @@
  *   1. On sign-in, fetch collections from the API and hydrate in-memory stores.
  *   2. On mutations, forward creates/updates/deletes to the API.
  */
+import { API_BASE_URL } from "@/lib/apiBase";
 
 // Token getter registered after login
 let _token: string | null = null;
@@ -17,20 +18,7 @@ export function getApiToken(): string | null {
   return _token;
 }
 
-// In production, VITE_API_BASE_URL should be the backend origin (e.g. https://api.yourdomain.com).
-// In dev it is empty and the Vite proxy forwards /api/* to the local backend.
-const rawApiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
-const normalizedApiOrigin = (() => {
-  if (!rawApiBaseUrl) return "";
-  const withProtocol =
-    /^https?:\/\//i.test(rawApiBaseUrl) || rawApiBaseUrl.startsWith("//")
-      ? rawApiBaseUrl
-      : `https://${rawApiBaseUrl}`;
-  const noTrailingSlash = withProtocol.replace(/\/+$/, "");
-  return noTrailingSlash.replace(/\/api$/i, "");
-})();
-
-export const API_BASE = `${normalizedApiOrigin}/api`;
+export const API_BASE = API_BASE_URL;
 
 function authHeaders(): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json" };

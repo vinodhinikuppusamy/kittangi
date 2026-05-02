@@ -23,6 +23,8 @@ build/
 # dependencies
 node_modules/
 
+deploy/*
+
 # logs
 logs/
 npm-debug.log
