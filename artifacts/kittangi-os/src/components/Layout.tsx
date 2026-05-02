@@ -1,6 +1,6 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LogOut, Menu, Search, UserCircle, X } from "lucide-react";
+import { Banknote, Bell, ChevronDown, FileText, LogOut, Menu, Search, UserCircle, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   ADMIN_NAV,
@@ -18,6 +18,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
+import { useCustomers } from "@/lib/stores/customersStore";
+import { useLoans } from "@/lib/stores/loansStore";
+import { useDaybook } from "@/lib/stores/daybookStore";
+import { Kbd } from "@/components/ui/kbd";
 
 function AppSwitcher({
   value,
@@ -250,6 +263,22 @@ function Header({
 }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+
+  const customers = useCustomers();
+  const loans = useLoans();
+  const daybook = useDaybook();
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setOpen((open) => !open);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
 
   const handleSignOut = () => {
     signOut();
@@ -266,7 +295,7 @@ function Header({
         borderColor: "rgba(74,111,165,0.10)",
       }}
     >
-      {/* Global search */}
+      {/* Global search trigger */}
       <div className="flex max-w-xl flex-1 items-center gap-3 md:ml-64">
         <button
           type="button"
@@ -278,21 +307,106 @@ function Header({
           <Menu size={18} />
         </button>
 
-        <div
-          className="hidden w-full items-center gap-2 rounded-lg border bg-white px-3 py-2 transition-colors focus-within:ring-4 sm:flex"
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="hidden w-full items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm transition-colors hover:bg-slate-50/50 sm:flex"
           style={{
             borderColor: "rgba(74,111,165,0.18)",
-            // @ts-expect-error CSS var
-            "--tw-ring-color": "var(--brand-light)",
+            color: "var(--text-muted)",
           }}
         >
-          <Search size={16} style={{ color: "var(--text-muted)" }} />
-          <input
-            type="search"
-            placeholder="Search customers, loans, receipts…"
-            className="w-full bg-transparent text-sm outline-none placeholder:text-[color:var(--text-muted)]"
-          />
-        </div>
+          <Search size={16} />
+          <span>Search customers, loans, receipts…</span>
+          <div className="ml-auto flex items-center gap-1 opacity-60">
+            <Kbd className="bg-slate-50">Ctrl</Kbd>
+            <Kbd className="bg-slate-50">K</Kbd>
+          </div>
+        </button>
+
+        <CommandDialog open={open} onOpenChange={setOpen}>
+          <CommandInput placeholder="Type to search..." />
+          <CommandList className="max-h-[70vh]">
+            <CommandEmpty>No results found.</CommandEmpty>
+            
+            {/* Customers */}
+            {customers.length > 0 && (
+              <CommandGroup heading="Customers">
+                {customers.slice(0, 10).map((c) => (
+                  <CommandItem
+                    key={c.id}
+                    value={`${c.fullName} ${c.phone} ${c.id}`}
+                    onSelect={() => {
+                      setOpen(false);
+                      navigate("/customers");
+                    }}
+                  >
+                    <Users className="mr-2 h-4 w-4 opacity-70" />
+                    <div className="flex flex-col">
+                      <span className="font-medium">{c.fullName}</span>
+                      <span className="text-[10px] opacity-60">
+                        {c.id} • {c.phone}
+                      </span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+
+            <CommandSeparator />
+
+            {/* Loans */}
+            {loans.length > 0 && (
+              <CommandGroup heading="Active Loans">
+                {loans.slice(0, 10).map((l) => (
+                  <CommandItem
+                    key={l.id}
+                    value={`${l.id} ${l.customer} ${l.vehicleDetails?.regNo ?? ""}`}
+                    onSelect={() => {
+                      setOpen(false);
+                      navigate(`/loans/${l.id}`);
+                    }}
+                  >
+                    <Banknote className="mr-2 h-4 w-4 opacity-70" />
+                    <div className="flex flex-col">
+                      <span className="font-medium">{l.id}</span>
+                      <span className="text-[10px] opacity-60">
+                        {l.customer} • {l.product}
+                        {l.vehicleDetails?.regNo ? ` • ${l.vehicleDetails.regNo}` : ""}
+                      </span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+
+            <CommandSeparator />
+
+            {/* Daybook / Transactions */}
+            {daybook.length > 0 && (
+              <CommandGroup heading="Transactions">
+                {daybook.slice(0, 10).map((e) => (
+                  <CommandItem
+                    key={e.id}
+                    value={`${e.id} ${e.particulars} ${e.refId ?? ""}`}
+                    onSelect={() => {
+                      setOpen(false);
+                      navigate("/receipts-ledger");
+                    }}
+                  >
+                    <FileText className="mr-2 h-4 w-4 opacity-70" />
+                    <div className="flex flex-col">
+                      <span className="font-medium">{e.particulars}</span>
+                      <span className="text-[10px] opacity-60">
+                        {e.id} • {e.dateIso} • ₹{e.amount.toLocaleString()}
+                      </span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </CommandDialog>
       </div>
 
       {/* Right cluster */}
