@@ -471,14 +471,16 @@ export default function VehicleOrigination() {
         <div className="flex items-start gap-4">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ background: "var(--brand-light)" }}
+            style={{
+              background: "rgba(59,130,246,0.14)",
+              boxShadow: "inset 0 0 0 1px rgba(59,130,246,0.30)",
+            }}
           >
-            <Car className="h-6 w-6" style={{ color: "var(--brand-primary)" }} />
+            <Car className="h-6 w-6" style={{ color: "#1d4ed8" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold tracking-tight"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold tracking-tight text-slate-900"
             >
               Vehicle Loan Origination
             </h1>

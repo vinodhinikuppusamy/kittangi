@@ -312,7 +312,7 @@ export default function CustomerLedgerSheet({
               <TabsList
                 className="grid w-full grid-cols-2"
                 style={{
-                  backgroundColor: "rgba(191,221,245,0.30)",
+                  backgroundColor: "rgba(227,30,36,0.08)",
                 }}
               >
                 <TabsTrigger value="loans">

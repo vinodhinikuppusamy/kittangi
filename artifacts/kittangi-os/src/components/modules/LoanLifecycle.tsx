@@ -371,8 +371,7 @@ export default function LoanLifecycle() {
           <div>
             <div className="flex items-center gap-2">
               <h1
-                className="font-mono text-2xl font-bold tracking-tight"
-                style={{ color: "var(--brand-primary)" }}
+                className="font-mono text-2xl font-bold tracking-tight text-slate-900"
               >
                 {loan.id}
               </h1>

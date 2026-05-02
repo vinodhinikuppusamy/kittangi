@@ -11,6 +11,14 @@ import {
 } from "@/lib/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 function AppSwitcher({
   value,
   onChange,
@@ -27,29 +35,25 @@ function AppSwitcher({
       >
         Active Vertical
       </label>
-      <div className="relative">
-        <select
+      <Select value={value} onValueChange={(next) => onChange(next as Vertical)}>
+        <SelectTrigger
           id="vertical-switcher"
-          value={value}
-          onChange={(e) => onChange(e.target.value as Vertical)}
-          className="w-full appearance-none rounded-lg border-2 bg-white px-3 py-2.5 pr-9 text-sm font-semibold outline-none transition-colors focus:ring-4"
+          className="h-11 w-full border-2 text-sm font-semibold transition-colors"
           style={{
-            borderColor: "var(--brand-primary)",
-            color: "var(--brand-primary)",
-            backgroundColor: "#fff",
+            borderColor: "rgba(227,30,36,0.16)",
+            color: "var(--text-main)",
+            // backgroundColor: "rgba(227,30,36,0.08)",
             // @ts-expect-error custom CSS var for ring color via Tailwind ring utility fallback
-            "--tw-ring-color": "var(--brand-light)",
+            "--tw-ring-color": "rgba(227,30,36,0.12)",
           }}
         >
-          <option value="PAWN">Pawn Broking</option>
-          <option value="VEHICLE">Vehicle Finance</option>
-        </select>
-        <ChevronDown
-          size={16}
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
-          style={{ color: "var(--brand-primary)" }}
-        />
-      </div>
+          <SelectValue placeholder="Select Vertical" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="PAWN">Pawn Broking</SelectItem>
+          <SelectItem value="VEHICLE">Vehicle Finance</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -232,11 +236,11 @@ function Sidebar({
 
       <style>{`
         .hover-link:hover {
-          background-color: var(--brand-light);
-          color: var(--brand-primary);
+          background-color: #fce4e4;
+          color: #fce4e4;
         }
         .hover-link:hover svg {
-          color: var(--brand-primary);
+          color: #fce4e4;
         }
       `}</style>
       </aside>
@@ -302,10 +306,10 @@ function Header({
           type="button"
           aria-label="Notifications"
           className="relative inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors"
-          style={{ color: "var(--brand-primary)" }}
+          style={{ color: "var(--text-muted)" }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-              "var(--brand-light)";
+              "rgba(100,116,139,0.08)";
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLButtonElement).style.backgroundColor =
@@ -313,10 +317,6 @@ function Header({
           }}
         >
           <Bell size={20} />
-          <span
-            className="absolute top-2 right-2 inline-block h-2 w-2 rounded-full"
-            style={{ backgroundColor: "#EF4444" }}
-          />
         </button>
 
         {/* Identity pill — clicking it routes to the Profile Hub. The role
@@ -329,11 +329,11 @@ function Header({
           style={{ backgroundColor: "var(--brand-light)" }}
           aria-label="Open profile"
         >
-          <UserCircle size={28} style={{ color: "var(--brand-primary)" }} />
+          <UserCircle size={28} style={{ color: "var(--text-main)" }} />
           <div className="leading-tight text-left">
             <div
               className="text-xs font-semibold"
-              style={{ color: "var(--brand-primary)" }}
+              style={{ color: "var(--text-main)" }}
             >
               {user?.name ?? "—"}
             </div>

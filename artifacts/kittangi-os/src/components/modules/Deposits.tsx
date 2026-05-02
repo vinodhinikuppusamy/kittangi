@@ -476,14 +476,16 @@ export default function Deposits() {
         <div className="flex items-center gap-3">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ backgroundColor: "var(--brand-light)" }}
+            style={{
+              backgroundColor: "rgba(59,130,246,0.14)",
+              boxShadow: "inset 0 0 0 1px rgba(59,130,246,0.30)",
+            }}
           >
-            <HandCoins size={22} style={{ color: "var(--brand-primary)" }} />
+            <HandCoins size={22} style={{ color: "#1d4ed8" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold text-slate-900"
             >
               Investor Deposits &amp; Capital
             </h1>

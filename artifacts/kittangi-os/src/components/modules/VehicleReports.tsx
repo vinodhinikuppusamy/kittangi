@@ -233,14 +233,16 @@ export default function VehicleReports() {
         <div className="flex items-start gap-4">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ background: "var(--brand-light)" }}
+            style={{
+              background: "rgba(16,185,129,0.14)",
+              boxShadow: "inset 0 0 0 1px rgba(16,185,129,0.30)",
+            }}
           >
-            <PieChart className="h-6 w-6" style={{ color: "var(--brand-primary)" }} />
+            <PieChart className="h-6 w-6" style={{ color: "#047857" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold tracking-tight"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold tracking-tight text-slate-900"
             >
               Vehicle Portfolio Reports
             </h1>
@@ -260,7 +262,7 @@ export default function VehicleReports() {
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="h-8 w-[140px] border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
+            className="h-8 w-35 border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
             aria-label="From date"
           />
           <span className="text-slate-400">→</span>
@@ -268,7 +270,7 @@ export default function VehicleReports() {
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="h-8 w-[140px] border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
+            className="h-8 w-35 border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
             aria-label="To date"
           />
         </div>
@@ -312,24 +314,15 @@ export default function VehicleReports() {
       >
         <TabsList
           className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3"
-          style={{ background: "rgba(191,221,245,0.30)" }}
+          style={{ background: "#fff" }}
         >
-          <TabsTrigger
-            value="disbursal"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)]"
-          >
+          <TabsTrigger value="disbursal">
             Disbursal Log
           </TabsTrigger>
-          <TabsTrigger
-            value="collection"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)]"
-          >
+          <TabsTrigger value="collection">
             Collection Report
           </TabsTrigger>
-          <TabsTrigger
-            value="npa"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)]"
-          >
+          <TabsTrigger value="npa">
             NPA / Default List
           </TabsTrigger>
         </TabsList>
@@ -357,7 +350,7 @@ export default function VehicleReports() {
                   <TableRow key={r.loanId} className="text-sm">
                     <TableCell className="text-slate-600">{r.date}</TableCell>
                     <TableCell>
-                      <span className="font-mono text-xs font-semibold" style={{ color: "var(--brand-primary)" }}>
+                      <span className="font-mono text-xs font-semibold" style={{ color: "var(--text-main)" }}>
                         {r.loanId}
                       </span>
                     </TableCell>
@@ -417,7 +410,7 @@ export default function VehicleReports() {
                   return (
                     <TableRow key={r.loanId} className="text-sm">
                       <TableCell>
-                        <span className="font-mono text-xs font-semibold" style={{ color: "var(--brand-primary)" }}>
+                        <span className="font-mono text-xs font-semibold" style={{ color: "var(--text-main)" }}>
                           {r.loanId}
                         </span>
                       </TableCell>
@@ -478,7 +471,7 @@ export default function VehicleReports() {
                       style={inYard ? { background: "rgba(244,63,94,0.05)" } : undefined}
                     >
                       <TableCell>
-                        <span className="font-mono text-xs font-semibold" style={{ color: "var(--brand-primary)" }}>
+                        <span className="font-mono text-xs font-semibold" style={{ color: "var(--text-main)" }}>
                           {r.loanId}
                         </span>
                       </TableCell>

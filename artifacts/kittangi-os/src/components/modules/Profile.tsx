@@ -135,11 +135,14 @@ export default function Profile() {
           <div className="flex items-start gap-3">
             <div
               className="flex h-9 w-9 items-center justify-center rounded-lg"
-              style={{ background: "var(--brand-light)" }}
+              style={{
+                background: "rgba(245,158,11,0.14)",
+                boxShadow: "inset 0 0 0 1px rgba(245,158,11,0.32)",
+              }}
             >
               <KeyRound
                 className="h-5 w-5"
-                style={{ color: "var(--brand-primary)" }}
+                style={{ color: "#b45309" }}
               />
             </div>
             <div>

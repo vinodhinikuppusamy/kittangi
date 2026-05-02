@@ -163,17 +163,19 @@ export default function Settings() {
       <div className="mb-6 flex items-start gap-4">
         <div
           className="flex h-12 w-12 items-center justify-center rounded-xl"
-          style={{ background: "var(--brand-light)" }}
+          style={{
+            background: "rgba(245,158,11,0.14)",
+            boxShadow: "inset 0 0 0 1px rgba(245,158,11,0.32)",
+          }}
         >
           <SettingsIcon
             className="h-6 w-6"
-            style={{ color: "var(--brand-primary)" }}
+            style={{ color: "#b45309" }}
           />
         </div>
         <div>
           <h1
-            className="text-2xl font-bold tracking-tight"
-            style={{ color: "var(--brand-primary)" }}
+            className="text-2xl font-bold tracking-tight text-slate-900"
           >
             System Settings
           </h1>
@@ -190,35 +192,35 @@ export default function Settings() {
         >
           <TabsTrigger
             value="branch"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <Building2 className="h-4 w-4" />
             Branch Profile
           </TabsTrigger>
           <TabsTrigger
             value="users"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <UsersIcon className="h-4 w-4" />
             User Management
           </TabsTrigger>
           <TabsTrigger
             value="rates"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <Percent className="h-4 w-4" />
             Rates &amp; Fees
           </TabsTrigger>
           <TabsTrigger
             value="accounts"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <Landmark className="h-4 w-4" />
             Accounts
           </TabsTrigger>
           <TabsTrigger
             value="vault"
-            className="data-[state=active]:bg-[var(--brand-light)] data-[state=active]:text-[color:var(--brand-primary)] data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <Vault className="h-4 w-4" />
             Vault Configuration
@@ -226,7 +228,7 @@ export default function Settings() {
           <TabsTrigger
             value="danger"
             data-testid="tab-danger-zone"
-            className="data-[state=active]:bg-rose-50 data-[state=active]:text-rose-700 data-[state=active]:shadow-none gap-2 rounded-lg px-4 py-2 text-sm font-medium text-rose-600"
+            className="gap-2 rounded-lg px-4 py-2 text-sm font-medium"
           >
             <ShieldAlert className="h-4 w-4" />
             Danger Zone
@@ -671,7 +673,7 @@ function AddUserDialog({
             <select
               id="new-user-role"
               data-testid="select-new-user-role"
-              className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-light)]"
+              className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-light"
               {...register("role", { required: true })}
             >
               <option value="STAFF">Staff (Cashier/Appraiser)</option>
@@ -1281,7 +1283,7 @@ function AccountDrawer({
                   onClick={() => setValue("type", "CASH")}
                   className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${
                     typeValue === "CASH"
-                      ? "bg-[var(--brand-light)] text-[color:var(--brand-primary)]"
+                      ? "bg-brand-light text-brand-primary"
                       : "bg-white text-slate-600"
                   }`}
                   style={{ borderColor: "rgba(74,111,165,0.20)" }}
@@ -1293,7 +1295,7 @@ function AccountDrawer({
                   onClick={() => setValue("type", "BANK")}
                   className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${
                     typeValue === "BANK"
-                      ? "bg-[var(--brand-light)] text-[color:var(--brand-primary)]"
+                      ? "bg-brand-light text-brand-primary"
                       : "bg-white text-slate-600"
                   }`}
                   style={{ borderColor: "rgba(74,111,165,0.20)" }}

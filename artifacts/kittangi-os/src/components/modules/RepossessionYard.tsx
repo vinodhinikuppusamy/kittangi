@@ -258,14 +258,16 @@ export default function RepossessionYard() {
         <div className="flex items-start gap-4">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ background: "var(--brand-light)" }}
+            style={{
+              background: "rgba(239,68,68,0.14)",
+              boxShadow: "inset 0 0 0 1px rgba(239,68,68,0.32)",
+            }}
           >
-            <Warehouse className="h-6 w-6" style={{ color: "var(--brand-primary)" }} />
+            <Warehouse className="h-6 w-6" style={{ color: "#b91c1c" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold tracking-tight"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold tracking-tight text-slate-900"
             >
               Repossession Yard (Seized Assets)
             </h1>

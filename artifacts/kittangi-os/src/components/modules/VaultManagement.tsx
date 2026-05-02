@@ -282,14 +282,16 @@ export default function VaultManagement() {
         <div className="flex items-center gap-3">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ backgroundColor: "var(--brand-light)" }}
+            style={{
+              backgroundColor: "rgba(168,85,247,0.14)",
+              boxShadow: "inset 0 0 0 1px rgba(168,85,247,0.30)",
+            }}
           >
-            <Shield size={22} style={{ color: "var(--brand-primary)" }} />
+            <Shield size={22} style={{ color: "#7e22ce" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold text-slate-900"
             >
               Vault Management
             </h1>
@@ -373,7 +375,7 @@ export default function VaultManagement() {
               <div>
                 <CardTitle
                   className="text-base font-semibold"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "var(--text-main)" }}
                 >
                   Safe Visualizer
                 </CardTitle>
@@ -430,13 +432,12 @@ export default function VaultManagement() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <TabsList
                   className="bg-slate-100 p-1"
-                  style={{ backgroundColor: "rgba(191,221,245,0.30)" }}
+                  style={{ backgroundColor: "rgba(227,30,36,0.08)" }}
                 >
                   {resolvedSafes.map((s) => (
                     <TabsTrigger
                       key={s.config.id}
                       value={s.config.id}
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
                     >
                       <Vault size={14} className="mr-1.5" />
                       {s.config.name}
@@ -591,12 +592,12 @@ export default function VaultManagement() {
                 className="flex h-10 w-10 items-center justify-center rounded-lg"
                 style={{ backgroundColor: "var(--brand-light)" }}
               >
-                <Package size={18} style={{ color: "var(--brand-primary)" }} />
+                <Package size={18} style={{ color: "var(--text-main)" }} />
               </div>
               <div>
                 <DialogTitle
                   className="text-base font-semibold"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "var(--text-main)" }}
                 >
                   Locker {selectedLocker?.id}
                 </DialogTitle>

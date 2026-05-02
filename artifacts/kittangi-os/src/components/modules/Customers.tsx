@@ -82,6 +82,20 @@ type CustomerForm = {
   pincode: string;
 };
 
+const CUSTOMER_ICON_TONES = [
+  { bg: "rgba(59,130,246,0.14)", fg: "#1d4ed8" },
+  { bg: "rgba(16,185,129,0.14)", fg: "#047857" },
+  { bg: "rgba(245,158,11,0.14)", fg: "#b45309" },
+  { bg: "rgba(239,68,68,0.14)", fg: "#b91c1c" },
+  { bg: "rgba(168,85,247,0.14)", fg: "#7e22ce" },
+] as const;
+
+function pickTone(seed: string) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return CUSTOMER_ICON_TONES[hash % CUSTOMER_ICON_TONES.length];
+}
+
 function StatusBadge({ status }: { status: KycStatus }) {
   const styles: Record<KycStatus, { bg: string; color: string; border: string }> = {
     Verified: {
@@ -690,6 +704,7 @@ function CustomerDrawer({
 }
 
 function CustomerAvatar({ customer }: { customer: Customer }) {
+  const tone = pickTone(customer.id || customer.fullName);
   if (customer.photoDataUrl) {
     return (
       <img
@@ -698,7 +713,7 @@ function CustomerAvatar({ customer }: { customer: Customer }) {
         className="h-9 w-9 rounded-full object-cover ring-2"
         style={{
           // @ts-expect-error CSS var
-          "--tw-ring-color": "var(--brand-light)",
+          "--tw-ring-color": tone.bg,
         }}
       />
     );
@@ -711,8 +726,12 @@ function CustomerAvatar({ customer }: { customer: Customer }) {
     .join("");
   return (
     <div
-      className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold text-white"
-      style={{ backgroundColor: "var(--brand-primary)" }}
+      className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold"
+      style={{
+        backgroundColor: tone.bg,
+        color: tone.fg,
+        boxShadow: `inset 0 0 0 1px ${tone.fg}33`,
+      }}
       aria-hidden
     >
       {initials || "?"}
@@ -766,14 +785,16 @@ export default function Customers() {
         <div className="flex items-center gap-3">
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ backgroundColor: "var(--brand-light)" }}
+            style={{
+              backgroundColor: "rgba(59,130,246,0.14)",
+              boxShadow: "inset 0 0 0 1px rgba(59,130,246,0.30)",
+            }}
           >
-            <Users size={22} style={{ color: "var(--brand-primary)" }} />
+            <Users size={22} style={{ color: "#1d4ed8" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold"
-              style={{ color: "var(--brand-primary)" }}
+              className="text-2xl font-bold text-slate-900"
             >
               Global Customers
             </h1>
@@ -800,7 +821,7 @@ export default function Customers() {
       >
         <div className="flex flex-wrap items-center gap-3">
           <div
-            className="flex flex-1 min-w-[260px] items-center gap-2 rounded-lg border bg-white px-3 py-2 transition-colors focus-within:ring-4"
+            className="flex min-w-65 flex-1 items-center gap-2 rounded-lg border bg-white px-3 py-2 transition-colors focus-within:ring-4"
             style={{
               borderColor: "rgba(74,111,165,0.18)",
               // @ts-expect-error CSS var
@@ -813,7 +834,7 @@ export default function Customers() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name or phone…"
-              className="w-full bg-transparent text-sm outline-none placeholder:text-[color:var(--text-muted)]"
+              className="w-full bg-transparent text-sm outline-none placeholder:text-text-muted"
             />
           </div>
 
@@ -824,7 +845,7 @@ export default function Customers() {
               onValueChange={(v) => setStatusFilter(v as KycFilter)}
             >
               <SelectTrigger
-                className="h-10 w-[180px] rounded-lg border bg-white text-sm"
+                className="h-10 w-45 rounded-lg border bg-white text-sm"
                 style={{
                   borderColor: "rgba(74,111,165,0.18)",
                   color: "var(--text-main)",
@@ -924,7 +945,7 @@ export default function Customers() {
                   tabIndex={0}
                   role="button"
                   aria-label={`Open Customer 360 for ${c.fullName}`}
-                  className="cursor-pointer transition-colors hover:bg-slate-50/70 focus:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-light)]"
+                  className="cursor-pointer transition-colors hover:bg-slate-50/70 focus:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-light"
                   style={{ borderColor: "rgba(74,111,165,0.08)" }}
                 >
                   <TableCell className="py-3">
