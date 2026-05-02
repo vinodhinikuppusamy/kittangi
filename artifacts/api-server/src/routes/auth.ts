@@ -4,19 +4,22 @@ import { User } from "../models/User.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { ActivityLog } from "../models/ActivityLog.js";
 import crypto from "node:crypto";
+import { getCookieDomain, getJwtSecret, isProductionEnv } from "../lib/env.js";
 
 const router = Router();
 const AUTH_COOKIE_NAME = "ktg_access";
 
 function authCookieOptions() {
-  const isProd = process.env["NODE_ENV"] === "production";
-  return {
+  const cookieDomain = getCookieDomain();
+  const options = {
     httpOnly: true,
-    secure: isProd,
+    secure: isProductionEnv(),
     sameSite: "lax" as const,
     maxAge: 8 * 60 * 60 * 1000,
     path: "/",
   };
+
+  return cookieDomain ? { ...options, domain: cookieDomain } : options;
 }
 
 async function sha256Hex(salt: string, password: string): Promise<string> {
@@ -64,7 +67,7 @@ router.post("/login", async (req, res) => {
     return;
   }
 
-  const secret = process.env["JWT_SECRET"]!;
+  const secret = getJwtSecret();
   const token = jwt.sign(
     { userId: user._id.toString(), username: user.username, role: user.role },
     secret,
@@ -99,11 +102,8 @@ router.post("/login", async (req, res) => {
 
 // POST /api/auth/logout
 router.post("/logout", (_req, res) => {
-  res.clearCookie(AUTH_COOKIE_NAME, {
-    path: "/",
-    sameSite: "lax",
-    secure: process.env["NODE_ENV"] === "production",
-  });
+  const { maxAge: _ignoredMaxAge, ...cookieClearOptions } = authCookieOptions();
+  res.clearCookie(AUTH_COOKIE_NAME, cookieClearOptions);
   res.status(204).end();
 });
 

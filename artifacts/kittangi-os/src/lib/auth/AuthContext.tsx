@@ -11,6 +11,7 @@
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { setUserRole } from "@/lib/stores/userRoleStore";
 import type { UserRole } from "@/lib/stores/usersStore";
+import { buildApiUrl } from "@/lib/apiBase";
 
 export type AuthUser = {
   id: string;
@@ -65,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const restore = async () => {
       try {
-        const resp = await fetch("/api/auth/me", { credentials: "include" });
+        const resp = await fetch(buildApiUrl("/auth/me"), { credentials: "include" });
         if (!resp.ok) {
           if (!cancelled) setSession(null);
           return;
@@ -89,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (username: string, password: string): Promise<SignInResult> => {
       try {
-        const resp = await fetch("/api/auth/login", {
+        const resp = await fetch(buildApiUrl("/auth/login"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -114,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(() => {
-    void fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    void fetch(buildApiUrl("/auth/logout"), { method: "POST", credentials: "include" });
     setSession(null);
   }, []);
 
@@ -124,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (newPassword.length < 6)
         return { ok: false, reason: "New password must be at least 6 characters." };
       try {
-        const resp = await fetch("/api/users/change-password", {
+        const resp = await fetch(buildApiUrl("/users/change-password"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

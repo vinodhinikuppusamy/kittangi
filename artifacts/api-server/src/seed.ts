@@ -3,6 +3,7 @@ import { Account } from "./models/Account.js";
 import { BranchProfile } from "./models/BranchProfile.js";
 import { Settings } from "./models/Settings.js";
 import { logger } from "./lib/logger.js";
+import { getSeedAdminConfig } from "./lib/env.js";
 
 const DEFAULT_SEED_PASSWORD = "kittangi123";
 
@@ -23,14 +24,20 @@ export async function seedIfEmpty(): Promise<void> {
 
   if (userCount === 0) {
     logger.info("Seeding users…");
-    const anitaHash = await sha256Hex("ktg-salt-anita-001", DEFAULT_SEED_PASSWORD);
+    const seedAdmin = getSeedAdminConfig();
+    const adminUsername = seedAdmin?.username ?? "anita";
+    const adminPassword = seedAdmin?.password ?? DEFAULT_SEED_PASSWORD;
+    const adminName = seedAdmin?.name ?? "Anita Sharma";
+    const adminEmail = seedAdmin?.email ?? "anita.sharma@kittangi.in";
+
+    const anitaHash = await sha256Hex("ktg-salt-anita-001", adminPassword);
     const rahulHash = await sha256Hex("ktg-salt-rahul-002", DEFAULT_SEED_PASSWORD);
     const priyaHash = await sha256Hex("ktg-salt-priya-003", DEFAULT_SEED_PASSWORD);
     await User.insertMany([
       {
-        username: "anita",
-        name: "Anita Sharma",
-        email: "anita.sharma@kittangi.in",
+        username: adminUsername,
+        name: adminName,
+        email: adminEmail,
         role: "ADMIN",
         status: "ACTIVE",
         passwordSalt: "ktg-salt-anita-001",

@@ -5,6 +5,7 @@
  *   1. On sign-in, fetch collections from the API and hydrate in-memory stores.
  *   2. On mutations, forward creates/updates/deletes to the API.
  */
+import { API_BASE_URL } from "@/lib/apiBase";
 
 // Token getter registered after login
 let _token: string | null = null;
@@ -17,7 +18,7 @@ export function getApiToken(): string | null {
   return _token;
 }
 
-export const API_BASE = "/api";
+export const API_BASE = API_BASE_URL;
 
 function authHeaders(): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json" };

@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { getJwtSecret } from "../lib/env.js";
 
 const AUTH_COOKIE_NAME = "ktg_access";
 
@@ -32,8 +33,10 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     return;
   }
 
-  const secret = process.env["JWT_SECRET"];
-  if (!secret) {
+  let secret: string;
+  try {
+    secret = getJwtSecret();
+  } catch {
     res.status(500).json({ message: "Server misconfiguration: JWT_SECRET missing." });
     return;
   }
