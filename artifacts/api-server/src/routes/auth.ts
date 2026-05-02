@@ -18,6 +18,8 @@ function authCookieOptions() {
     maxAge: 8 * 60 * 60 * 1000,
     path: "/",
   };
+
+  return cookieDomain ? { ...options, domain: cookieDomain } : options;
 }
 
 async function sha256Hex(salt: string, password: string): Promise<string> {
