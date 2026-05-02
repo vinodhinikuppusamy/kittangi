@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Bike,
@@ -45,7 +45,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useLoans, type LegalDoc, type LegalDocType } from "@/lib/stores/loansStore";
+import { fetchAll } from "@/lib/stores/apiSync";
+import { type LegalDoc, type LegalDocType } from "@/lib/stores/loansStore";
 
 const LEGAL_DOC_LABELS: Record<LegalDocType, string> = {
   RC: "RC Book",
@@ -69,88 +70,38 @@ type SeizedVehicle = {
   outstandingDues: number;
   estimatedRecovery: number;
   yardBay: string;
+  legalDocs: LegalDoc[];
 };
 
-const SEIZED_VEHICLES: SeizedVehicle[] = [
-  {
-    id: "RPV-001",
-    loanId: "VEH-30021",
-    customer: "Rohan Verma",
-    makeModel: "Hyundai Creta SX",
-    rcNumber: "KA01AB1234",
-    vehicleType: "FOUR_WHEELER",
-    status: "AUCTION_READY",
-    seizedOn: "12-Apr-2026",
-    outstandingDues: 650000,
-    estimatedRecovery: 720000,
-    yardBay: "Bay A-04",
-  },
-  {
-    id: "RPV-002",
-    loanId: "VEH-30044",
-    customer: "Meera Iyer",
-    makeModel: "Honda Activa 6G",
-    rcNumber: "KA02CD7788",
-    vehicleType: "TWO_WHEELER",
-    status: "LEGAL_HOLD",
-    seizedOn: "02-Apr-2026",
-    outstandingDues: 48000,
-    estimatedRecovery: 52000,
-    yardBay: "Bay B-11",
-  },
-  {
-    id: "RPV-003",
-    loanId: "VEH-30077",
-    customer: "Ashok Logistics Pvt Ltd",
-    makeModel: "Tata Ace Gold",
-    rcNumber: "KA05EF2210",
-    vehicleType: "COMMERCIAL",
-    status: "SEIZED",
-    seizedOn: "20-Apr-2026",
-    outstandingDues: 285000,
-    estimatedRecovery: 310000,
-    yardBay: "Bay C-02",
-  },
-  {
-    id: "RPV-004",
-    loanId: "VEH-30091",
-    customer: "Aanya Sharma",
-    makeModel: "Maruti Swift VXi",
-    rcNumber: "KA03GH5512",
-    vehicleType: "FOUR_WHEELER",
-    status: "AUCTION_READY",
-    seizedOn: "08-Apr-2026",
-    outstandingDues: 420000,
-    estimatedRecovery: 460000,
-    yardBay: "Bay A-09",
-  },
-  {
-    id: "RPV-005",
-    loanId: "VEH-30103",
-    customer: "Kunal Mehta",
-    makeModel: "Royal Enfield Classic 350",
-    rcNumber: "KA04JK1190",
-    vehicleType: "TWO_WHEELER",
-    status: "SEIZED",
-    seizedOn: "22-Apr-2026",
-    outstandingDues: 95000,
-    estimatedRecovery: 110000,
-    yardBay: "Bay B-04",
-  },
-  {
-    id: "RPV-006",
-    loanId: "VEH-30118",
-    customer: "Priya Menon",
-    makeModel: "Mahindra Bolero Pickup",
-    rcNumber: "KA06LM3340",
-    vehicleType: "COMMERCIAL",
-    status: "LEGAL_HOLD",
-    seizedOn: "29-Mar-2026",
-    outstandingDues: 215000,
-    estimatedRecovery: 240000,
-    yardBay: "Bay C-06",
-  },
-];
+type ApiYardStatus = YardStatus | (string & {});
+
+type ApiRepossessionDetails = {
+  id?: string;
+  status?: ApiYardStatus;
+  seizedOnIso?: string;
+  seizedOn?: string;
+  outstandingDues?: number;
+  estimatedRecovery?: number;
+  yardBay?: string;
+};
+
+type ApiVehicleDetails = {
+  makeModel?: string;
+  regNo?: string;
+  vehicleType?: VehicleType | (string & {});
+};
+
+type ApiRepossessionLoan = {
+  id: string;
+  product: "VEHICLE" | "PAWN" | "DOCUMENT";
+  customer: string;
+  principal: number;
+  accruedInterest?: number;
+  startedAtIso?: string;
+  vehicleDetails?: ApiVehicleDetails;
+  legalDocs?: LegalDoc[];
+  repossessionDetails?: ApiRepossessionDetails;
+};
 
 const STATUS_META: Record<
   YardStatus,
@@ -200,14 +151,86 @@ const inputBaseStyle: React.CSSProperties = {
   "--tw-ring-color": "var(--brand-light)",
 } as React.CSSProperties;
 
+function normalizeYardStatus(value: unknown): YardStatus {
+  if (value === "SEIZED" || value === "LEGAL_HOLD" || value === "AUCTION_READY") {
+    return value;
+  }
+  return "SEIZED";
+}
+
+function normalizeVehicleType(value: unknown): VehicleType {
+  if (value === "TWO_WHEELER" || value === "FOUR_WHEELER" || value === "COMMERCIAL") {
+    return value;
+  }
+  return "FOUR_WHEELER";
+}
+
+function formatYardDate(isoOrRaw: string | undefined, fallbackIso: string | undefined): string {
+  const raw = (isoOrRaw ?? "").trim();
+  const candidate = raw || (fallbackIso ?? "").trim();
+  if (!candidate) return "-";
+  const d = new Date(candidate);
+  if (Number.isNaN(d.getTime())) return candidate;
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function mapApiLoanToSeizedVehicle(loan: ApiRepossessionLoan): SeizedVehicle {
+  const details = loan.repossessionDetails ?? {};
+  const vehicle = loan.vehicleDetails ?? {};
+  const outstanding =
+    typeof details.outstandingDues === "number"
+      ? details.outstandingDues
+      : Math.max(0, (loan.principal || 0) + (loan.accruedInterest || 0));
+  const estimatedRecovery =
+    typeof details.estimatedRecovery === "number"
+      ? details.estimatedRecovery
+      : outstanding;
+
+  return {
+    id: details.id?.trim() || `RPV-${loan.id}`,
+    loanId: loan.id,
+    customer: loan.customer,
+    makeModel: vehicle.makeModel?.trim() || "Vehicle",
+    rcNumber: vehicle.regNo?.trim() || "RC Pending",
+    vehicleType: normalizeVehicleType(vehicle.vehicleType),
+    status: normalizeYardStatus(details.status),
+    seizedOn: formatYardDate(details.seizedOnIso ?? details.seizedOn, loan.startedAtIso),
+    outstandingDues: outstanding,
+    estimatedRecovery,
+    yardBay: details.yardBay?.trim() || "Unassigned",
+    legalDocs: Array.isArray(loan.legalDocs) ? loan.legalDocs : [],
+  };
+}
+
 export default function RepossessionYard() {
   const [search, setSearch] = useState("");
   const [vehicleType, setVehicleType] = useState<VehicleType | "ALL">("ALL");
   const [status, setStatus] = useState<YardStatus | "ALL">("ALL");
+  const [seizedVehicles, setSeizedVehicles] = useState<SeizedVehicle[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadFromBackend = async () => {
+      setLoading(true);
+      const rows = await fetchAll<ApiRepossessionLoan>("/loans/repossession-yard");
+      if (cancelled) return;
+      setSeizedVehicles((rows ?? []).map(mapApiLoanToSeizedVehicle));
+      setLoading(false);
+    };
+    void loadFromBackend();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return SEIZED_VEHICLES.filter((v) => {
+    return seizedVehicles.filter((v) => {
       if (vehicleType !== "ALL" && v.vehicleType !== vehicleType) return false;
       if (status !== "ALL" && v.status !== status) return false;
       if (!q) return true;
@@ -218,15 +241,15 @@ export default function RepossessionYard() {
         v.loanId.toLowerCase().includes(q)
       );
     });
-  }, [search, vehicleType, status]);
+  }, [search, vehicleType, status, seizedVehicles]);
 
   const stats = useMemo(() => {
-    const total = SEIZED_VEHICLES.length;
-    const legal = SEIZED_VEHICLES.filter((v) => v.status === "LEGAL_HOLD").length;
-    const auction = SEIZED_VEHICLES.filter((v) => v.status === "AUCTION_READY").length;
-    const recovery = SEIZED_VEHICLES.reduce((s, v) => s + v.estimatedRecovery, 0);
+    const total = seizedVehicles.length;
+    const legal = seizedVehicles.filter((v) => v.status === "LEGAL_HOLD").length;
+    const auction = seizedVehicles.filter((v) => v.status === "AUCTION_READY").length;
+    const recovery = seizedVehicles.reduce((s, v) => s + v.estimatedRecovery, 0);
     return { total, legal, auction, recovery };
-  }, []);
+  }, [seizedVehicles]);
 
   return (
     <div className="mx-auto max-w-7xl p-6 lg:p-8">
@@ -261,7 +284,7 @@ export default function RepossessionYard() {
           <span className="font-semibold" style={{ color: "var(--brand-primary)" }}>
             {filtered.length}
           </span>
-          <span className="text-slate-500">of {SEIZED_VEHICLES.length} units</span>
+          <span className="text-slate-500">of {seizedVehicles.length} units</span>
         </div>
       </div>
 
@@ -320,7 +343,7 @@ export default function RepossessionYard() {
               onValueChange={(v) => setVehicleType(v as VehicleType | "ALL")}
             >
               <SelectTrigger
-                className="h-11 w-full bg-white md:w-[180px]"
+                className="h-11 w-full bg-white md:w-45"
                 style={inputBaseStyle}
                 aria-label="Filter by vehicle type"
               >
@@ -339,7 +362,7 @@ export default function RepossessionYard() {
               onValueChange={(v) => setStatus(v as YardStatus | "ALL")}
             >
               <SelectTrigger
-                className="h-11 w-full bg-white md:w-[180px]"
+                className="h-11 w-full bg-white md:w-45"
                 style={inputBaseStyle}
                 aria-label="Filter by status"
               >
@@ -357,7 +380,13 @@ export default function RepossessionYard() {
       </Card>
 
       {/* ===== Yard Grid ===== */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <Card className="border bg-white" style={{ borderColor: "rgba(74,111,165,0.12)" }}>
+          <CardContent className="p-6 text-sm text-slate-500">
+            Loading repossession inventory from backend...
+          </CardContent>
+        </Card>
+      ) : filtered.length === 0 ? (
         <EmptyYardState onClear={() => { setSearch(""); setVehicleType("ALL"); setStatus("ALL"); }} />
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -431,16 +460,11 @@ const LEGAL_DOC_ORDER: LegalDocType[] = [
 ];
 
 function YardVehicleCard({ vehicle }: { vehicle: SeizedVehicle }) {
-  const loans = useLoans();
-  const linkedLoan = useMemo(
-    () => loans.find((l) => l.id === vehicle.loanId),
-    [loans, vehicle.loanId],
-  );
   const docsByType = useMemo(() => {
     const map: Partial<Record<LegalDocType, LegalDoc>> = {};
-    for (const d of linkedLoan?.legalDocs ?? []) map[d.type] = d;
+    for (const d of vehicle.legalDocs) map[d.type] = d;
     return map;
-  }, [linkedLoan]);
+  }, [vehicle.legalDocs]);
   const presentCount = LEGAL_DOC_ORDER.filter((t) => docsByType[t]).length;
   const [docsOpen, setDocsOpen] = useState(false);
   const sm = STATUS_META[vehicle.status];
@@ -617,7 +641,7 @@ function YardVehicleCard({ vehicle }: { vehicle: SeizedVehicle }) {
       </CardContent>
 
       <Dialog open={docsOpen} onOpenChange={setDocsOpen}>
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent className="sm:max-w-130">
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2 text-base font-semibold"
@@ -631,20 +655,7 @@ function YardVehicleCard({ vehicle }: { vehicle: SeizedVehicle }) {
             </DialogDescription>
           </DialogHeader>
 
-          {!linkedLoan ? (
-            <div
-              className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs"
-              style={{
-                borderColor: "rgba(244,63,94,0.30)",
-                backgroundColor: "rgba(244,63,94,0.06)",
-                color: "#be123c",
-              }}
-            >
-              <FileWarning size={14} />
-              No matching loan record found in the system. The folio may
-              predate digital archival.
-            </div>
-          ) : presentCount === 0 ? (
+          {presentCount === 0 ? (
             <div
               className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs"
               style={{

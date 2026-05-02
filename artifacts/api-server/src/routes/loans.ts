@@ -10,6 +10,14 @@ router.get("/", async (_req, res) => {
   res.json(list);
 });
 
+router.get("/repossession-yard", async (_req, res) => {
+  const list = await Loan.find({
+    product: "VEHICLE",
+    "repossessionDetails.status": { $in: ["SEIZED", "LEGAL_HOLD", "AUCTION_READY"] },
+  }).sort({ "repossessionDetails.seizedOnIso": -1, startedAtIso: -1 });
+  res.json(list);
+});
+
 router.post("/", async (req, res) => {
   const doc = await Loan.create({
     ...req.body,
