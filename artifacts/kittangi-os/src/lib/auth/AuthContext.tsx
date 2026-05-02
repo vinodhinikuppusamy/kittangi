@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const restore = async () => {
       try {
-        const resp = await fetch(buildApiUrl("/auth/me"), { credentials: "include" });
+        const resp = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
         if (!resp.ok) {
           if (!cancelled) setSession(null);
           return;
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (username: string, password: string): Promise<SignInResult> => {
       try {
-        const resp = await fetch(buildApiUrl("/auth/login"), {
+        const resp = await fetch(`${API_BASE}/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(() => {
-    void fetch(buildApiUrl("/auth/logout"), { method: "POST", credentials: "include" });
+    void fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" });
     setSession(null);
   }, []);
 
@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (newPassword.length < 6)
         return { ok: false, reason: "New password must be at least 6 characters." };
       try {
-        const resp = await fetch(buildApiUrl("/users/change-password"), {
+        const resp = await fetch(`${API_BASE}/users/change-password`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

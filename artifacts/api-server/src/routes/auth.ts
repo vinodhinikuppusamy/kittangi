@@ -3,8 +3,7 @@ import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { ActivityLog } from "../models/ActivityLog.js";
-import crypto from "node:crypto";
-import { getCookieDomain, getJwtSecret, isProductionEnv } from "../lib/env.js";
+import { createHash } from "node:crypto";
 
 const router = Router();
 const AUTH_COOKIE_NAME = "ktg_access";

@@ -18,7 +18,20 @@ export function getApiToken(): string | null {
   return _token;
 }
 
-export const API_BASE = API_BASE_URL;
+// In production, VITE_API_BASE_URL should be the backend origin (e.g. https://api.yourdomain.com).
+// In dev it is empty and the Vite proxy forwards /api/* to the local backend.
+const rawApiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
+const normalizedApiOrigin = (() => {
+  if (!rawApiBaseUrl) return "";
+  const withProtocol =
+    /^https?:\/\//i.test(rawApiBaseUrl) || rawApiBaseUrl.startsWith("//")
+      ? rawApiBaseUrl
+      : `https://${rawApiBaseUrl}`;
+  const noTrailingSlash = withProtocol.replace(/\/+$/, "");
+  return noTrailingSlash.replace(/\/api$/i, "");
+})();
+
+export const API_BASE = `${normalizedApiOrigin}/api`;
 
 function authHeaders(): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json" };
