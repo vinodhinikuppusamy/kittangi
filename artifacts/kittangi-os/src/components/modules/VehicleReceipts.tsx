@@ -226,7 +226,7 @@ export default function VehicleReceipts() {
 
       logActivity({
         actor: getCurrentActor(),
-        kind: "RECEIPT",
+        kind: "DAYBOOK",
         summary: `Vehicle EMI received: ${loan.customer} · ${inr(totalCollected)}`,
         link: `/loans/${loan.id}`,
       });
